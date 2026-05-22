@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+/*
+  Enviable design tokens. Source of truth for utility classes and CSS variables.
+  Anchored to the design handoff: NetSuite/Odoo enterprise density, navy primary
+  #1F4E79, dense type, 4px spacing, narrow radii, small controls.
+*/
+
+@theme {
+  /* Spacing base: 4px. p-1 = 4px, p-2 = 8px, p-7 = 28px, p-11 = 44px, p-53 = 212px. */
+  --spacing: 0.25rem;
+
+  /* Brand: navy */
+  --color-navy-50: #F0F6FB;
+  --color-navy-100: #DCE9F4;
+  --color-navy-200: #B6CFE3;
+  --color-navy-300: #87AED0;
+  --color-navy-400: #5689BC;
+  --color-navy-500: #3A70A6;
+  --color-navy-600: #2A5D8F;
+  --color-navy-700: #1F4E79;
+  --color-navy-800: #17395B;
+  --color-navy-900: #102845;
+
+  /* Neutrals */
+  --color-ink-50: #F7F8FA;
+  --color-ink-100: #EEF0F3;
+  --color-ink-200: #DDE1E6;
+  --color-ink-300: #C5CCD3;
+  --color-ink-400: #9AA3AD;
+  --color-ink-500: #6B7480;
+  --color-ink-600: #4A525C;
+  --color-ink-700: #333A42;
+  --color-ink-800: #1F242A;
+  --color-ink-900: #11151A;
+
+  /* Semantic */
+  --color-success-50: #E8F4ED;
+  --color-success-100: #C9E4D3;
+  --color-success-600: #1F8A4D;
+  --color-success-700: #1F7544;
+  --color-success-800: #155E36;
+
+  --color-warning-50: #FBF1DD;
+  --color-warning-100: #F5E0B0;
+  --color-warning-600: #B97A0B;
+  --color-warning-700: #A06700;
+  --color-warning-800: #835300;
+
+  --color-danger-50: #FBE9E6;
+  --color-danger-100: #F4CCC5;
+  --color-danger-600: #C5392D;
+  --color-danger-700: #A92E23;
+  --color-danger-800: #8A241B;
+
+  /* Surfaces */
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F7F8FA;
+  --color-surface-sunken: #EEF0F3;
+  --color-border-subtle: #EEF0F3;
+  --color-border-default: #DDE1E6;
+  --color-border-strong: #C5CCD3;
+
+  /* Aliases (semantic to brand) */
+  --color-background: var(--color-surface);
+  --color-foreground: var(--color-ink-800);
+
+  /* Fonts: distinctive enough for ERP density without consumer-SaaS gloss. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular,
+    "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Type scale (densities pulled from the handoff). */
+  --text-micro: 0.625rem;          /* 10px small chips */
+  --text-micro--line-height: 1.3;
+  --text-thead: 0.65625rem;        /* 10.5px uppercase table headers */
+  --text-thead--line-height: 1.2;
+  --text-small: 0.6875rem;         /* 11px secondary */
+  --text-small--line-height: 1.35;
+  --text-body: 0.78125rem;         /* 12.5px body baseline */
+  --text-body--line-height: 1.4;
+  --text-label: 0.8125rem;         /* 13px form labels */
+  --text-label--line-height: 1.35;
+  --text-section: 0.875rem;        /* 14px section headers */
+  --text-section--line-height: 1.35;
+  --text-page: 1.125rem;           /* 18px page titles */
+  --text-page--line-height: 1.3;
+  --text-kpi: 1.375rem;            /* 22px KPI numbers */
+  --text-kpi--line-height: 1.15;
+
+  /* Border radii: 2-3px max for controls, 4px ceiling for cards. */
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+
+  /* Control + chrome sizing tokens (referenced via h-control etc. utilities below). */
+  --size-control: 1.75rem;         /* 28px buttons/inputs */
+  --size-row: 1.875rem;            /* 30px table row */
+  --size-topbar: 2.75rem;          /* 44px */
+  --size-sidebar: 13.25rem;        /* 212px */
+}
+
+/*
+  Custom utility classes for the chrome dimensions. Tailwind v4 generates the
+  spacing-derived ones (h-7 = 28px) but the named tokens keep semantic intent.
+*/
+@utility h-control { height: var(--size-control); }
+@utility h-row { height: var(--size-row); }
+@utility h-topbar { height: var(--size-topbar); }
+@utility w-sidebar { width: var(--size-sidebar); }
+
+@utility text-mono-id {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+@utility text-thead-caps {
+  font-size: var(--text-thead);
+  line-height: var(--text-thead--line-height);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  color: var(--color-ink-500);
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-surface-muted);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01";
+}
+
+::selection {
+  background: var(--color-navy-100);
+  color: var(--color-navy-900);
+}
