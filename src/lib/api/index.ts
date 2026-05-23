@@ -78,6 +78,38 @@ export type {
   CustomerListResponse,
   CustomerListQuery,
 } from "./customers";
+export { generateInvoice, getInvoiceForSo, getInvoice } from "./invoices";
+export type { Invoice } from "./invoices";
+export {
+  listPayments,
+  recordPayment,
+  confirmPayment,
+  rejectPayment,
+  PAYMENT_STATUS,
+  SEED_PAYMENT_METHODS,
+} from "./payments";
+export type {
+  Payment,
+  PaymentStatus,
+  PaymentConfirmationSource,
+  PaymentMethodSummary,
+  RecordPaymentBody,
+} from "./payments";
+export { authoriseRelease, parseI4Conflict } from "./release";
+export {
+  createDeliveryNote,
+  createWaybill,
+  dispatch,
+  recordProofOfDelivery,
+  closeSalesOrder,
+} from "./delivery";
+export type {
+  DeliveryNote,
+  Waybill,
+  ProofOfDelivery,
+  CreateDeliveryNoteBody,
+  ProofOfDeliveryBody,
+} from "./delivery";
 export type {
   ShipmentStatus,
   ShipmentListRow,

@@ -47,6 +47,51 @@ DELETE FROM purchase_orders WHERE id = 'fixt-po-receive-test';
 --    remove the lines first (FK to SO + unit), then the SOs, then the
 --    customer. The customer's tier reference doesn't need touching (tiers
 --    are seed data, not fixture data).
+--
+--    Prompt 7 adds downstream artifacts that hang off the SOs: invoices,
+--    payments, release authorisations, delivery notes, waybills, and proofs
+--    of delivery. Remove each in FK-safe order before deleting the SOs.
+--    StockMovements with referenceType=SALES_ORDER (the SALE movements
+--    written by authorise-release) are deletable via the units chain since
+--    they're not audit_log_entries (which are append-only).
+WITH test_sos AS (
+  SELECT id FROM sales_orders WHERE "customerId" = 'fixt-customer-test'
+),
+test_delivery_notes AS (
+  SELECT id FROM delivery_notes WHERE "salesOrderId" IN (SELECT id FROM test_sos)
+)
+DELETE FROM proofs_of_delivery
+WHERE "deliveryNoteId" IN (SELECT id FROM test_delivery_notes);
+
+DELETE FROM waybills
+WHERE "deliveryNoteId" IN
+  (SELECT id FROM delivery_notes WHERE "salesOrderId" IN
+    (SELECT id FROM sales_orders WHERE "customerId" = 'fixt-customer-test'));
+
+DELETE FROM delivery_notes
+WHERE "salesOrderId" IN
+  (SELECT id FROM sales_orders WHERE "customerId" = 'fixt-customer-test');
+
+DELETE FROM release_authorisations
+WHERE "salesOrderId" IN
+  (SELECT id FROM sales_orders WHERE "customerId" = 'fixt-customer-test');
+
+DELETE FROM payments
+WHERE "salesOrderId" IN
+  (SELECT id FROM sales_orders WHERE "customerId" = 'fixt-customer-test');
+
+DELETE FROM invoices
+WHERE "salesOrderId" IN
+  (SELECT id FROM sales_orders WHERE "customerId" = 'fixt-customer-test');
+
+-- The SALE stock movements written by authorise-release. The units chain
+-- via shipmentId still works for the unit-and-movement cleanup further down,
+-- but the test SO's units may carry SALE movements that survive that chain
+-- if the unit was somehow detached; defensive cleanup by SO reference.
+DELETE FROM stock_movements
+WHERE "referenceType" = 'SALES_ORDER'
+  AND "referenceId" IN (SELECT id FROM sales_orders WHERE "customerId" = 'fixt-customer-test');
+
 DELETE FROM sales_order_lines
 WHERE "salesOrderId" IN (SELECT id FROM sales_orders WHERE "customerId" = 'fixt-customer-test');
 DELETE FROM sales_orders WHERE "customerId" = 'fixt-customer-test';
@@ -60,10 +105,10 @@ DELETE FROM customers WHERE id = 'fixt-customer-test';
 --    setup-fixtures.sql clears deletedAt back to NULL on the same id. Also
 --    detach the user_roles so re-applying setup creates a fresh role link.
 DELETE FROM user_roles
-WHERE "userId" IN ('fixt-user-costblind', 'fixt-user-salesofficer');
+WHERE "userId" IN ('fixt-user-costblind', 'fixt-user-salesofficer', 'fixt-user-confirmer');
 UPDATE users
 SET "deletedAt" = NOW(), "updatedAt" = NOW()
-WHERE id IN ('fixt-user-costblind', 'fixt-user-salesofficer')
+WHERE id IN ('fixt-user-costblind', 'fixt-user-salesofficer', 'fixt-user-confirmer')
   AND "deletedAt" IS NULL;
 
 COMMIT;
@@ -80,5 +125,5 @@ SELECT
   -- Throwaway users are soft-deleted (audit references block hard delete);
   -- count only active ones. The soft-deleted rows are intentional carcasses.
   (SELECT COUNT(*) FROM users
-   WHERE id IN ('fixt-user-costblind','fixt-user-salesofficer')
+   WHERE id IN ('fixt-user-costblind','fixt-user-salesofficer','fixt-user-confirmer')
    AND "deletedAt" IS NULL)                                                                       AS leftover_active_throwaway_users;

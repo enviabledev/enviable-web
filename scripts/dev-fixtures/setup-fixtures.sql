@@ -297,7 +297,68 @@ WHERE r.name = 'Sales Officer (Warehouse)'
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
--- 8. COST-BLIND THROWAWAY USER (Stock Auditor: report.stocks + unit.read,
+-- 8. CONFIRMER THROWAWAY USER (Sales Manager: payment.confirm + delivery.manage,
+--    no payment.record). Paired with fixt-user-salesofficer (Sales Officer:
+--    payment.record, no payment.confirm) above to exercise the separation-of-
+--    duties gate in both directions: the recorder can record but not confirm,
+--    the confirmer can confirm but not record. The Sales Manager role also
+--    holds delivery.manage so the confirmer drives the back half of the
+--    lifecycle once release authorises.
+-- =============================================================================
+INSERT INTO users (id, "fullName", email, "passwordHash", status, "createdAt", "updatedAt")
+VALUES (
+  'fixt-user-confirmer', 'Confirmer Test', 'confirmer-test@enviable.example',
+  '$argon2id$PLACEHOLDER_RESET_REQUIRED', 'ACTIVE',
+  NOW(), NOW()
+)
+ON CONFLICT (id) DO UPDATE
+  SET "deletedAt" = NULL,
+      "passwordHash" = EXCLUDED."passwordHash",
+      "updatedAt" = NOW();
+
+INSERT INTO user_roles (id, "userId", "roleId", "assignedAt")
+SELECT
+  'fixt-userrole-confirmer',
+  'fixt-user-confirmer',
+  r.id,
+  NOW()
+FROM roles r
+WHERE r.name = 'Sales Manager'
+ON CONFLICT (id) DO NOTHING;
+
+-- =============================================================================
+-- 9. AWAITING_PAYMENT SO (the back-half lifecycle starts here)
+-- =============================================================================
+-- Soft-reserves one CKD and one CBU unit from the prompt-2 fixture so the
+-- units have a real warehouse status to transition out of on release. Created
+-- directly in SQL (audit-quiet); test interactions (record/confirm/release)
+-- will write their own audit entries as the API path does.
+-- Totals: 2,800,000 CKD + 3,500,000 CBU = 6,300,000 subtotal; VAT 7.5% =
+-- 472,500; total 6,772,500. Matches ResellerStandard tier pricing.
+INSERT INTO sales_orders (
+  id, "soNumber", "customerId", channel, status,
+  subtotal, "discountTotal", "vatAmount", total, "paymentReceivedTotal",
+  "createdAt", "updatedAt"
+) VALUES (
+  'fixt-so-await-payment', 'SO-FIXTURE-AWAIT', 'fixt-customer-test',
+  'WAREHOUSE_PICKUP', 'AWAITING_PAYMENT',
+  6300000.00, 0.00, 472500.00, 6772500.00, 0.00,
+  NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day'
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO sales_order_lines (
+  id, "salesOrderId", "productVariantId", "unitId", "saleForm",
+  "unitPrice", "discountAmount", "lineTotal"
+) VALUES
+  ('fixt-sol-await-1', 'fixt-so-await-payment', 'seed-var-gs-gyellow',
+   'fixt-u-024', 'CKD', 2800000.00, 0.00, 2800000.00),
+  ('fixt-sol-await-2', 'fixt-so-await-payment', 'seed-var-zs-gyellow',
+   'fixt-u-034', 'CBU', 3500000.00, 0.00, 3500000.00)
+ON CONFLICT (id) DO NOTHING;
+
+-- =============================================================================
+-- 10. COST-BLIND THROWAWAY USER (Stock Auditor: report.stocks + unit.read,
 --    no costdata.view, so they see both the units list and the stocks report
 --    but with all landed-cost fields stripped server-side. Satisfies the I-8
 --    verification across the units, units-detail, and stocks-report endpoints
@@ -337,4 +398,6 @@ SELECT
   (SELECT COUNT(*) FROM shipments WHERE id = 'fixt-ship-receive-test')                  AS recv_shipment,
   (SELECT COUNT(*) FROM manifest_lines WHERE "shipmentId" = 'fixt-ship-receive-test')   AS recv_manifest_lines,
   (SELECT COUNT(*) FROM customers WHERE id = 'fixt-customer-test')                      AS customer,
-  (SELECT COUNT(*) FROM users WHERE id IN ('fixt-user-costblind','fixt-user-salesofficer')) AS throwaway_users;
+  (SELECT COUNT(*) FROM sales_orders WHERE id = 'fixt-so-await-payment')                AS await_so,
+  (SELECT COUNT(*) FROM sales_order_lines WHERE "salesOrderId" = 'fixt-so-await-payment') AS await_so_lines,
+  (SELECT COUNT(*) FROM users WHERE id IN ('fixt-user-costblind','fixt-user-salesofficer','fixt-user-confirmer')) AS throwaway_users;
