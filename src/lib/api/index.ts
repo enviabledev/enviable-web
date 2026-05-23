@@ -41,6 +41,43 @@ export {
   SHIPMENT_STATUS,
   SHIPMENT_LEGAL_TRANSITIONS,
 } from "./shipments";
+export {
+  listSalesOrders,
+  getSalesOrder,
+  createSalesOrder,
+  updateSalesOrder,
+  submitSalesOrder,
+  soIsEditable,
+  SO_STATUS,
+  SO_LEGAL_TRANSITIONS,
+  SALE_FORM,
+  SALES_CHANNEL,
+  VAT_RATE,
+} from "./sales-orders";
+export type {
+  SoStatus,
+  SaleForm,
+  SalesChannel,
+  SoCustomerSummary,
+  SoLineUnitSummary,
+  SalesOrderLine,
+  SalesOrderListRow,
+  SalesOrderListResponse,
+  SalesOrderDetail,
+  SalesOrderListQuery,
+  CreateSoLine,
+  CreateSoBody,
+  UpdateSoBody,
+} from "./sales-orders";
+export { listCustomers } from "./customers";
+export type {
+  Customer,
+  CustomerType,
+  CustomerStatus,
+  CustomerTierSummary,
+  CustomerListResponse,
+  CustomerListQuery,
+} from "./customers";
 export type {
   ShipmentStatus,
   ShipmentListRow,

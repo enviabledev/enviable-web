@@ -42,8 +42,29 @@ DELETE FROM manifest_lines WHERE "shipmentId" = 'fixt-ship-receive-test';
 DELETE FROM shipments WHERE id = 'fixt-ship-receive-test';
 DELETE FROM purchase_orders WHERE id = 'fixt-po-receive-test';
 
--- 7. Cost-blind user (user_roles cascades via onDelete: Cascade on userId).
-DELETE FROM users WHERE id = 'fixt-user-costblind';
+-- 7. Sales-side fixture cleanup. Sales orders created during the SO flow
+--    verification carry lines that reference the test customer and units;
+--    remove the lines first (FK to SO + unit), then the SOs, then the
+--    customer. The customer's tier reference doesn't need touching (tiers
+--    are seed data, not fixture data).
+DELETE FROM sales_order_lines
+WHERE "salesOrderId" IN (SELECT id FROM sales_orders WHERE "customerId" = 'fixt-customer-test');
+DELETE FROM sales_orders WHERE "customerId" = 'fixt-customer-test';
+DELETE FROM customers WHERE id = 'fixt-customer-test';
+
+-- 8. Throwaway users: SOFT-DELETE only. We cannot hard-delete a user that
+--    has acted (audit_log_entries reference them as actor; the append-only
+--    trigger on audit_log_entries blocks the cascade UPDATE that would
+--    null those references on DELETE). Soft-delete sets deletedAt; the
+--    auth flow filters those out so the user can't log in, and re-applying
+--    setup-fixtures.sql clears deletedAt back to NULL on the same id. Also
+--    detach the user_roles so re-applying setup creates a fresh role link.
+DELETE FROM user_roles
+WHERE "userId" IN ('fixt-user-costblind', 'fixt-user-salesofficer');
+UPDATE users
+SET "deletedAt" = NOW(), "updatedAt" = NOW()
+WHERE id IN ('fixt-user-costblind', 'fixt-user-salesofficer')
+  AND "deletedAt" IS NULL;
 
 COMMIT;
 
@@ -54,4 +75,10 @@ SELECT
   (SELECT COUNT(*) FROM purchase_orders WHERE id IN ('fixt-po-test','fixt-po-receive-test'))     AS leftover_pos,
   (SELECT COUNT(*) FROM manifest_lines WHERE "shipmentId" = 'fixt-ship-receive-test')             AS leftover_manifest,
   (SELECT COUNT(*) FROM spare_parts WHERE id LIKE 'fixt-sp-%')                                    AS leftover_sp,
-  (SELECT COUNT(*) FROM users WHERE id = 'fixt-user-costblind')                                   AS leftover_user;
+  (SELECT COUNT(*) FROM customers WHERE id = 'fixt-customer-test')                                AS leftover_customer,
+  (SELECT COUNT(*) FROM sales_orders WHERE "customerId" = 'fixt-customer-test')                   AS leftover_sos,
+  -- Throwaway users are soft-deleted (audit references block hard delete);
+  -- count only active ones. The soft-deleted rows are intentional carcasses.
+  (SELECT COUNT(*) FROM users
+   WHERE id IN ('fixt-user-costblind','fixt-user-salesofficer')
+   AND "deletedAt" IS NULL)                                                                       AS leftover_active_throwaway_users;

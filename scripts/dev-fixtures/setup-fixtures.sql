@@ -253,7 +253,51 @@ INSERT INTO manifest_lines (
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
--- 7. COST-BLIND THROWAWAY USER (Stock Auditor: report.stocks + unit.read,
+-- 7. SALES-SIDE FIXTURE (customer + sales-officer throwaway user)
+-- =============================================================================
+-- The seed has no customers; the SO create flow needs one. We use the
+-- ResellerStandard tier (priced 1.00x of currentMarketPrice; see seed.ts).
+INSERT INTO customers (id, name, type, "tierId", phone, email, status, "createdAt", "updatedAt")
+SELECT
+  'fixt-customer-test',
+  'ABC Tricycle Dealers Ltd',
+  'RESELLER',
+  ct.id,
+  '+234-901-FIXT-CUST',
+  'abc-tricycle@example.test',
+  'ACTIVE',
+  NOW(), NOW()
+FROM customer_tiers ct
+WHERE ct.name = 'ResellerStandard'
+ON CONFLICT (id) DO NOTHING;
+
+-- Throwaway Sales Officer (Warehouse) user. Has salesorder.create and
+-- customer.read but NOT salesorder.discount, so it's the principal that
+-- exercises the discount-permission 403 verbatim. Same fail-loud naming
+-- and cleanup discipline as costblind-test.
+INSERT INTO users (id, "fullName", email, "passwordHash", status, "createdAt", "updatedAt")
+VALUES (
+  'fixt-user-salesofficer', 'Sales Officer Test', 'salesofficer-test@enviable.example',
+  '$argon2id$PLACEHOLDER_RESET_REQUIRED', 'ACTIVE',
+  NOW(), NOW()
+)
+ON CONFLICT (id) DO UPDATE
+  SET "deletedAt" = NULL,
+      "passwordHash" = EXCLUDED."passwordHash",
+      "updatedAt" = NOW();
+
+INSERT INTO user_roles (id, "userId", "roleId", "assignedAt")
+SELECT
+  'fixt-userrole-salesofficer',
+  'fixt-user-salesofficer',
+  r.id,
+  NOW()
+FROM roles r
+WHERE r.name = 'Sales Officer (Warehouse)'
+ON CONFLICT (id) DO NOTHING;
+
+-- =============================================================================
+-- 8. COST-BLIND THROWAWAY USER (Stock Auditor: report.stocks + unit.read,
 --    no costdata.view, so they see both the units list and the stocks report
 --    but with all landed-cost fields stripped server-side. Satisfies the I-8
 --    verification across the units, units-detail, and stocks-report endpoints
@@ -267,7 +311,10 @@ VALUES (
   '$argon2id$PLACEHOLDER_RESET_REQUIRED', 'ACTIVE',
   NOW(), NOW()
 )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE
+  SET "deletedAt" = NULL,
+      "passwordHash" = EXCLUDED."passwordHash",
+      "updatedAt" = NOW();
 
 INSERT INTO user_roles (id, "userId", "roleId", "assignedAt")
 SELECT
@@ -289,4 +336,5 @@ SELECT
   (SELECT COUNT(*) FROM spare_parts WHERE id LIKE 'fixt-sp-%')                          AS spare_parts,
   (SELECT COUNT(*) FROM shipments WHERE id = 'fixt-ship-receive-test')                  AS recv_shipment,
   (SELECT COUNT(*) FROM manifest_lines WHERE "shipmentId" = 'fixt-ship-receive-test')   AS recv_manifest_lines,
-  (SELECT COUNT(*) FROM users WHERE id = 'fixt-user-costblind')                         AS costblind_user;
+  (SELECT COUNT(*) FROM customers WHERE id = 'fixt-customer-test')                      AS customer,
+  (SELECT COUNT(*) FROM users WHERE id IN ('fixt-user-costblind','fixt-user-salesofficer')) AS throwaway_users;
