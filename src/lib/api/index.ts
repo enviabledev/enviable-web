@@ -29,6 +29,30 @@ export { listCounterparties } from "./counterparties";
 export type { Counterparty, CounterpartyType, CounterpartyStatus } from "./counterparties";
 export { listProducts, flattenVariantOptions } from "./products";
 export type { ProductWithVariants, ProductVariantSummary, ProductCategory, ProductStatus } from "./products";
+export {
+  listShipments,
+  getShipment,
+  receiveUnits,
+  resolveVariance,
+  completeReceipt,
+  closeShipment,
+  shipmentCanTransitionTo,
+  shipmentHasUnresolvedVariance,
+  SHIPMENT_STATUS,
+  SHIPMENT_LEGAL_TRANSITIONS,
+} from "./shipments";
+export type {
+  ShipmentStatus,
+  ShipmentListRow,
+  ShipmentDetail,
+  ShipmentListQuery,
+  ShipmentCounterparty,
+  ManifestLine,
+  ShipmentUnit,
+  ReceiveUnitPair,
+  ReceiveUnitsBody,
+  ResolveVarianceBody,
+} from "./shipments";
 export type {
   UnitStatus,
   MovementType,

@@ -30,15 +30,28 @@ WHERE "sparePartId" IN ('fixt-sp-001', 'fixt-sp-002', 'fixt-sp-003');
 DELETE FROM spare_parts
 WHERE id IN ('fixt-sp-001', 'fixt-sp-002', 'fixt-sp-003');
 
--- 6. Cost-blind user (user_roles cascades via onDelete: Cascade on userId).
+-- 6. Receive-test shipment teardown. The clerk's verification of the
+--    receive flow may have created real units (with their RECEIPT movements)
+--    on this shipment; remove them first, then the manifest lines, then
+--    the shipment, then its PO. The fixture's own manifest_lines are
+--    deleted by the cascade from the shipment delete.
+DELETE FROM stock_movements
+WHERE "unitId" IN (SELECT id FROM units WHERE "shipmentId" = 'fixt-ship-receive-test');
+DELETE FROM units WHERE "shipmentId" = 'fixt-ship-receive-test';
+DELETE FROM manifest_lines WHERE "shipmentId" = 'fixt-ship-receive-test';
+DELETE FROM shipments WHERE id = 'fixt-ship-receive-test';
+DELETE FROM purchase_orders WHERE id = 'fixt-po-receive-test';
+
+-- 7. Cost-blind user (user_roles cascades via onDelete: Cascade on userId).
 DELETE FROM users WHERE id = 'fixt-user-costblind';
 
 COMMIT;
 
 -- Confirmation (should all be 0 after teardown).
 SELECT
-  (SELECT COUNT(*) FROM units WHERE "shipmentId" = 'fixt-ship-test')          AS leftover_units,
-  (SELECT COUNT(*) FROM shipments WHERE id = 'fixt-ship-test')                AS leftover_shipment,
-  (SELECT COUNT(*) FROM purchase_orders WHERE id = 'fixt-po-test')            AS leftover_po,
-  (SELECT COUNT(*) FROM spare_parts WHERE id LIKE 'fixt-sp-%')                AS leftover_sp,
-  (SELECT COUNT(*) FROM users WHERE id = 'fixt-user-costblind')               AS leftover_user;
+  (SELECT COUNT(*) FROM units WHERE "shipmentId" IN ('fixt-ship-test','fixt-ship-receive-test'))  AS leftover_units,
+  (SELECT COUNT(*) FROM shipments WHERE id IN ('fixt-ship-test','fixt-ship-receive-test'))        AS leftover_shipments,
+  (SELECT COUNT(*) FROM purchase_orders WHERE id IN ('fixt-po-test','fixt-po-receive-test'))     AS leftover_pos,
+  (SELECT COUNT(*) FROM manifest_lines WHERE "shipmentId" = 'fixt-ship-receive-test')             AS leftover_manifest,
+  (SELECT COUNT(*) FROM spare_parts WHERE id LIKE 'fixt-sp-%')                                    AS leftover_sp,
+  (SELECT COUNT(*) FROM users WHERE id = 'fixt-user-costblind')                                   AS leftover_user;

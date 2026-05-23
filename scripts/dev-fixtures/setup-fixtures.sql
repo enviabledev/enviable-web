@@ -205,7 +205,55 @@ INSERT INTO spare_parts (
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
--- 6. COST-BLIND THROWAWAY USER (Stock Auditor: report.stocks + unit.read,
+-- 6. RECEIVE-TEST SHIPMENT (CLEARED, awaiting unit serialisation)
+-- =============================================================================
+-- A second PO + shipment so the receive-units flow has something to receive
+-- against. This shipment is in CLEARED state with three manifest lines
+-- declaring 10 + 5 + 3 = 18 units across two variants. No units exist yet for
+-- this shipment; the clerk enters them via the serialisation UI, which
+-- exercises both the happy path (atomic unit-plus-RECEIPT creation, I-3) and
+-- the duplicate-rejection path (in-batch and against-DB collisions on
+-- engineNumber or chassisNumber).
+INSERT INTO purchase_orders (
+  id, "poNumber", "supplierId", status, currency, "totalValue",
+  "expectedShipDate", "paymentTerms",
+  "createdAt", "updatedAt"
+) VALUES (
+  'fixt-po-receive-test', 'PO-FIXTURE-RECV', 'seed-cp-tvs',
+  'AWAITING_SHIPMENT', 'USD', 45200000.00,
+  NOW() + INTERVAL '14 days', '30% advance, 70% on shipment',
+  NOW() - INTERVAL '30 days', NOW() - INTERVAL '8 days'
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO shipments (
+  id, "purchaseOrderId", "shipmentReference", status,
+  "billOfLadingNumber", "vesselName",
+  "etd", "eta", "arrivalDate", "clearingStartedAt", "clearedAt",
+  "isHistoricalImport",
+  "createdAt", "updatedAt"
+) VALUES (
+  'fixt-ship-receive-test', 'fixt-po-receive-test', 'SHIP-FIXTURE-RECV',
+  'CLEARED',
+  'MAEU-FIXT-739281', 'MV Atlantic Carrier',
+  NOW() - INTERVAL '21 days', NOW() - INTERVAL '7 days',
+  NOW() - INTERVAL '6 days', NOW() - INTERVAL '5 days', NOW() - INTERVAL '1 day',
+  false,
+  NOW() - INTERVAL '25 days', NOW() - INTERVAL '1 day'
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO manifest_lines (
+  id, "shipmentId", "productVariantId", "quantityDeclared",
+  "quantityReceived", variance
+) VALUES
+  ('fixt-ml-receive-1', 'fixt-ship-receive-test', 'seed-var-gs-gyellow', 10, 0, 0),
+  ('fixt-ml-receive-2', 'fixt-ship-receive-test', 'seed-var-zs-gyellow',  5, 0, 0),
+  ('fixt-ml-receive-3', 'fixt-ship-receive-test', 'seed-var-gs-nepblue',  3, 0, 0)
+ON CONFLICT (id) DO NOTHING;
+
+-- =============================================================================
+-- 7. COST-BLIND THROWAWAY USER (Stock Auditor: report.stocks + unit.read,
 --    no costdata.view, so they see both the units list and the stocks report
 --    but with all landed-cost fields stripped server-side. Satisfies the I-8
 --    verification across the units, units-detail, and stocks-report endpoints
@@ -235,8 +283,10 @@ COMMIT;
 
 -- Summary (visible after running):
 SELECT
-  (SELECT COUNT(*) FROM units WHERE "shipmentId" = 'fixt-ship-test')          AS units,
+  (SELECT COUNT(*) FROM units WHERE "shipmentId" = 'fixt-ship-test')                    AS units,
   (SELECT COUNT(*) FROM stock_movements WHERE "unitId" IN
-     (SELECT id FROM units WHERE "shipmentId" = 'fixt-ship-test'))            AS movements,
-  (SELECT COUNT(*) FROM spare_parts WHERE id LIKE 'fixt-sp-%')                AS spare_parts,
-  (SELECT COUNT(*) FROM users WHERE id = 'fixt-user-costblind')               AS costblind_user;
+     (SELECT id FROM units WHERE "shipmentId" = 'fixt-ship-test'))                      AS movements,
+  (SELECT COUNT(*) FROM spare_parts WHERE id LIKE 'fixt-sp-%')                          AS spare_parts,
+  (SELECT COUNT(*) FROM shipments WHERE id = 'fixt-ship-receive-test')                  AS recv_shipment,
+  (SELECT COUNT(*) FROM manifest_lines WHERE "shipmentId" = 'fixt-ship-receive-test')   AS recv_manifest_lines,
+  (SELECT COUNT(*) FROM users WHERE id = 'fixt-user-costblind')                         AS costblind_user;
