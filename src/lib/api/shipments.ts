@@ -90,6 +90,73 @@ export type ReceiveUnitsBody = {
   lines: { manifestLineId: string; units: ReceiveUnitPair[] }[];
 };
 
+/**
+ * Structured 409 body returned by the receive-units endpoint when the
+ * exhaustive pre-flight detects duplicates. Mirrors the backend's
+ * buildReceiptConflictBody output. `violations` carries one entry per
+ * offending value (a value that is both in-batch dup AND already in the DB
+ * produces TWO entries, one per kind, so the clerk sees the full picture).
+ */
+export type ReceiptDuplicateKind = "IN_BATCH_DUP" | "AGAINST_DB";
+export type ReceiptUnitUniqueField = "engineNumber" | "chassisNumber";
+
+export type ReceiptUnitPosition = {
+  manifestLineId: string;
+  unitIndex: number;
+};
+
+export type ReceiptDuplicateViolation = {
+  kind: ReceiptDuplicateKind;
+  field: ReceiptUnitUniqueField;
+  value: string;
+  rows: ReceiptUnitPosition[];
+  message: string;
+};
+
+export type ReceiptConflictBody = {
+  statusCode: 409;
+  error: "Conflict";
+  message: string;
+  violations: ReceiptDuplicateViolation[];
+};
+
+/**
+ * Best-effort parser for the receipt-conflict body. Returns the violations
+ * array if the body looks structurally correct; null otherwise (so the
+ * receive screen can fall back to its legacy single-message branch).
+ */
+export function parseReceiptConflict(body: unknown): ReceiptDuplicateViolation[] | null {
+  if (!body || typeof body !== "object") return null;
+  const v = (body as { violations?: unknown }).violations;
+  if (!Array.isArray(v)) return null;
+  const out: ReceiptDuplicateViolation[] = [];
+  for (const item of v) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    if ((o.kind !== "IN_BATCH_DUP" && o.kind !== "AGAINST_DB") ||
+        (o.field !== "engineNumber" && o.field !== "chassisNumber") ||
+        typeof o.value !== "string" ||
+        typeof o.message !== "string" ||
+        !Array.isArray(o.rows)) continue;
+    const rows: ReceiptUnitPosition[] = [];
+    for (const r of o.rows as unknown[]) {
+      if (!r || typeof r !== "object") continue;
+      const rr = r as Record<string, unknown>;
+      if (typeof rr.manifestLineId === "string" && typeof rr.unitIndex === "number") {
+        rows.push({ manifestLineId: rr.manifestLineId, unitIndex: rr.unitIndex });
+      }
+    }
+    out.push({
+      kind: o.kind,
+      field: o.field,
+      value: o.value,
+      rows,
+      message: o.message,
+    });
+  }
+  return out;
+}
+
 export type ResolveVarianceBody = {
   lines: { manifestLineId: string; varianceReason: string }[];
 };

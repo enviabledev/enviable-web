@@ -13,7 +13,7 @@ export type ApiResult<T> =
   | { kind: "unauthorized" }
   | { kind: "forbidden" }
   | { kind: "not_found" }
-  | { kind: "conflict"; message: string }
+  | { kind: "conflict"; message: string; body?: Record<string, unknown> }
   | { kind: "validation"; status: number; message: string | string[] }
   | { kind: "server_error"; status: number; message: string }
   | { kind: "network_error"; message: string };
@@ -73,17 +73,22 @@ export async function apiFetch<T>(path: string, init?: ApiRequestInit): Promise<
   if (res.status === 404) return { kind: "not_found" };
 
   if (res.status === 409) {
-    // Conflict (state-machine violation, edit-after-submit, etc.). The backend
-    // returns { statusCode: 409, message: string, error: "Conflict" } with the
-    // human-readable message; surface it verbatim.
+    // Conflict (state-machine violation, edit-after-submit, exhaustive
+    // duplicate report on receipt, etc.). The backend returns at minimum
+    // { statusCode: 409, error: "Conflict", message: string } and may carry
+    // additional structured fields (e.g. receipt's `violations` array).
+    // Surface the message verbatim and pass the full parsed body through so
+    // callers that recognise the structured fields can use them.
     let msg = "Conflict";
+    let body: Record<string, unknown> | undefined;
     try {
-      const body = (await res.json()) as { message?: string };
-      if (typeof body.message === "string") msg = body.message;
+      const parsed = (await res.json()) as Record<string, unknown>;
+      body = parsed;
+      if (typeof parsed.message === "string") msg = parsed.message;
     } catch {
       msg = await res.text().catch(() => "Conflict");
     }
-    return { kind: "conflict", message: msg };
+    return { kind: "conflict", message: msg, body };
   }
 
   if (res.status >= 200 && res.status < 300) {

@@ -38,6 +38,7 @@ export {
   closeShipment,
   shipmentCanTransitionTo,
   shipmentHasUnresolvedVariance,
+  parseReceiptConflict,
   SHIPMENT_STATUS,
   SHIPMENT_LEGAL_TRANSITIONS,
 } from "./shipments";
@@ -88,6 +89,11 @@ export type {
   ReceiveUnitPair,
   ReceiveUnitsBody,
   ResolveVarianceBody,
+  ReceiptDuplicateKind,
+  ReceiptUnitUniqueField,
+  ReceiptUnitPosition,
+  ReceiptDuplicateViolation,
+  ReceiptConflictBody,
 } from "./shipments";
 export type {
   UnitStatus,

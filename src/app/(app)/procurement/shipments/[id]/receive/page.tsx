@@ -8,10 +8,12 @@ import {
   flattenVariantOptions,
   getShipment,
   listProducts,
+  parseReceiptConflict,
   receiveUnits,
   type ApiResult,
   type ManifestLine,
   type ProductWithVariants,
+  type ReceiptDuplicateViolation,
   type ShipmentDetail,
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
@@ -33,8 +35,20 @@ type LoadState =
 type SubmitState =
   | { status: "idle" }
   | { status: "submitting" }
-  | { status: "rejected"; message: string; classification: "duplicate" | "validation" | "conflict" | "other" }
+  | {
+      status: "rejected";
+      message: string;
+      classification: "duplicate" | "validation" | "conflict" | "other";
+      // Structured violations from the exhaustive pre-flight. When present,
+      // the panel lists every duplicate and the line cards highlight each
+      // offending cell. Absent (legacy/fallback path): the panel falls back
+      // to the single-serial extraction.
+      violations?: ReceiptDuplicateViolation[];
+    }
   | { status: "error"; message: string };
+
+const cellKey = (manifestLineId: string, unitIndex: number, field: "engineNumber" | "chassisNumber") =>
+  `${manifestLineId}::${unitIndex}::${field}`;
 
 export default function ReceiveUnitsPage() {
   const params = useParams<{ id: string }>();
@@ -100,6 +114,23 @@ export default function ReceiveUnitsPage() {
   }
 
   const shipment = state.shipment;
+
+  // Pre-compute the set of (manifestLineId, unitIndex, field) cells the
+  // current rejected submission marked as duplicates. The LineBlock rows are
+  // ordered to match unitIndex on the submitted payload (we strip blank rows
+  // when building the payload; only filled rows get an index), so we have to
+  // walk each line's rows in the same order to recover the index. The Set
+  // membership check is O(1) per render of a row.
+  const highlightedCellsSet = (() => {
+    const set = new Set<string>();
+    if (submit.status !== "rejected" || !submit.violations) return set;
+    for (const v of submit.violations) {
+      for (const row of v.rows) {
+        set.add(cellKey(row.manifestLineId, row.unitIndex, v.field));
+      }
+    }
+    return set;
+  })();
 
   if (shipment.status !== "CLEARED") {
     return (
@@ -170,9 +201,18 @@ export default function ReceiveUnitsPage() {
       return;
     }
     if (r.kind === "conflict") {
+      // Prefer the structured exhaustive-pre-flight payload when present; it
+      // names every offending value, field, and row(s). The legacy/fallback
+      // single-message path (race-window catch on the DB constraint) still
+      // renders correctly via the panel's extracted-serial branch.
+      const violations = parseReceiptConflict(r.body) ?? undefined;
       const lower = r.message.toLowerCase();
-      const classification: "duplicate" | "conflict" = lower.includes("duplicate") || lower.includes("already exists") ? "duplicate" : "conflict";
-      setSubmit({ status: "rejected", classification, message: r.message });
+      const isDup =
+        (violations && violations.length > 0) ||
+        lower.includes("duplicate") ||
+        lower.includes("already exists");
+      const classification: "duplicate" | "conflict" = isDup ? "duplicate" : "conflict";
+      setSubmit({ status: "rejected", classification, message: r.message, violations });
       return;
     }
     if (r.kind === "validation") {
@@ -226,6 +266,7 @@ export default function ReceiveUnitsPage() {
         <RejectedPanel
           message={submit.message}
           classification={submit.classification}
+          violations={submit.status === "rejected" ? submit.violations : undefined}
           onDismiss={() => setSubmit({ status: "idle" })}
         />
       )}
@@ -251,8 +292,11 @@ export default function ReceiveUnitsPage() {
             variant={variantsById.get(line.productVariantId)}
             rows={draft[line.id] ?? []}
             onChange={(rows) => setRows(line.id, rows)}
-            highlightedSerial={
-              submit.status === "rejected" && submit.classification === "duplicate"
+            highlightedCells={highlightedCellsSet}
+            legacyHighlightedSerial={
+              !highlightedCellsSet.size &&
+              submit.status === "rejected" &&
+              submit.classification === "duplicate"
                 ? extractDuplicateSerial(submit.message)
                 : null
             }
@@ -301,14 +345,17 @@ export default function ReceiveUnitsPage() {
 function RejectedPanel({
   message,
   classification,
+  violations,
   onDismiss,
 }: {
   message: string;
   classification: "duplicate" | "validation" | "conflict" | "other";
+  violations?: ReceiptDuplicateViolation[];
   onDismiss: () => void;
 }) {
   const isDuplicate = classification === "duplicate";
-  const dupSerial = isDuplicate ? extractDuplicateSerial(message) : null;
+  const hasStructured = !!violations && violations.length > 0;
+  const legacySerial = isDuplicate && !hasStructured ? extractDuplicateSerial(message) : null;
   return (
     <div
       role="alert"
@@ -319,41 +366,91 @@ function RejectedPanel({
       }}
     >
       <div className="px-4 py-3 flex items-start justify-between gap-4">
-        <div>
+        <div className="flex-1 min-w-0">
           <div className="font-semibold text-[14px] text-[var(--color-danger-700)] mb-1.5">
             Batch rejected. Nothing was saved.
           </div>
-          <div className="text-[12.5px] text-[var(--color-ink-900)] mb-2">
-            {isDuplicate ? (
-              <>
-                The server rejected the receipt because of a duplicate serial number.
-                {dupSerial && (
-                  <>
-                    {" "}The offending value is{" "}
-                    <span className="font-mono font-semibold text-[var(--color-danger-700)] px-1.5 py-0.5 bg-white rounded-[2px] border border-[var(--color-danger-100)]">
-                      {dupSerial}
-                    </span>
+
+          {hasStructured ? (
+            <>
+              <div className="text-[12.5px] text-[var(--color-ink-900)] mb-2">
+                {violations!.length === 1
+                  ? "1 duplicate detected in this batch:"
+                  : `${violations!.length} duplicates detected in this batch (across one or both unique fields):`}
+              </div>
+              <ul className="text-[12px] text-[var(--color-ink-900)] list-disc list-inside space-y-1 mb-2">
+                {violations!.map((v, i) => (
+                  <li key={i}>
+                    <span
+                      className="font-mono font-semibold text-[var(--color-danger-700)] px-1.5 py-0.5 bg-white rounded-[2px] border border-[var(--color-danger-100)]"
+                    >
+                      {v.value}
+                    </span>{" "}
+                    on the{" "}
+                    <span className="font-semibold">
+                      {v.field === "engineNumber" ? "Engine Number" : "Chassis Number"}
+                    </span>{" "}
+                    field
+                    {" — "}
+                    {v.kind === "IN_BATCH_DUP" ? (
+                      <>
+                        appears <span className="font-semibold">{v.rows.length} times</span> in this
+                        batch (in-batch duplicate)
+                      </>
+                    ) : (
+                      <>
+                        already exists in the system{" "}
+                        {v.rows.length > 1 && (
+                          <>
+                            (matched by <span className="font-semibold">{v.rows.length} rows</span> here)
+                          </>
+                        )}
+                      </>
+                    )}
                     .
+                  </li>
+                ))}
+              </ul>
+              <div className="text-[12px] text-[var(--color-ink-700)]">
+                Each offending cell is outlined in red above. Fix every flagged cell, then resubmit
+                the whole batch as one.
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-[12.5px] text-[var(--color-ink-900)] mb-2">
+                {isDuplicate ? (
+                  <>
+                    The server rejected the receipt because of a duplicate serial number.
+                    {legacySerial && (
+                      <>
+                        {" "}The offending value is{" "}
+                        <span className="font-mono font-semibold text-[var(--color-danger-700)] px-1.5 py-0.5 bg-white rounded-[2px] border border-[var(--color-danger-100)]">
+                          {legacySerial}
+                        </span>
+                        .
+                      </>
+                    )}
                   </>
+                ) : classification === "validation" ? (
+                  <>The server rejected the request as invalid.</>
+                ) : (
+                  <>The server rejected the action.</>
                 )}
-              </>
-            ) : classification === "validation" ? (
-              <>The server rejected the request as invalid.</>
-            ) : (
-              <>The server rejected the action.</>
-            )}
-          </div>
-          <div className="text-[12px] text-[var(--color-ink-700)] mb-2">
-            <span className="font-medium">Server message:</span>{" "}
-            <span className="font-mono">{message}</span>
-          </div>
-          <div className="text-[12px] text-[var(--color-ink-700)]">
-            Because the receipt is all-or-nothing,{" "}
-            <span className="font-semibold">no units were created and no manifest counts changed.</span>{" "}
-            {isDuplicate
-              ? "Locate the row with that number above, correct it, and resubmit the whole batch."
-              : "Adjust the inputs above and resubmit."}
-          </div>
+              </div>
+              <div className="text-[12px] text-[var(--color-ink-700)] mb-2">
+                <span className="font-medium">Server message:</span>{" "}
+                <span className="font-mono">{message}</span>
+              </div>
+              <div className="text-[12px] text-[var(--color-ink-700)]">
+                Because the receipt is all-or-nothing,{" "}
+                <span className="font-semibold">no units were created and no manifest counts changed.</span>{" "}
+                {isDuplicate
+                  ? "Locate the row with that number above, correct it, and resubmit the whole batch."
+                  : "Adjust the inputs above and resubmit."}
+              </div>
+            </>
+          )}
         </div>
         <button
           type="button"
@@ -384,16 +481,40 @@ function LineBlock({
   variant,
   rows,
   onChange,
-  highlightedSerial,
+  highlightedCells,
+  legacyHighlightedSerial,
 }: {
   line: ManifestLine;
   variant: ReturnType<typeof flattenVariantOptions>[number] | undefined;
   rows: Row[];
   onChange: (rows: Row[]) => void;
-  highlightedSerial: string | null;
+  // Structured per-cell highlight from the exhaustive 409 (preferred path).
+  // Keys are `${manifestLineId}::${unitIndex}::${field}`. The unitIndex
+  // matches the SUBMITTED ordering: blank rows are not submitted, so we have
+  // to recompute filled-row position when walking `rows` for display.
+  highlightedCells: Set<string>;
+  // Legacy single-serial highlight kept for the race-window fallback path
+  // where the server returns the older single-message shape with no
+  // structured violations. Used only when highlightedCells is empty.
+  legacyHighlightedSerial: string | null;
 }) {
   const outstanding = line.quantityDeclared - line.quantityReceived;
   const filled = rows.filter((r) => r.engineNumber.trim() && r.chassisNumber.trim()).length;
+  // Per-row submitted index: filled rows get sequential 0-based indices in
+  // the order they were submitted; blank rows get null and never highlight.
+  const submittedIndexByRow = (() => {
+    const out: (number | null)[] = [];
+    let n = 0;
+    for (const r of rows) {
+      if (r.engineNumber.trim() && r.chassisNumber.trim()) {
+        out.push(n);
+        n++;
+      } else {
+        out.push(null);
+      }
+    }
+    return out;
+  })();
 
   const addRow = () => onChange([...rows, emptyRow()]);
   const removeRow = (key: string) => onChange(rows.filter((r) => r.key !== key));
@@ -452,8 +573,25 @@ function LineBlock({
           </thead>
           <tbody>
             {rows.map((r, idx) => {
-              const engineIsDup = highlightedSerial !== null && r.engineNumber.trim() === highlightedSerial;
-              const chassisIsDup = highlightedSerial !== null && r.chassisNumber.trim() === highlightedSerial;
+              const submitted = submittedIndexByRow[idx];
+              const cellHitEngine =
+                submitted !== null &&
+                highlightedCells.has(cellKey(line.id, submitted, "engineNumber"));
+              const cellHitChassis =
+                submitted !== null &&
+                highlightedCells.has(cellKey(line.id, submitted, "chassisNumber"));
+              // Legacy fallback: single-serial value match, used only when the
+              // structured path produced no cells (race-window backstop path).
+              const legacyEng =
+                highlightedCells.size === 0 &&
+                legacyHighlightedSerial !== null &&
+                r.engineNumber.trim() === legacyHighlightedSerial;
+              const legacyCha =
+                highlightedCells.size === 0 &&
+                legacyHighlightedSerial !== null &&
+                r.chassisNumber.trim() === legacyHighlightedSerial;
+              const engineIsDup = cellHitEngine || legacyEng;
+              const chassisIsDup = cellHitChassis || legacyCha;
               return (
                 <tr key={r.key} className="border-b border-[var(--color-border-default)]">
                   <td className="px-2 py-1.5 text-right text-[10.5px] tabular-nums text-[var(--color-ink-400)]">
