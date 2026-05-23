@@ -52,6 +52,39 @@ const emptyLine = (): LineDraft => ({
 
 const UNIT_PRICE_RE = /^\d+(\.\d{1,2})?$/;
 
+/**
+ * Extract the named conflicts from an I-11 message. The backend emits one of
+ * three shapes (sales-orders.service.ts formatI11Message):
+ *
+ *   - fallback (no conflicts surfaced): generic, no names -> []
+ *   - single:   "Invariant I-11: unit <ENG> is already allocated to
+ *                sales order <SO>."
+ *   - multiple: "Invariant I-11: N units already allocated to other active
+ *                sales order lines: ENG1 (on SO1), ENG2 (on SO2), ..."
+ *
+ * Mirrors the receipt page's `extractDuplicateSerial` regex pattern; the named
+ * message is what makes the panel-and-highlight UX possible without any
+ * client-side cross-referencing.
+ */
+function parseI11Conflicts(msg: string): { engineNumber: string; soNumber: string }[] {
+  const single = msg.match(/unit\s+(\S+)\s+is already allocated to sales order\s+(\S+?)\.\s*$/);
+  if (single) return [{ engineNumber: single[1]!, soNumber: single[2]! }];
+  const idx = msg.lastIndexOf(":");
+  if (idx >= 0) {
+    const list = msg.slice(idx + 1);
+    const items = list.match(/\S+\s+\(on\s+\S+?\)/g);
+    if (items && items.length > 0) {
+      const out: { engineNumber: string; soNumber: string }[] = [];
+      for (const item of items) {
+        const m = item.match(/(\S+)\s+\(on\s+(\S+?)\)/);
+        if (m) out.push({ engineNumber: m[1]!, soNumber: m[2]! });
+      }
+      if (out.length > 0) return out;
+    }
+  }
+  return [];
+}
+
 export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormProps) {
   const { has } = usePermissions();
   const canDiscount = has("salesorder.discount");
@@ -168,6 +201,34 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
   const net = Math.max(0, subtotal - discountTotal);
   const vat = net * VAT_RATE;
   const total = net + vat;
+
+  // Derived I-11 conflict mapping. The backend's named message tells us which
+  // engine number(s) collided; we look each up in availableUnits to find the
+  // unit id, then match against the current form's line.unitId to identify
+  // which line(s) carry the offending unit. Purely local lookup, no fetches.
+  const i11Conflicts = useMemo(() => {
+    if (!conflictMessage || !conflictMessage.includes("I-11")) return [];
+    return parseI11Conflicts(conflictMessage);
+  }, [conflictMessage]);
+
+  const engineToLineMeta = useMemo(() => {
+    const map = new Map<string, { lineNumber: number; lineKey: string }>();
+    lines.forEach((l, idx) => {
+      if (!l.unitId) return;
+      const unit = availableUnits.find((u) => u.id === l.unitId);
+      if (unit) map.set(unit.engineNumber, { lineNumber: idx + 1, lineKey: l.key });
+    });
+    return map;
+  }, [lines, availableUnits]);
+
+  const conflictedLineKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of i11Conflicts) {
+      const hit = engineToLineMeta.get(c.engineNumber);
+      if (hit) set.add(hit.lineKey);
+    }
+    return set;
+  }, [i11Conflicts, engineToLineMeta]);
 
   const clientErrors = (): string[] => {
     const errs: string[] = [];
@@ -301,11 +362,30 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
             const unitsForThis = unitsForLine(l);
             const variant = variantById.get(l.productVariantId);
             const displayUnitPrice = variant ? Number(variant.currentMarketPrice) * tierFactor : 0;
+            const isConflicted = conflictedLineKeys.has(l.key);
+            const conflictUnit = isConflicted
+              ? availableUnits.find((u) => u.id === l.unitId)
+              : undefined;
+            const conflictOnSo = conflictUnit
+              ? i11Conflicts.find((c) => c.engineNumber === conflictUnit.engineNumber)?.soNumber
+              : undefined;
             return (
-              <div key={l.key} className="px-4 py-3">
+              <div
+                key={l.key}
+                className={`px-4 py-3 ${isConflicted ? "bg-[var(--color-danger-50)]" : ""}`}
+                style={isConflicted ? { boxShadow: "inset 4px 0 0 var(--color-danger-700)" } : undefined}
+              >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--color-ink-500)]">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--color-ink-500)] flex items-center gap-2">
                     Line {idx + 1}
+                    {isConflicted && (
+                      <span
+                        className="text-[10px] font-semibold uppercase tracking-[0.04em] px-1.5 py-0.5 rounded-[2px] text-white"
+                        style={{ background: "var(--color-danger-700)" }}
+                      >
+                        Conflict{conflictOnSo ? `: on ${conflictOnSo}` : ""}
+                      </span>
+                    )}
                   </span>
                   <button
                     type="button"
@@ -463,27 +543,60 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
       )}
 
       {conflictMessage && (
-        <Panel tone="warning" title="Server rejected the order">
-          <div className="text-[12px] mb-1">
-            <span className="font-mono">{conflictMessage}</span>
-          </div>
-          {conflictMessage.includes("I-11") && (
-            <div className="text-[12px]">
-              That specific unit is already allocated to another active sales order. Pick a different
-              unit on the affected line; nothing was saved.
-            </div>
-          )}
-          {conflictMessage.includes("required for a CKD line") && (
-            <div className="text-[12px]">
-              The selected unit&apos;s warehouse status does not match the line&apos;s CKD form. Choose a unit
-              already in IN_WAREHOUSE_CKD.
-            </div>
-          )}
-          {conflictMessage.includes("required for a CBU line") && (
-            <div className="text-[12px]">
-              The selected unit&apos;s warehouse status does not match the line&apos;s CBU form. Choose a unit
-              already in IN_WAREHOUSE_CBU.
-            </div>
+        <Panel tone="warning" title="Server rejected the order. Nothing was saved.">
+          {i11Conflicts.length > 0 ? (
+            <>
+              <div className="text-[12px] mb-1.5">
+                {i11Conflicts.length === 1
+                  ? "The unit on one of your lines is already allocated to another active sales order:"
+                  : `${i11Conflicts.length} units on this order are already allocated to other active sales orders:`}
+              </div>
+              <ul className="text-[12px] list-disc list-inside space-y-0.5 mb-1.5">
+                {i11Conflicts.map((c, i) => {
+                  const lineMeta = engineToLineMeta.get(c.engineNumber);
+                  return (
+                    <li key={i}>
+                      <span className="font-mono font-semibold">{c.engineNumber}</span>{" "}
+                      is allocated on{" "}
+                      <span className="font-mono">{c.soNumber}</span>
+                      {lineMeta && (
+                        <>
+                          {" "}(<span className="font-semibold">Line {lineMeta.lineNumber}</span>)
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="text-[12px]">
+                Pick a different unit on the{" "}
+                {i11Conflicts.length > 1 ? "highlighted lines" : "highlighted line"} above.
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-[12px] mb-1">
+                Server message: <span className="font-mono">{conflictMessage}</span>
+              </div>
+              {conflictMessage.includes("I-11") && (
+                <div className="text-[12px]">
+                  A unit on this order is already allocated to another active sales order. Pick a
+                  different unit on the affected line; nothing was saved.
+                </div>
+              )}
+              {conflictMessage.includes("required for a CKD line") && (
+                <div className="text-[12px]">
+                  The selected unit&apos;s warehouse status does not match the line&apos;s CKD form.
+                  Choose a unit already in IN_WAREHOUSE_CKD.
+                </div>
+              )}
+              {conflictMessage.includes("required for a CBU line") && (
+                <div className="text-[12px]">
+                  The selected unit&apos;s warehouse status does not match the line&apos;s CBU form.
+                  Choose a unit already in IN_WAREHOUSE_CBU.
+                </div>
+              )}
+            </>
           )}
         </Panel>
       )}
