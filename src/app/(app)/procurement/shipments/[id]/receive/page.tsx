@@ -463,11 +463,12 @@ function LineBlock({
                     <input
                       type="text"
                       value={r.engineNumber}
-                      onChange={(e) => setRow(r.key, { engineNumber: e.target.value })}
+                      onChange={(e) => setRow(r.key, { engineNumber: e.target.value.toUpperCase() })}
                       placeholder="e.g. TVSKGS25E0001234"
                       autoComplete="off"
                       autoCapitalize="characters"
                       spellCheck={false}
+                      style={{ textTransform: "uppercase" }}
                       className={`h-7 w-full px-2 font-mono text-[12px] tracking-[0.02em] text-[var(--color-ink-900)] bg-white border rounded-[3px] focus:outline-none focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)] ${
                         engineIsDup
                           ? "border-[var(--color-danger-700)] bg-[var(--color-danger-50)] focus:border-[var(--color-danger-700)]"
@@ -479,11 +480,12 @@ function LineBlock({
                     <input
                       type="text"
                       value={r.chassisNumber}
-                      onChange={(e) => setRow(r.key, { chassisNumber: e.target.value })}
+                      onChange={(e) => setRow(r.key, { chassisNumber: e.target.value.toUpperCase() })}
                       placeholder="e.g. MD3TVSGS25C0001234"
                       autoComplete="off"
                       autoCapitalize="characters"
                       spellCheck={false}
+                      style={{ textTransform: "uppercase" }}
                       className={`h-7 w-full px-2 font-mono text-[12px] tracking-[0.02em] text-[var(--color-ink-900)] bg-white border rounded-[3px] focus:outline-none focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)] ${
                         chassisIsDup
                           ? "border-[var(--color-danger-700)] bg-[var(--color-danger-50)] focus:border-[var(--color-danger-700)]"
