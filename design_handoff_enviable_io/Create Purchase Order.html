@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Create Purchase Order — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  /* ===== APP SHELL ===== */
+  body { display: flex; min-height: 100vh; }
+  .app-sidebar { width: var(--sidebar-w); background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; font-size: var(--fs-13); }
+  .app-brand { height: var(--topbar-h); padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .app-brand-mark { width: 30px; height: 30px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 13.5px; line-height: 1.15; }
+  .app-brand-sub  { color: #8aa6c4; font-size: 10.5px; }
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 8px 8px 12px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
+  .nav-scroll::-webkit-scrollbar { width: 6px; }
+  .nav-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; color: #6f8aa6; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600; cursor: pointer; user-select: none; }
+  .nav-group-header:hover { color: #b6cae0; }
+  .nav-group-header .chev { color: #6f8aa6; transition: transform .15s ease; }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .nav-group-body { display: none; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 7px 12px; border-radius: 3px; color: #cfdcec; text-decoration: none; line-height: 1.3; position: relative; white-space: nowrap; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -8px; top: 4px; bottom: 4px; width: 3px; border-radius: 0 2px 2px 0; background: #5a9fe8; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .85; }
+  .nav-item.active svg { opacity: 1; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
+  .app-user-meta { line-height: 1.25; flex: 1; min-width: 0; overflow: hidden; }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; }
+  .app-user-sign { color: #8aa6c4; font-size: 11px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; }
+  .app-user-sign:hover { color: #fff; }
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: var(--topbar-h); border-bottom: 1px solid var(--grey-200); background: #fff; display: flex; align-items: center; padding: 0 20px; gap: 16px; position: sticky; top: 0; z-index: 30; }
+  .topbar-company { font-size: 14px; font-weight: 600; color: var(--ink); padding-right: 18px; border-right: 1px solid var(--grey-200); height: 28px; display: flex; align-items: center; }
+  .topbar-company .accent { color: var(--navy-700); }
+  .topbar-search { flex: 1; max-width: 560px; margin: 0 auto; height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--grey-100); border: 1px solid transparent; border-radius: 4px; color: var(--grey-500); font-size: 13px; }
+  .topbar-search:focus-within { background: #fff; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.10); }
+  .topbar-search input { all: unset; flex: 1; font-size: 13px; color: var(--ink); }
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .topbar-icon-btn { width: 32px; height: 32px; display: grid; place-items: center; background: transparent; border: none; border-radius: 4px; color: var(--grey-700); cursor: pointer; position: relative; }
+  .topbar-icon-btn:hover { background: var(--grey-100); color: var(--ink); }
+  .topbar-icon-btn.has-unread::after { content: ''; position: absolute; top: 7px; right: 8px; width: 8px; height: 8px; background: var(--red-700); border-radius: 50%; border: 1.5px solid #fff; }
+  .topbar-divider { width: 1px; height: 22px; background: var(--grey-200); margin: 0 6px; }
+  .topbar-user { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 999px; cursor: pointer; }
+  .topbar-user:hover { background: var(--grey-100); }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 11px; border: none; }
+  .topbar-user-text { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-user-name { font-size: 13px; color: var(--ink); font-weight: 500; line-height: 1.1; white-space: nowrap; }
+  .topbar-user-role { font-size: 11px; color: var(--grey-500); line-height: 1.1; }
+
+  /* ===== PAGE ===== */
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; }
+  .page { padding: 24px 28px 60px; max-width: 1180px; }
+
+  .page-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 22px; padding-bottom: 18px;
+    border-bottom: 1px solid var(--grey-200); gap: 24px;
+  }
+  .page-crumbs {
+    font-size: 12px; color: var(--grey-500);
+    display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+  }
+  .page-crumbs a { color: var(--grey-500); text-decoration: none; }
+  .page-crumbs a:hover { color: var(--navy-700); }
+  .page-crumbs .sep { color: var(--grey-300); }
+  .page-crumbs .current { color: var(--ink); font-weight: 500; }
+  .page-title {
+    font-size: 24px; font-weight: 600; color: var(--ink);
+    margin: 0 0 4px; letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .draft-tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; background: var(--grey-100); color: var(--grey-700);
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    border-radius: 3px;
+  }
+  .draft-tag::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--grey-500); }
+  .page-sub { color: var(--grey-500); font-size: 13px; max-width: 720px; }
+  .page-sub b { color: var(--ink); font-weight: 500; }
+  .header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+  /* ===== FORM CARDS ===== */
+  .form-card {
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 4px;
+    margin-bottom: 18px;
+  }
+  .form-card-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--grey-200);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .form-card-title-block { display: flex; align-items: baseline; gap: 10px; }
+  .form-card-title {
+    margin: 0;
+    font-size: 14px; font-weight: 600; color: var(--ink);
+  }
+  .form-card-step {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--grey-500); font-weight: 500;
+    background: var(--grey-100); padding: 2px 7px; border-radius: 3px;
+  }
+  .form-card-help { font-size: 12px; color: var(--grey-500); }
+  .form-card-body { padding: 20px; }
+
+  /* ===== FIELDS ===== */
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; }
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-group.col-span-2 { grid-column: span 2; }
+
+  .field-label {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; font-weight: 500; color: var(--grey-700);
+  }
+  .req { color: var(--red-700); font-weight: 600; margin-left: -2px; }
+  .field-help-icon {
+    width: 13px; height: 13px;
+    display: inline-grid; place-items: center;
+    border-radius: 50%; background: var(--grey-200); color: var(--grey-500);
+    font-size: 9px; cursor: help;
+  }
+  .field-help-icon:hover { background: var(--navy-100); color: var(--navy-700); }
+  .field-hint { font-size: 11px; color: var(--grey-500); margin-top: -2px; }
+
+  .field {
+    height: 34px; padding: 0 12px;
+    background: #fff;
+    border: 1px solid var(--grey-300);
+    border-radius: 3px;
+    font-size: 13px; color: var(--ink);
+    font-family: inherit;
+    width: 100%;
+  }
+  .field:hover { border-color: var(--grey-400); }
+  .field:focus { outline: none; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+  .field::placeholder { color: var(--grey-400); }
+  .field[readonly] { background: var(--grey-100); color: var(--ink); border-color: var(--grey-200); cursor: default; font-family: var(--font-mono); }
+  select.field { padding-right: 32px; appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%238A8A8A' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; cursor: pointer; }
+
+  /* read-only PO number with copy button */
+  .ro-id-row {
+    display: flex; align-items: center; gap: 0;
+    height: 34px;
+    border: 1px solid var(--grey-200);
+    background: var(--grey-100);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .ro-id-row .id-val {
+    font-family: var(--font-mono); font-size: 13px; color: var(--ink);
+    padding: 0 12px; font-weight: 500;
+    flex: 1; display: flex; align-items: center; gap: 8px;
+  }
+  .ro-id-row .id-val .id-lock {
+    color: var(--grey-400);
+  }
+  .ro-id-row .copy-btn {
+    height: 100%; padding: 0 10px;
+    background: transparent; border: none; border-left: 1px solid var(--grey-200);
+    color: var(--grey-500); cursor: pointer;
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11px;
+  }
+  .ro-id-row .copy-btn:hover { background: #fff; color: var(--navy-700); }
+
+  /* select with sub-meta line */
+  .select-with-meta {
+    border: 1px solid var(--grey-300);
+    border-radius: 3px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .select-with-meta select.field {
+    border: none;
+    height: 34px;
+    background-color: #fff;
+  }
+  .select-with-meta .meta {
+    border-top: 1px solid var(--grey-200);
+    background: var(--canvas);
+    padding: 6px 12px;
+    font-size: 11px;
+    color: var(--grey-500);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .select-with-meta .meta .pill { font-size: 9px; padding: 0 6px; height: 16px; }
+
+  /* prefix box for currency */
+  .with-prefix {
+    display: flex; align-items: stretch;
+    border: 1px solid var(--grey-300); border-radius: 3px;
+    background: #fff; overflow: hidden;
+    height: 34px;
+  }
+  .with-prefix:focus-within { border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+  .with-prefix .affix {
+    background: var(--grey-100); color: var(--grey-700);
+    display: grid; place-items: center;
+    padding: 0 12px; font-weight: 600; font-size: 12px;
+    border-right: 1px solid var(--grey-200);
+    font-variant-numeric: tabular-nums;
+  }
+  .with-prefix input, .with-prefix select {
+    all: unset; flex: 1; padding: 0 12px; font-size: 13px; color: var(--ink);
+    font-family: inherit;
+    appearance: none; cursor: pointer;
+  }
+  .with-prefix.with-chev::after {
+    content: ''; width: 8px; height: 8px;
+    border-right: 1.5px solid var(--grey-500); border-bottom: 1.5px solid var(--grey-500);
+    transform: rotate(45deg); margin-right: 12px; align-self: center; flex-shrink: 0;
+  }
+
+  /* date field */
+  .date-field {
+    display: flex; align-items: center; gap: 0;
+    border: 1px solid var(--grey-300); border-radius: 3px;
+    height: 34px; padding: 0 12px;
+    background: #fff;
+    cursor: pointer;
+  }
+  .date-field:hover { border-color: var(--grey-400); }
+  .date-field:focus-within { border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+  .date-field input { all: unset; flex: 1; font-size: 13px; color: var(--ink); cursor: pointer; font-variant-numeric: tabular-nums; }
+  .date-field svg { color: var(--grey-500); }
+
+  /* ===== LINE ITEMS TABLE ===== */
+  .lines-wrap { padding: 0; }
+  .lines-table { width: 100%; font-size: 13px; }
+  .lines-table th {
+    text-align: left; font-weight: 500; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--grey-500);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--grey-200);
+    background: var(--grey-100);
+    white-space: nowrap;
+  }
+  .lines-table th.num-col { text-align: right; }
+  .lines-table th.col-line { width: 60px; text-align: center; }
+  .lines-table th.col-actions { width: 50px; }
+  .lines-table th.col-qty { width: 110px; }
+  .lines-table th.col-price { width: 160px; }
+  .lines-table th.col-total { width: 170px; }
+
+  .lines-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--grey-200);
+    color: var(--ink);
+    vertical-align: middle;
+  }
+  .lines-table td.col-line {
+    width: 60px;
+    text-align: center;
+    color: var(--grey-400);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    border-right: 1px solid var(--grey-200);
+    background: var(--grey-100);
+    padding: 10px 8px;
+    font-weight: 500;
+  }
+  .lines-table tr:hover td { background: var(--navy-50); }
+  .lines-table tr:hover td.col-line { background: var(--navy-100); color: var(--navy-700); }
+  .lines-table tr:last-child td { border-bottom: none; }
+
+  /* Inline editable inputs in cells */
+  .cell-input {
+    width: 100%;
+    height: 30px;
+    padding: 0 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--ink);
+  }
+  .cell-input:hover { border-color: var(--grey-200); background: #fff; }
+  .cell-input:focus { outline: none; border-color: var(--navy-700); background: #fff; box-shadow: 0 0 0 2px rgba(31,78,121,0.10); }
+  .cell-input.num { text-align: right; font-variant-numeric: tabular-nums; }
+  select.cell-input {
+    appearance: none;
+    padding-right: 22px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%238A8A8A' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    cursor: pointer;
+  }
+  .cell-currency {
+    display: inline-flex; align-items: center;
+    width: 100%;
+  }
+  .cell-currency .cur {
+    color: var(--grey-500);
+    font-size: 12px;
+    padding-right: 4px;
+  }
+  .line-total {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--ink);
+    font-size: 13px;
+    text-align: right;
+    padding: 0 8px;
+  }
+  .row-remove {
+    width: 28px; height: 28px;
+    display: grid; place-items: center;
+    background: transparent; border: none;
+    border-radius: 3px; color: var(--grey-400); cursor: pointer;
+  }
+  .row-remove:hover { background: var(--red-50); color: var(--red-700); }
+
+  /* Variant cell — large readable label */
+  .variant-cell { padding: 6px 12px; }
+  .variant-cell .variant-name { font-weight: 500; color: var(--ink); line-height: 1.3; }
+  .variant-cell .variant-sku { font-family: var(--font-mono); font-size: 11px; color: var(--grey-500); margin-top: 1px; }
+
+  /* Add line row */
+  .add-line-row {
+    padding: 12px 16px;
+    border-top: 1px solid var(--grey-200);
+    display: flex; align-items: center; gap: 12px;
+    background: var(--canvas);
+  }
+  .add-line-row .filler { flex: 1; }
+
+  /* Totals strip */
+  .totals-strip {
+    padding: 14px 20px;
+    border-top: 1px solid var(--grey-200);
+    display: flex; justify-content: flex-end; align-items: stretch;
+    background: #FBFBFB;
+  }
+  .totals-block {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 4px 28px;
+    min-width: 320px;
+  }
+  .totals-block .key {
+    font-size: 12px; color: var(--grey-500); text-align: right;
+    align-self: center;
+  }
+  .totals-block .val {
+    font-size: 14px; color: var(--ink); text-align: right;
+    font-variant-numeric: tabular-nums; font-weight: 500;
+    align-self: center;
+  }
+  .totals-block .key.grand { font-size: 13px; color: var(--ink); font-weight: 600; padding-top: 8px; border-top: 1px solid var(--grey-200); }
+  .totals-block .val.grand { font-size: 18px; color: var(--navy-800); font-weight: 700; padding-top: 8px; border-top: 1px solid var(--grey-200); }
+
+  /* ===== DOCUMENT UPLOAD ===== */
+  .file-drop {
+    border: 1px dashed var(--grey-300);
+    border-radius: 4px;
+    padding: 24px;
+    background: var(--canvas);
+    display: flex; align-items: center; gap: 16px;
+    cursor: pointer;
+    transition: border-color .12s, background .12s;
+  }
+  .file-drop:hover { border-color: var(--navy-700); background: var(--navy-50); }
+  .file-drop-icon {
+    width: 40px; height: 40px;
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 4px;
+    color: var(--navy-700);
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .file-drop-text { flex: 1; }
+  .file-drop-title { font-size: 13px; font-weight: 500; color: var(--ink); margin-bottom: 2px; }
+  .file-drop-title .file-link { color: var(--navy-700); }
+  .file-drop-hint { font-size: 11.5px; color: var(--grey-500); }
+
+  /* ===== NOTES TEXTAREA ===== */
+  .notes-textarea {
+    width: 100%; min-height: 110px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid var(--grey-300);
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 13px; color: var(--ink);
+    resize: vertical;
+    line-height: 1.5;
+  }
+  .notes-textarea:focus { outline: none; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+  .notes-textarea::placeholder { color: var(--grey-400); }
+  .notes-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 6px;
+    font-size: 11px; color: var(--grey-500);
+  }
+
+  /* ===== FOOTER ACTIONS ===== */
+  .form-footer {
+    margin-top: 20px;
+    padding: 16px 20px;
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+    position: sticky; bottom: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .form-footer-left { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 12px; }
+  .form-footer-left .saved { display: inline-flex; align-items: center; gap: 5px; color: var(--grey-700); }
+  .form-footer-left .saved::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--grey-400); }
+  .form-footer-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* Helper "summary strip" between sections – not required but adds context */
+  .summary-strip {
+    background: var(--navy-50);
+    border: 1px solid var(--navy-100);
+    border-radius: 3px;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 16px;
+    font-size: 12px; color: var(--navy-800);
+  }
+  .summary-strip svg { color: var(--navy-700); flex-shrink: 0; }
+  .summary-strip b { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ====================== SIDEBAR ====================== -->
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div>
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+  <nav class="nav-scroll">
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Overview</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Dashboard</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-header"><span>Procurement</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item active" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="10" height="11.5" rx="1"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Purchase Orders</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3M5.5 8.5h5M5.5 11h3.5"/></svg>Proforma Invoices</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5.5" cy="6" r="2"/><circle cx="11" cy="7" r="1.5"/><path d="M2 13c0-2 1.5-3.5 3.5-3.5S9 11 9 13M9 13c0-1.5 1-2.5 2-2.5s2 1 2 2.5"/></svg>Suppliers &amp; Counterparties</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h7v6H2zM9 7h3.5l2 2v1.5H9z"/><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>Shipments</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3.5" width="11" height="9" rx="1"/><path d="M2.5 6l5.5 3.5L13.5 6"/></svg>Letters of Credit</a>
+      </div>
+    </div>
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Inventory</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Units (kekes)</a>
+        <a class="nav-item" href="#">Spare Parts</a>
+        <a class="nav-item" href="#">Stock Movements</a>
+        <a class="nav-item" href="#">Assembly Jobs</a>
+      </div>
+    </div>
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Sales</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Sales Orders</a>
+        <a class="nav-item" href="#">Customers</a>
+        <a class="nav-item" href="#">Price Lists</a>
+        <a class="nav-item" href="#">Invoices &amp; Payments</a>
+        <a class="nav-item" href="#">Deliveries</a>
+      </div>
+    </div>
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Reports</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Revenue &amp; Sales</a>
+        <a class="nav-item" href="#">Stocks</a>
+        <a class="nav-item" href="#">Customers</a>
+        <a class="nav-item" href="#">Audit Log</a>
+      </div>
+    </div>
+  </nav>
+  <div class="app-user">
+    <div class="avatar">FA</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Funmi Adebayo</div>
+      <div class="app-user-role">Procurement Officer</div>
+      <a class="app-user-sign" href="#">
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4V3a1 1 0 00-1-1H3.5a1 1 0 00-1 1v10a1 1 0 001 1H9a1 1 0 001-1v-1"/><path d="M7 8h7m0 0l-2.5-2.5M14 8l-2.5 2.5"/></svg>
+        Sign out
+      </a>
+    </div>
+  </div>
+</aside>
+
+<!-- ====================== MAIN ====================== -->
+<main class="app-main">
+
+  <header class="topbar">
+    <div class="topbar-company">Enviable <span class="accent">Tricycle</span></div>
+    <div class="topbar-search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+      <input placeholder="Search purchase orders, units, SKUs, customers, invoices…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-icon-btn" title="Help">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M6.5 6a1.5 1.5 0 113 0c0 1-1.5 1.2-1.5 2.5M8 11v.01"/></svg>
+      </button>
+      <button class="topbar-icon-btn has-unread" title="Notifications">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.5 11h9l-1-2V6.5a3.5 3.5 0 10-7 0V9l-1 2zM6.5 13a1.5 1.5 0 003 0"/></svg>
+      </button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="avatar">FA</div>
+        <div class="topbar-user-text">
+          <div class="topbar-user-name">Funmi Adebayo</div>
+          <div class="topbar-user-role">Procurement Officer</div>
+        </div>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--grey-400);"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-content">
+  <div class="page">
+
+    <!-- ===== PAGE HEADER ===== -->
+    <div class="page-header">
+      <div>
+        <div class="page-crumbs">
+          <a href="#">Procurement</a>
+          <span class="sep">/</span>
+          <a href="#">Purchase Orders</a>
+          <span class="sep">/</span>
+          <span class="current">New</span>
+        </div>
+        <h1 class="page-title">
+          Create Purchase Order
+          <span class="draft-tag">Draft</span>
+        </h1>
+        <div class="page-sub">Raise a new PO to a supplier. Submit for approval once line items and commercial terms are agreed.</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost">Cancel</button>
+        <button class="btn btn-secondary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-5h6v5"/></svg>
+          Save as Draft
+        </button>
+        <button class="btn btn-primary">
+          Submit for Approval
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== AUTOSAVE STRIP ===== -->
+    <div class="summary-strip">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 8v-3M8 11v.01"/></svg>
+      <span>Draft autosaves every 15 seconds. <b>Submit for Approval</b> sends this PO to the Operations Director for review — quantities, pricing and supplier cannot be edited after approval.</span>
+    </div>
+
+    <!-- ===== CARD · PO DETAILS ===== -->
+    <section class="form-card">
+      <div class="form-card-header">
+        <div class="form-card-title-block">
+          <span class="form-card-step">01</span>
+          <h2 class="form-card-title">PO Details</h2>
+        </div>
+        <span class="form-card-help">Supplier, currency, and shipping terms</span>
+      </div>
+      <div class="form-card-body">
+        <div class="field-grid">
+
+          <!-- PO Number (read-only) -->
+          <div class="field-group">
+            <label class="field-label">PO Number <span class="field-help-icon" title="Auto-generated by the system. Sequential within the year.">?</span></label>
+            <div class="ro-id-row">
+              <div class="id-val">
+                <svg class="id-lock" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="10" height="7" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>
+                PO-2026-002
+              </div>
+              <button class="copy-btn" type="button">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="8" height="10" rx="1"/><path d="M5 3V2a1 1 0 011-1h7a1 1 0 011 1v10a1 1 0 01-1 1h-1"/></svg>
+                Copy
+              </button>
+            </div>
+            <span class="field-hint">Auto-generated · cannot be changed</span>
+          </div>
+
+          <!-- Supplier -->
+          <div class="field-group">
+            <label class="field-label">Supplier <span class="req">*</span></label>
+            <div class="select-with-meta">
+              <select class="field">
+                <option selected>VSK Motors and Traders FZE</option>
+                <option>TVS Motor Company Limited</option>
+                <option>— Add new supplier… —</option>
+              </select>
+              <div class="meta">
+                <span class="pill pill-grey">Supplier</span>
+                <span>Sharjah, UAE · USD trading partner · IBAN ending <b>5728</b></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- TVS Portal Order Reference -->
+          <div class="field-group">
+            <label class="field-label">TVS Portal Order Reference</label>
+            <input class="field" type="text" placeholder="Paste reference from TVS portal (e.g. TVS-EXP-2026-04812)" />
+            <span class="field-hint">Optional · used to reconcile the PO with the manufacturer's order management system</span>
+          </div>
+
+          <!-- Expected Ship Date -->
+          <div class="field-group">
+            <label class="field-label">Expected Ship Date <span class="req">*</span></label>
+            <div class="date-field">
+              <input type="text" value="14 Jun 2026" readonly />
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3.5" width="12" height="10" rx="1"/><path d="M2 6h12M5 2v3M11 2v3"/></svg>
+            </div>
+            <span class="field-hint">Ex-works date confirmed by supplier · approx. 4 weeks lead time</span>
+          </div>
+
+          <!-- Currency -->
+          <div class="field-group">
+            <label class="field-label">Currency <span class="req">*</span></label>
+            <div class="with-prefix with-chev">
+              <span class="affix">$</span>
+              <select>
+                <option selected>USD — US Dollar</option>
+                <option>NGN — Nigerian Naira</option>
+                <option>EUR — Euro</option>
+                <option>AED — UAE Dirham</option>
+              </select>
+            </div>
+            <span class="field-hint">All line item prices and totals will be entered in this currency</span>
+          </div>
+
+          <!-- Payment Terms -->
+          <div class="field-group">
+            <label class="field-label">Payment Terms <span class="req">*</span></label>
+            <select class="field">
+              <option selected>Letter of Credit at sight, CFR Apapa</option>
+              <option>30% advance / 70% on B/L</option>
+              <option>100% advance, FOB Sharjah</option>
+              <option>Open account 60 days, CIF Apapa</option>
+            </select>
+            <span class="field-hint">Locked once PO is approved · ensure terms match the supplier's PI</span>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CARD · LINE ITEMS ===== -->
+    <section class="form-card">
+      <div class="form-card-header">
+        <div class="form-card-title-block">
+          <span class="form-card-step">02</span>
+          <h2 class="form-card-title">Line Items</h2>
+          <span class="form-card-step" style="background: var(--navy-50); color: var(--navy-700);">3 lines · 800 units</span>
+        </div>
+        <span class="form-card-help">Edit any cell directly · totals recalculate as you type</span>
+      </div>
+
+      <div class="lines-wrap">
+        <table class="lines-table">
+          <thead>
+            <tr>
+              <th class="col-line">#</th>
+              <th>Product Variant</th>
+              <th class="col-qty num-col">Quantity</th>
+              <th class="col-price num-col">Unit Price · USD</th>
+              <th class="col-total num-col">Line Total · USD</th>
+              <th class="col-actions"></th>
+            </tr>
+          </thead>
+          <tbody>
+
+            <!-- Line 1 -->
+            <tr>
+              <td class="col-line">1</td>
+              <td class="variant-cell">
+                <select class="cell-input" style="font-weight: 500;">
+                  <option selected>TVS King GS+ DP CKD EXP10 G Yellow</option>
+                  <option>TVS King GS+ DP CKD EXP10 NEP Blue</option>
+                  <option>TVS King ZS+ EXP CKD G Yellow</option>
+                  <option>TVS King GS+ DP CKD EXP10 NF Wine Red</option>
+                  <option>TVS King GS+ DP CKD EXP10 Eco Green</option>
+                </select>
+                <div class="variant-sku">SKU · TVS-KING-GSPDP-EXP10-GY · CKD</div>
+              </td>
+              <td><input class="cell-input num" type="text" value="500" /></td>
+              <td>
+                <span class="cell-currency"><span class="cur">$</span><input class="cell-input num" type="text" value="1,422.00" /></span>
+              </td>
+              <td><div class="line-total">$ 711,000.00</div></td>
+              <td>
+                <button class="row-remove" title="Remove line">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V2h4v2M5 4l1 10h4l1-10"/></svg>
+                </button>
+              </td>
+            </tr>
+
+            <!-- Line 2 -->
+            <tr>
+              <td class="col-line">2</td>
+              <td class="variant-cell">
+                <select class="cell-input" style="font-weight: 500;">
+                  <option>TVS King GS+ DP CKD EXP10 G Yellow</option>
+                  <option selected>TVS King GS+ DP CKD EXP10 NEP Blue</option>
+                  <option>TVS King ZS+ EXP CKD G Yellow</option>
+                  <option>TVS King GS+ DP CKD EXP10 NF Wine Red</option>
+                  <option>TVS King GS+ DP CKD EXP10 Eco Green</option>
+                </select>
+                <div class="variant-sku">SKU · TVS-KING-GSPDP-EXP10-NB · CKD</div>
+              </td>
+              <td><input class="cell-input num" type="text" value="200" /></td>
+              <td>
+                <span class="cell-currency"><span class="cur">$</span><input class="cell-input num" type="text" value="1,422.00" /></span>
+              </td>
+              <td><div class="line-total">$ 284,400.00</div></td>
+              <td>
+                <button class="row-remove" title="Remove line">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V2h4v2M5 4l1 10h4l1-10"/></svg>
+                </button>
+              </td>
+            </tr>
+
+            <!-- Line 3 -->
+            <tr>
+              <td class="col-line">3</td>
+              <td class="variant-cell">
+                <select class="cell-input" style="font-weight: 500;">
+                  <option>TVS King GS+ DP CKD EXP10 G Yellow</option>
+                  <option>TVS King GS+ DP CKD EXP10 NEP Blue</option>
+                  <option selected>TVS King ZS+ EXP CKD G Yellow</option>
+                  <option>TVS King GS+ DP CKD EXP10 NF Wine Red</option>
+                  <option>TVS King GS+ DP CKD EXP10 Eco Green</option>
+                </select>
+                <div class="variant-sku">SKU · TVS-KING-ZSPEXP-CKD-GY · CKD · assembles to CBU</div>
+              </td>
+              <td><input class="cell-input num" type="text" value="100" /></td>
+              <td>
+                <span class="cell-currency"><span class="cur">$</span><input class="cell-input num" type="text" value="1,662.00" /></span>
+              </td>
+              <td><div class="line-total">$ 166,200.00</div></td>
+              <td>
+                <button class="row-remove" title="Remove line">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V2h4v2M5 4l1 10h4l1-10"/></svg>
+                </button>
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+
+        <!-- Add line -->
+        <div class="add-line-row">
+          <button class="btn btn-secondary">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+            Add Line
+          </button>
+          <button class="btn btn-ghost">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="1"/><path d="M6 6h4M6 9h4"/></svg>
+            Duplicate last line
+          </button>
+          <div class="filler"></div>
+          <span style="font-size: 11px; color: var(--grey-500);">Tip · <span class="kbd">⇧ ↵</span> adds a new line in-table</span>
+        </div>
+
+        <!-- Totals -->
+        <div class="totals-strip">
+          <div class="totals-block">
+            <div class="key">Subtotal · 3 lines</div>
+            <div class="val">$ 1,161,600.00</div>
+            <div class="key">Discount</div>
+            <div class="val muted" style="color: var(--grey-400);">— not applied —</div>
+            <div class="key">Shipping &amp; insurance (CFR)</div>
+            <div class="val muted" style="color: var(--grey-400);">— included in unit price —</div>
+            <div class="key grand">Total · USD</div>
+            <div class="val grand">$ 1,161,600.00</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CARD · DOCUMENTS ===== -->
+    <section class="form-card">
+      <div class="form-card-header">
+        <div class="form-card-title-block">
+          <span class="form-card-step">03</span>
+          <h2 class="form-card-title">Documents</h2>
+        </div>
+        <span class="form-card-help">PDF / JPG / PNG · up to 10 MB each</span>
+      </div>
+      <div class="form-card-body">
+        <label class="file-drop">
+          <div class="file-drop-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 4v12m0 0l-4-4m4 4l4-4M4 18h16"/></svg>
+          </div>
+          <div class="file-drop-text">
+            <div class="file-drop-title"><span class="file-link">Click to upload</span> or drag &amp; drop files here</div>
+            <div class="file-drop-hint">Attach any reference documents (optional at PO stage). Common attachments: TVS portal screenshot, internal approval memo, prior-year benchmark PI.</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" type="button">Browse files</button>
+          <input type="file" style="display:none" multiple />
+        </label>
+      </div>
+    </section>
+
+    <!-- ===== CARD · NOTES ===== -->
+    <section class="form-card">
+      <div class="form-card-header">
+        <div class="form-card-title-block">
+          <span class="form-card-step">04</span>
+          <h2 class="form-card-title">Notes</h2>
+        </div>
+        <span class="form-card-help">Visible to approvers · not sent to supplier</span>
+      </div>
+      <div class="form-card-body">
+        <textarea class="notes-textarea" placeholder="Add any context for the approver — e.g. seasonal demand, customer pre-orders, FX rationale, deviations from prior POs…"></textarea>
+        <div class="notes-meta">
+          <span>Markdown not supported · plain text only</span>
+          <span><span class="tabular">0</span> / 2,000 characters</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== STICKY FORM FOOTER ===== -->
+    <div class="form-footer">
+      <div class="form-footer-left">
+        <span class="saved">Draft not yet saved</span>
+        <span style="color: var(--grey-300);">·</span>
+        <span>PO will be sequenced as <b style="color: var(--ink); font-family: var(--font-mono);">PO-2026-002</b></span>
+      </div>
+      <div class="form-footer-actions">
+        <button class="btn btn-ghost">Cancel</button>
+        <button class="btn btn-secondary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-5h6v5"/></svg>
+          Save as Draft
+        </button>
+        <button class="btn btn-primary">
+          Submit for Approval
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+  </div>
+
+</main>
+
+<script>
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+  });
+
+  // simple recompute of line totals + subtotal as user edits qty/price
+  function parseNum(s) { return parseFloat((s || '0').toString().replace(/,/g, '')) || 0; }
+  function fmtUSD(n) { return '$ ' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function recalc() {
+    let subtotal = 0;
+    let totalUnits = 0;
+    document.querySelectorAll('.lines-table tbody tr').forEach(row => {
+      const qtyEl = row.querySelector('input.num');
+      const priceEl = row.querySelectorAll('input.num')[1];
+      const totalEl = row.querySelector('.line-total');
+      const qty = parseNum(qtyEl.value);
+      const price = parseNum(priceEl.value);
+      const total = qty * price;
+      totalEl.textContent = fmtUSD(total);
+      subtotal += total;
+      totalUnits += qty;
+    });
+    // update subtotal + grand total + tag
+    const tot = document.querySelectorAll('.totals-block .val');
+    if (tot[0]) tot[0].textContent = fmtUSD(subtotal);
+    const grand = document.querySelector('.totals-block .val.grand');
+    if (grand) grand.textContent = fmtUSD(subtotal);
+    const tag = document.querySelector('.form-card-step[style*="navy"]');
+    if (tag) tag.textContent = `3 lines · ${totalUnits.toLocaleString('en-US')} units`;
+  }
+  document.querySelectorAll('.lines-table input.num').forEach(i => {
+    i.addEventListener('input', recalc);
+  });
+
+  // row remove confirmation
+  document.querySelectorAll('.row-remove').forEach(b => {
+    b.addEventListener('click', () => {
+      const row = b.closest('tr');
+      row.style.opacity = '0.4';
+      setTimeout(() => recalc(), 100);
+    });
+  });
+</script>
+
+<script src="role-switcher.js"></script>
+</body>
+</html>

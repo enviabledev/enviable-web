@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>New Customer — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  /* ===== APP SHELL ===== */
+  body { display: flex; min-height: 100vh; }
+  .app-sidebar { width: var(--sidebar-w); background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; font-size: var(--fs-13); }
+  .app-brand { height: var(--topbar-h); padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .app-brand-mark { width: 30px; height: 30px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 13.5px; line-height: 1.15; }
+  .app-brand-sub  { color: #8aa6c4; font-size: 10.5px; }
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 8px 8px 12px; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; color: #6f8aa6; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600; cursor: pointer; user-select: none; }
+  .nav-group-header .chev { color: #6f8aa6; transition: transform .15s ease; }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .nav-group-body { display: none; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 7px 12px; border-radius: 3px; color: #cfdcec; text-decoration: none; line-height: 1.3; position: relative; white-space: nowrap; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -8px; top: 4px; bottom: 4px; width: 3px; border-radius: 0 2px 2px 0; background: #5a9fe8; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .85; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
+  .app-user-meta { line-height: 1.25; flex: 1; min-width: 0; overflow: hidden; }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; }
+  .app-user-sign { color: #8aa6c4; font-size: 11px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; }
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: var(--topbar-h); border-bottom: 1px solid var(--grey-200); background: #fff; display: flex; align-items: center; padding: 0 20px; gap: 16px; position: sticky; top: 0; z-index: 30; }
+  .topbar-company { font-size: 14px; font-weight: 600; color: var(--ink); padding-right: 18px; border-right: 1px solid var(--grey-200); height: 28px; display: flex; align-items: center; }
+  .topbar-company .accent { color: var(--navy-700); }
+  .topbar-search { flex: 1; max-width: 560px; margin: 0 auto; height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--grey-100); border: 1px solid transparent; border-radius: 4px; color: var(--grey-500); font-size: 13px; }
+  .topbar-search input { all: unset; flex: 1; font-size: 13px; color: var(--ink); }
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .topbar-icon-btn { width: 32px; height: 32px; display: grid; place-items: center; background: transparent; border: none; border-radius: 4px; color: var(--grey-700); cursor: pointer; position: relative; }
+  .topbar-icon-btn:hover { background: var(--grey-100); color: var(--ink); }
+  .topbar-divider { width: 1px; height: 22px; background: var(--grey-200); margin: 0 6px; }
+  .topbar-user { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 999px; cursor: pointer; }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 11px; border: none; }
+  .topbar-user-text { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-user-name { font-size: 13px; color: var(--ink); font-weight: 500; line-height: 1.1; white-space: nowrap; }
+  .topbar-user-role { font-size: 11px; color: var(--grey-500); line-height: 1.1; }
+
+  /* ===== PAGE ===== */
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; }
+  .page { padding: 24px 28px 60px; max-width: 1080px; }
+
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--grey-200); gap: 24px; }
+  .page-crumbs { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .page-crumbs a { color: var(--grey-500); text-decoration: none; }
+  .page-crumbs a:hover { color: var(--navy-700); }
+  .page-crumbs .sep { color: var(--grey-300); }
+  .page-crumbs .current { color: var(--ink); font-weight: 500; }
+  .page-title { font-size: 24px; font-weight: 600; color: var(--ink); margin: 0 0 4px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
+  .draft-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; background: var(--grey-100); color: var(--grey-700); font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 3px; }
+  .draft-tag::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--grey-500); }
+  .page-sub { color: var(--grey-500); font-size: 13px; max-width: 700px; }
+  .header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+  /* ===== CARDS ===== */
+  .form-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; margin-bottom: 18px; }
+  .form-card-header { padding: 14px 20px; border-bottom: 1px solid var(--grey-200); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .form-card-title-block { display: flex; align-items: center; gap: 10px; }
+  .form-card-step { font-family: var(--font-mono); font-size: 11px; color: var(--grey-500); font-weight: 500; background: var(--grey-100); padding: 2px 7px; border-radius: 3px; }
+  .form-card-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); }
+  .form-card-help { font-size: 12px; color: var(--grey-500); }
+  .form-card-body { padding: 20px; }
+
+  /* ===== FIELDS ===== */
+  .field-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; }
+  .field-group { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .field-group.span-2 { grid-column: span 2; }
+  .field-label { font-size: 12px; color: var(--grey-700); font-weight: 500; display: inline-flex; align-items: center; gap: 5px; }
+  .req { color: var(--red-700); }
+  .field-hint { font-size: 11px; color: var(--grey-500); margin-top: 0; line-height: 1.4; }
+  .field { height: 34px; padding: 0 12px; background: #fff; border: 1px solid var(--grey-300); border-radius: 3px; font-size: 13px; color: var(--ink); font-family: inherit; width: 100%; }
+  .field:hover { border-color: var(--grey-400); }
+  .field:focus { outline: none; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+  .field::placeholder { color: var(--grey-400); }
+  select.field { padding-right: 32px; appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%238A8A8A' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; cursor: pointer; }
+
+  /* Phone with NGN prefix */
+  .with-prefix { display: flex; align-items: stretch; border: 1px solid var(--grey-300); border-radius: 3px; background: #fff; height: 34px; overflow: hidden; }
+  .with-prefix:focus-within { border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+  .with-prefix .affix { background: var(--grey-100); color: var(--grey-700); display: grid; place-items: center; padding: 0 10px; font-weight: 600; font-size: 12px; border-right: 1px solid var(--grey-200); font-variant-numeric: tabular-nums; }
+  .with-prefix .affix-flag { width: 18px; height: 12px; border-radius: 1px; overflow: hidden; display: inline-grid; grid-template-columns: 1fr 1fr 1fr; box-shadow: 0 0 0 1px rgba(0,0,0,0.05); margin-right: 6px; vertical-align: -2px; }
+  .with-prefix .affix-flag .g { background: #008751; }
+  .with-prefix .affix-flag .w { background: #ffffff; }
+  .with-prefix input { all: unset; flex: 1; padding: 0 12px; font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* Radio cards */
+  .radio-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .radio-card { display: flex; gap: 12px; padding: 16px 18px; border: 1px solid var(--grey-300); border-radius: 4px; background: #fff; cursor: pointer; position: relative; transition: border-color .12s, background .12s; }
+  .radio-card:hover { border-color: var(--navy-600); }
+  .radio-card.selected { border-color: var(--navy-700); background: var(--navy-50); box-shadow: 0 0 0 2px rgba(31,78,121,0.06); }
+  .radio-card.disabled { background: var(--grey-100); border-color: var(--grey-200); cursor: not-allowed; opacity: 0.78; }
+  .radio-card.disabled:hover { border-color: var(--grey-200); }
+  .radio-dot { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--grey-400); background: #fff; flex-shrink: 0; margin-top: 2px; position: relative; }
+  .radio-card.selected .radio-dot { border-color: var(--navy-700); }
+  .radio-card.selected .radio-dot::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--navy-700); }
+  .radio-card.disabled .radio-dot { border-color: var(--grey-300); }
+  .radio-icon { width: 32px; height: 32px; border-radius: 4px; background: var(--navy-50); color: var(--navy-700); display: grid; place-items: center; flex-shrink: 0; }
+  .radio-card.disabled .radio-icon { background: var(--grey-200); color: var(--grey-400); }
+  .radio-body { flex: 1; min-width: 0; }
+  .radio-title { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
+  .radio-card.disabled .radio-title { color: var(--grey-500); }
+  .radio-desc { font-size: 12px; color: var(--grey-700); line-height: 1.5; }
+  .radio-card.disabled .radio-desc { color: var(--grey-500); }
+  .phase-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 3px; background: var(--amber-50); color: var(--amber-700); text-transform: uppercase; }
+
+  /* Business/Personal segmented toggle */
+  .seg-toggle { display: inline-flex; padding: 3px; background: var(--grey-100); border-radius: 4px; gap: 2px; align-self: flex-start; }
+  .seg-btn { padding: 6px 14px; background: transparent; border: none; font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--grey-700); cursor: pointer; border-radius: 3px; display: inline-flex; align-items: center; gap: 6px; }
+  .seg-btn.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
+  /* Pricing tier select with inline help */
+  .pricing-help { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; background: var(--navy-50); border: 1px solid var(--navy-100); border-radius: 3px; font-size: 12px; color: var(--navy-800); line-height: 1.5; margin-top: 8px; }
+  .pricing-help svg { color: var(--navy-700); flex-shrink: 0; margin-top: 1px; }
+  .pricing-help b { color: var(--ink); }
+  .price-preview { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; margin-top: 6px; font-size: 11.5px; padding-top: 6px; border-top: 1px solid rgba(31,78,121,0.15); }
+  .price-preview .name { color: var(--navy-800); }
+  .price-preview .val { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* Status pill (active default) */
+  .status-row { display: flex; align-items: center; gap: 10px; }
+  .status-row .pill { font-size: 11px; padding: 3px 9px; height: auto; }
+  .status-row .change-link { font-size: 11.5px; color: var(--navy-700); font-weight: 500; cursor: pointer; }
+
+  /* Notes textarea */
+  .notes-textarea { width: 100%; min-height: 100px; padding: 12px; background: #fff; border: 1px solid var(--grey-300); border-radius: 3px; font-family: inherit; font-size: 13px; color: var(--ink); resize: vertical; line-height: 1.5; }
+  .notes-textarea:focus { outline: none; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+
+  /* Sticky footer */
+  .form-footer { margin-top: 20px; padding: 14px 20px; background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; display: flex; align-items: center; justify-content: space-between; gap: 16px; position: sticky; bottom: 16px; box-shadow: var(--shadow-sm); }
+  .form-footer-left { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 12px; }
+  .form-footer-left b { color: var(--ink); }
+  .form-footer-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ===== STATUS PILL UTILITY (in case) ===== */
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }
+  .pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+  .pill-green { background: var(--green-50); color: var(--green-700); }
+  .pill-green::before { background: var(--green-700); }
+
+</style>
+</head>
+<body>
+
+<!-- ====================== SIDEBAR ====================== -->
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div>
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+  <nav class="nav-scroll">
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Overview</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body"><a class="nav-item" href="#">Dashboard</a></div>
+    </div>
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Procurement</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Purchase Orders</a>
+        <a class="nav-item" href="#">Shipments</a>
+      </div>
+    </div>
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Inventory</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Units (kekes)</a>
+        <a class="nav-item" href="#">Assembly Jobs</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-header"><span>Sales</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="10" height="11.5" rx="1"/><path d="M5.5 6h5M5.5 8.5h5M5.5 11h3"/></svg>Sales Orders</a>
+        <a class="nav-item active" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5"/></svg>Customers</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8.5 2.5l5 5-6 6-5-5V2.5h6z"/><circle cx="6" cy="6" r="0.8" fill="currentColor"/></svg>Price Lists</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h10v11l-2-1-1.5 1L8 12.5l-1.5 1L5 12.5l-2 1v-11z"/><path d="M5.5 5.5h5M5.5 8h5"/></svg>Invoices &amp; Payments</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h7v6H2zM9 7h3.5l2 2v1.5H9z"/><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>Deliveries</a>
+      </div>
+    </div>
+  </nav>
+  <div class="app-user">
+    <div class="avatar">CN</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Chioma Nwankwo</div>
+      <div class="app-user-role">Sales Officer · Warehouse</div>
+      <a class="app-user-sign" href="#"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4V3a1 1 0 00-1-1H3.5a1 1 0 00-1 1v10a1 1 0 001 1H9a1 1 0 001-1v-1"/><path d="M7 8h7m0 0l-2.5-2.5M14 8l-2.5 2.5"/></svg>Sign out</a>
+    </div>
+  </div>
+</aside>
+
+<!-- ====================== MAIN ====================== -->
+<main class="app-main">
+
+  <header class="topbar">
+    <div class="topbar-company">Enviable <span class="accent">Tricycle</span></div>
+    <div class="topbar-search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+      <input placeholder="Search customers, orders, units…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-icon-btn" title="Help"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M6.5 6a1.5 1.5 0 113 0c0 1-1.5 1.2-1.5 2.5M8 11v.01"/></svg></button>
+      <button class="topbar-icon-btn" title="Notifications"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.5 11h9l-1-2V6.5a3.5 3.5 0 10-7 0V9l-1 2zM6.5 13a1.5 1.5 0 003 0"/></svg></button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="avatar">CN</div>
+        <div class="topbar-user-text">
+          <div class="topbar-user-name">Chioma Nwankwo</div>
+          <div class="topbar-user-role">Sales Officer · Warehouse</div>
+        </div>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--grey-400);"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-content">
+  <div class="page">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div>
+        <div class="page-crumbs">
+          <a href="#">Sales</a><span class="sep">/</span>
+          <a href="#">Customers</a><span class="sep">/</span>
+          <span class="current">New</span>
+        </div>
+        <h1 class="page-title">New Customer <span class="draft-tag">Draft</span></h1>
+        <div class="page-sub">Add a reseller to the customer master. Once saved, sales orders can be raised against this customer and priced from their assigned tier.</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost">Cancel</button>
+        <button class="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 8l3.5 3.5L14 3"/></svg>
+          Save Customer
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== CUSTOMER TYPE ===== -->
+    <section class="form-card">
+      <div class="form-card-header">
+        <div class="form-card-title-block">
+          <span class="form-card-step">01</span>
+          <h2 class="form-card-title">Customer Type</h2>
+        </div>
+        <span class="form-card-help">Determines the order pathway and which fields apply</span>
+      </div>
+      <div class="form-card-body">
+        <div class="radio-row">
+
+          <div class="radio-card selected">
+            <div class="radio-dot"></div>
+            <div class="radio-icon">
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="12" height="9" rx="1"/><path d="M5 5V3a3 3 0 016 0v2M6 8h4M6 11h4"/></svg>
+            </div>
+            <div class="radio-body">
+              <div class="radio-title">Reseller</div>
+              <div class="radio-desc">Wholesale partner buying units to resell. Sales raised via the back-office; priced from a reseller tier.</div>
+            </div>
+          </div>
+
+          <div class="radio-card disabled" title="Coming in phase 2">
+            <div class="radio-dot"></div>
+            <div class="radio-icon">
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="2.5"/><path d="M2.5 14c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/></svg>
+            </div>
+            <div class="radio-body">
+              <div class="radio-title">End User <span class="phase-tag">Phase 2</span></div>
+              <div class="radio-desc">Retail end-user customers are managed at retail POS, coming in phase 2.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CUSTOMER DETAILS ===== -->
+    <section class="form-card">
+      <div class="form-card-header">
+        <div class="form-card-title-block">
+          <span class="form-card-step">02</span>
+          <h2 class="form-card-title">Customer Details</h2>
+        </div>
+        <span class="form-card-help">Reseller identity &amp; primary contact</span>
+      </div>
+      <div class="form-card-body">
+        <div class="field-grid-2">
+
+          <div class="field-group span-2">
+            <label class="field-label">Name <span class="req">*</span></label>
+            <input class="field" placeholder="e.g. ABC Tricycle Dealers Ltd." />
+            <span class="field-hint">Legal entity name as it should appear on invoices and dispatch notes</span>
+          </div>
+
+          <div class="field-group span-2">
+            <label class="field-label">Customer is</label>
+            <div class="seg-toggle">
+              <button class="seg-btn active" data-seg="business" type="button">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="12" height="9" rx="1"/><path d="M5 5V3a3 3 0 016 0v2"/></svg>
+                Business
+              </button>
+              <button class="seg-btn" data-seg="personal" type="button">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="2.5"/><path d="M2.5 14c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/></svg>
+                Personal
+              </button>
+            </div>
+            <span class="field-hint">Business resellers require a TIN; personal resellers can use BVN instead</span>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Contact Person <span class="req">*</span></label>
+            <input class="field" placeholder="Full name of primary contact" />
+            <span class="field-hint">Who we'll call about orders and deliveries</span>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Phone <span class="req">*</span></label>
+            <div class="with-prefix">
+              <span class="affix">
+                <span class="affix-flag"><span class="g"></span><span class="w"></span><span class="g"></span></span>
+                +234
+              </span>
+              <input placeholder="803 414 8821" />
+            </div>
+            <span class="field-hint">Nigerian mobile · we&rsquo;ll send order updates here by SMS</span>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Email <span style="color: var(--grey-400); font-weight: 400;">— optional</span></label>
+            <input class="field" type="email" placeholder="orders@example.com" />
+            <span class="field-hint">For invoice PDFs and statements; SMS will still be the primary channel</span>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">TIN / Tax ID <span class="req">*</span></label>
+            <input class="field" placeholder="e.g. 21845-0001" style="font-family: var(--font-mono);" />
+            <span class="field-hint">FIRS-issued Tax Identification Number · required for VAT invoicing</span>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Status</label>
+            <div class="status-row">
+              <span class="pill pill-green">Active</span>
+              <span class="change-link">Change&hellip;</span>
+            </div>
+            <span class="field-hint">New customers default to Active and can immediately have orders raised against them</span>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ADDRESS ===== -->
+    <section class="form-card">
+      <div class="form-card-header">
+        <div class="form-card-title-block">
+          <span class="form-card-step">03</span>
+          <h2 class="form-card-title">Address</h2>
+        </div>
+        <span class="form-card-help">Primary business / delivery address</span>
+      </div>
+      <div class="form-card-body">
+        <div class="field-grid-2">
+
+          <div class="field-group span-2">
+            <label class="field-label">Address Line 1 <span class="req">*</span></label>
+            <input class="field" placeholder="Street address, building, or shop unit" />
+          </div>
+
+          <div class="field-group span-2">
+            <label class="field-label">Address Line 2 <span style="color: var(--grey-400); font-weight: 400;">— optional</span></label>
+            <input class="field" placeholder="Suite, floor, landmark — anything that helps the driver find it" />
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">City <span class="req">*</span></label>
+            <input class="field" placeholder="e.g. Ikeja" />
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">State <span class="req">*</span></label>
+            <select class="field">
+              <option>Abia</option><option>Adamawa</option><option>Akwa Ibom</option>
+              <option>Anambra</option><option>Bauchi</option><option>Bayelsa</option>
+              <option>Benue</option><option>Borno</option><option>Cross River</option>
+              <option>Delta</option><option>Ebonyi</option><option>Edo</option>
+              <option>Ekiti</option><option>Enugu</option><option>FCT — Abuja</option>
+              <option>Gombe</option><option>Imo</option><option>Jigawa</option>
+              <option>Kaduna</option><option>Kano</option><option>Katsina</option>
+              <option>Kebbi</option><option>Kogi</option><option>Kwara</option>
+              <option selected>Lagos</option><option>Nasarawa</option><option>Niger</option>
+              <option>Ogun</option><option>Ondo</option><option>Osun</option>
+              <option>Oyo</option><option>Plateau</option><option>Rivers</option>
+              <option>Sokoto</option><option>Taraba</option><option>Yobe</option>
+              <option>Zamfara</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Country <span class="req">*</span></label>
+            <select class="field">
+              <option selected>Nigeria</option>
+              <option>Benin</option>
+              <option>Ghana</option>
+              <option>Niger</option>
+              <option>Togo</option>
+            </select>
+            <span class="field-hint">MVP scope is Nigeria only; ECOWAS export terms in phase 3</span>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Postal Code <span style="color: var(--grey-400); font-weight: 400;">— optional</span></label>
+            <input class="field" placeholder="e.g. 100271" style="font-variant-numeric: tabular-nums;" />
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PRICING TIER ===== -->
+    <section class="form-card">
+      <div class="form-card-header">
+        <div class="form-card-title-block">
+          <span class="form-card-step">04</span>
+          <h2 class="form-card-title">Pricing Tier</h2>
+        </div>
+        <span class="form-card-help">Drives the price list applied at order entry</span>
+      </div>
+      <div class="form-card-body">
+        <div class="field-grid-2">
+          <div class="field-group span-2">
+            <label class="field-label">Tier <span class="req">*</span></label>
+            <select class="field" id="tierSelect">
+              <option value="rs" selected>Reseller Standard</option>
+              <option value="rv">Reseller Volume</option>
+            </select>
+            <span class="field-hint">Tier determines which price list is applied to this customer.</span>
+
+            <div class="pricing-help" id="pricingHelp">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.01"/></svg>
+              <div style="flex:1;">
+                <div><b>Reseller Standard</b> · v3 · effective 01 May 2026 — the default wholesale rate card.</div>
+                <div class="price-preview">
+                  <span class="name">TVS King GS+ DP CKD EXP10 — any colour</span><span class="val">₦ 2,800,000 / unit</span>
+                  <span class="name">TVS King ZS+ EXP — fully assembled</span><span class="val">₦ 3,500,000 / unit</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== NOTES ===== -->
+    <section class="form-card">
+      <div class="form-card-header">
+        <div class="form-card-title-block">
+          <span class="form-card-step">05</span>
+          <h2 class="form-card-title">Notes</h2>
+        </div>
+        <span class="form-card-help">Internal — visible to sales, finance &amp; managers</span>
+      </div>
+      <div class="form-card-body">
+        <textarea class="notes-textarea" placeholder="Anything sales should remember about this customer — preferred variants, dispatch windows, credit history, intro source, etc."></textarea>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 11px; color: var(--grey-500);">
+          <span>Plain text only · not sent to the customer</span>
+          <span><span class="tabular">0</span> / 2,000 characters</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== STICKY FOOTER ===== -->
+    <div class="form-footer">
+      <div class="form-footer-left">
+        <span>Creating as <b>Chioma Nwankwo</b> · Sales Officer</span>
+        <span style="color: var(--grey-300);">·</span>
+        <span>Customer will be added to the <b>Reseller</b> roster</span>
+      </div>
+      <div class="form-footer-actions">
+        <button class="btn btn-ghost">Cancel</button>
+        <button class="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 8l3.5 3.5L14 3"/></svg>
+          Save Customer
+        </button>
+      </div>
+    </div>
+
+  </div>
+  </div>
+
+</main>
+
+<script>
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+  });
+
+  // Segmented business/personal
+  document.querySelectorAll('.seg-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      b.parentElement.querySelectorAll('.seg-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    });
+  });
+
+  // Tier select switches the pricing-help body
+  const tierSel = document.getElementById('tierSelect');
+  const helpBox = document.getElementById('pricingHelp');
+  tierSel.addEventListener('change', () => {
+    if (tierSel.value === 'rs') {
+      helpBox.querySelector('div div').innerHTML = '<b>Reseller Standard</b> · v3 · effective 01 May 2026 — the default wholesale rate card.';
+      helpBox.querySelector('.price-preview').innerHTML = `
+        <span class="name">TVS King GS+ DP CKD EXP10 — any colour</span><span class="val">₦ 2,800,000 / unit</span>
+        <span class="name">TVS King ZS+ EXP — fully assembled</span><span class="val">₦ 3,500,000 / unit</span>`;
+    } else {
+      helpBox.querySelector('div div').innerHTML = '<b>Reseller Volume</b> · v3 · effective 01 May 2026 — discounted tier for partners committing to ≥50 units/quarter.';
+      helpBox.querySelector('.price-preview').innerHTML = `
+        <span class="name">TVS King GS+ DP CKD EXP10 — any colour</span><span class="val">₦ 2,720,000 / unit</span>
+        <span class="name">TVS King ZS+ EXP — fully assembled</span><span class="val">₦ 3,400,000 / unit</span>`;
+    }
+  });
+
+  // Radio card selection (only Reseller selectable; EndUser disabled)
+  document.querySelectorAll('.radio-card').forEach(r => {
+    r.addEventListener('click', () => {
+      if (r.classList.contains('disabled')) return;
+      document.querySelectorAll('.radio-card').forEach(x => x.classList.remove('selected'));
+      r.classList.add('selected');
+    });
+  });
+</script>
+
+<script src="role-switcher.js"></script>
+</body>
+</html>

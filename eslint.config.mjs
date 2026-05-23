@@ -18,6 +18,7 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      "design_handoff_enviable_io/**",
     ],
   },
 ];

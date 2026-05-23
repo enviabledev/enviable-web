@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Audit Log — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  body { display: flex; min-height: 100vh; }
+  .app-sidebar { width: var(--sidebar-w); background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; font-size: var(--fs-13); }
+  .app-brand { height: var(--topbar-h); padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .app-brand-mark { width: 30px; height: 30px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 13.5px; }
+  .app-brand-sub { color: #8aa6c4; font-size: 10.5px; }
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 8px 8px 12px; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; color: #6f8aa6; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600; cursor: pointer; user-select: none; }
+  .nav-group-header .chev { color: #6f8aa6; transition: transform .15s ease; }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .nav-group-body { display: none; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 7px 12px; border-radius: 3px; color: #cfdcec; text-decoration: none; line-height: 1.3; position: relative; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -8px; top: 4px; bottom: 4px; width: 3px; border-radius: 0 2px 2px 0; background: #5a9fe8; }
+  .nav-item svg { width: 16px; height: 16px; opacity: .85; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px; flex-shrink: 0; }
+  .app-user-meta { line-height: 1.25; flex: 1; min-width: 0; }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; }
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: var(--topbar-h); border-bottom: 1px solid var(--grey-200); background: #fff; display: flex; align-items: center; padding: 0 20px; gap: 16px; position: sticky; top: 0; z-index: 30; }
+  .topbar-company { font-size: 14px; font-weight: 600; color: var(--ink); padding-right: 18px; border-right: 1px solid var(--grey-200); height: 28px; display: flex; align-items: center; }
+  .topbar-company .accent { color: var(--navy-700); }
+  .topbar-user { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 999px; }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 11px; border: none; }
+  .topbar-user-text { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-user-name { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .topbar-user-role { font-size: 11px; color: var(--grey-500); }
+
+  /* ===== PAGE ===== */
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; }
+  .page { padding: 22px 28px 50px; max-width: 1480px; }
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--grey-200); gap: 24px; }
+  .page-crumbs { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .page-crumbs a { color: var(--grey-500); text-decoration: none; }
+  .page-crumbs .sep { color: var(--grey-300); }
+  .page-crumbs .current { color: var(--ink); font-weight: 500; }
+  .page-title { font-size: 24px; font-weight: 600; color: var(--ink); margin: 0 0 4px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
+  .immutable-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; background: var(--green-50); color: var(--green-700); font-size: 11px; font-weight: 600; border-radius: 3px; }
+  .immutable-tag svg { color: var(--green-700); }
+  .page-sub { color: var(--grey-500); font-size: 13px; }
+  .page-sub b { color: var(--ink); font-weight: 500; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ===== FILTER BAR ===== */
+  .filter-bar { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; padding: 12px 16px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 12px; align-items: end; }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .filter-label { font-size: 11px; color: var(--grey-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .filter-control { height: 32px; background: #fff; border: 1px solid var(--grey-300); border-radius: 3px; padding: 0 10px; font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; }
+  .filter-control:hover { border-color: var(--grey-400); }
+  .filter-control .leading { color: var(--grey-500); flex-shrink: 0; }
+  .filter-control .value { color: var(--ink); font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .filter-control .placeholder { color: var(--grey-400); }
+  .filter-control .chev { color: var(--grey-400); flex-shrink: 0; margin-left: auto; }
+  .filter-control input { all: unset; flex: 1; min-width: 0; font-size: 13px; color: var(--ink); }
+  .filter-control input::placeholder { color: var(--grey-400); }
+  .filter-control .count-badge { background: var(--navy-700); color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 999px; margin-left: auto; font-weight: 600; }
+  .filter-reset { height: 32px; padding: 0 12px; border: 1px solid transparent; background: transparent; color: var(--navy-700); cursor: pointer; font-size: 13px; font-weight: 500; border-radius: 3px; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
+  .filter-reset:hover { background: var(--navy-50); }
+
+  /* ===== TWO-COL LAYOUT ===== */
+  .audit-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+
+  /* ===== FEED ===== */
+  .feed-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; min-width: 0; }
+  .feed-head { padding: 12px 16px; border-bottom: 1px solid var(--grey-200); background: #FBFBFB; display: flex; align-items: center; justify-content: space-between; }
+  .feed-head .summary-text { font-size: 12.5px; color: var(--grey-700); }
+  .feed-head .summary-text b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .feed-head .right { display: flex; align-items: center; gap: 8px; }
+  .sort-btn { height: 28px; padding: 0 10px; border: 1px solid var(--grey-300); background: #fff; border-radius: 3px; font-size: 12px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 5px; color: var(--ink); }
+  .sort-btn:hover { background: var(--grey-100); }
+
+  /* Day separator */
+  .day-sep { padding: 14px 18px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--grey-500); font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .day-sep::after { content: ''; flex: 1; height: 1px; background: var(--grey-200); }
+  .day-sep .count { background: var(--grey-100); color: var(--grey-700); padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 600; }
+
+  /* Entry */
+  .entry {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--grey-200);
+    display: grid; grid-template-columns: 34px 1fr;
+    gap: 12px;
+    min-width: 0;
+    position: relative;
+  }
+  .entry:last-child { border-bottom: none; }
+  .entry.is-blocked { background: linear-gradient(to right, #FCEBEB 0%, #fff 38%); }
+  .entry.is-system { background: #F4F6FA; }
+  .entry-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--navy-100); color: var(--navy-800);
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
+    flex-shrink: 0;
+  }
+  .entry-avatar.sys { background: var(--grey-200); color: var(--grey-700); }
+  .entry-avatar.opdir { background: #E8F2E9; color: var(--green-700); }
+  .entry-avatar.proc { background: #FBEFE0; color: var(--amber-700); }
+  .entry-avatar.warn { background: #FAE3E3; color: var(--red-700); }
+  .entry-body { min-width: 0; }
+  .entry-top {
+    display: flex; align-items: baseline; gap: 8px;
+    font-size: 13px; line-height: 1.5; color: var(--ink);
+    flex-wrap: wrap;
+  }
+  .entry-actor { font-weight: 600; }
+  .entry-actor.sys { color: var(--grey-700); }
+  .entry-verb {
+    display: inline-flex; align-items: center;
+    padding: 1px 6px; border-radius: 2px;
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--grey-100); color: var(--grey-700);
+    font-weight: 600;
+  }
+  .entry-verb.create { background: var(--green-50); color: var(--green-700); }
+  .entry-verb.update { background: var(--navy-50); color: var(--navy-700); }
+  .entry-verb.status { background: var(--amber-50); color: var(--amber-700); }
+  .entry-verb.delete { background: var(--red-50); color: var(--red-700); }
+  .entry-ref { font-family: var(--font-mono); font-size: 12px; color: var(--navy-700); text-decoration: none; background: var(--navy-50); padding: 1px 6px; border-radius: 2px; }
+  .entry-ref:hover { background: var(--navy-100); }
+  .entry-meta { color: var(--grey-700); }
+  .entry-time {
+    margin-left: auto;
+    font-size: 11.5px; color: var(--grey-500); font-variant-numeric: tabular-nums;
+    cursor: help; flex-shrink: 0; white-space: nowrap;
+  }
+  .entry-time .rel { color: var(--grey-400); margin-left: 4px; font-size: 11px; }
+
+  /* Tags row */
+  .entry-tags {
+    margin-top: 6px;
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 600;
+    padding: 2px 6px; border-radius: 2px;
+    letter-spacing: 0.03em; text-transform: uppercase;
+  }
+  .tag-action.create { background: var(--green-50); color: var(--green-700); }
+  .tag-action.update { background: var(--navy-50); color: var(--navy-700); }
+  .tag-action.status { background: var(--amber-50); color: var(--amber-700); }
+  .tag-action.delete { background: var(--red-50); color: var(--red-700); }
+  .tag-action.delete-blocked { background: var(--red-700); color: #fff; }
+  .tag-entity { background: var(--grey-100); color: var(--grey-700); }
+  .tag-entity.po { background: #E8EEF5; color: #163C61; }
+  .tag-entity.pi { background: #FCF3E5; color: #8A4B05; }
+  .tag-entity.so { background: #DDE7F0; color: var(--navy-800); }
+  .tag-entity.shipment { background: #E6F0EB; color: #1F5A37; }
+  .tag-entity.unit { background: #E8E8F1; color: #3D3D7A; }
+  .tag-entity.user { background: #F0E8EE; color: #6E2A5C; }
+  .tag-entity.payment { background: var(--green-50); color: var(--green-700); }
+  .tag-entity.cp { background: #F5EBE0; color: #7A4B22; }
+  .tag-entity.audit { background: var(--red-50); color: var(--red-700); border: 1px dashed var(--red-700); }
+  .tag-id { font-family: var(--font-mono); font-size: 10px; color: var(--grey-400); margin-left: 4px; }
+
+  /* Expander */
+  .expand-toggle {
+    margin-top: 6px;
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; color: var(--navy-700); font-weight: 500;
+    cursor: pointer;
+    background: transparent; border: none; padding: 0;
+    font-family: inherit;
+  }
+  .expand-toggle:hover { text-decoration: underline; }
+  .expand-toggle svg { transition: transform .15s; }
+  .expand-toggle.open svg { transform: rotate(90deg); }
+  .changes-panel {
+    margin-top: 10px;
+    display: none;
+    background: #FBFBFC;
+    border: 1px solid var(--grey-200);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .changes-panel.open { display: block; }
+  .changes-tabs {
+    display: flex; border-bottom: 1px solid var(--grey-200);
+    background: #fff;
+    padding: 0 8px;
+  }
+  .changes-tab {
+    padding: 7px 12px;
+    font-size: 11.5px; font-weight: 500; color: var(--grey-700);
+    background: transparent; border: none;
+    cursor: pointer; font-family: inherit;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .changes-tab:hover { color: var(--ink); }
+  .changes-tab.active { color: var(--navy-700); border-bottom-color: var(--navy-700); }
+  .changes-body {
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+  /* Side-by-side diff */
+  .diff-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--grey-200); border-radius: 3px; overflow: hidden; min-width: 0; }
+  .diff-col { padding: 10px 12px; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.6; white-space: pre; overflow-x: auto; min-width: 0; }
+  .diff-col.before { background: #FCF0F0; border-right: 1px solid var(--grey-200); color: #6e2222; }
+  .diff-col.after { background: #F0F7F1; color: #234d28; }
+  .diff-col .h { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; color: var(--grey-500); margin-bottom: 6px; font-family: var(--font-sans); }
+  .diff-col .add { background: rgba(46,125,50,0.15); padding: 1px 3px; border-radius: 2px; }
+  .diff-col .rem { background: rgba(192,0,0,0.12); padding: 1px 3px; border-radius: 2px; text-decoration: line-through; text-decoration-color: rgba(192,0,0,0.5); }
+  /* Property list diff */
+  .prop-diff { display: flex; flex-direction: column; gap: 4px; }
+  .prop-row { display: grid; grid-template-columns: 140px 1fr 1fr; gap: 12px; padding: 5px 0; font-size: 12px; border-bottom: 1px dashed var(--grey-200); align-items: baseline; }
+  .prop-row:last-child { border-bottom: none; }
+  .prop-row .k { color: var(--grey-500); font-size: 11px; font-weight: 500; }
+  .prop-row .before { color: var(--red-700); font-family: var(--font-mono); font-size: 11.5px; text-decoration: line-through; }
+  .prop-row .after { color: var(--green-700); font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; }
+  .prop-row .new-tag { font-size: 10px; color: var(--green-700); background: var(--green-50); padding: 1px 6px; border-radius: 2px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 6px; }
+  .prop-row .none { color: var(--grey-400); font-style: italic; font-family: var(--font-sans); }
+
+  /* Immutability notice */
+  .immutability-notice {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #FFF5E5;
+    border-left: 3px solid var(--amber-700);
+    border-radius: 3px;
+    font-size: 12px; color: var(--amber-700);
+    line-height: 1.5;
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .immutability-notice svg { color: var(--amber-700); flex-shrink: 0; margin-top: 1px; }
+  .immutability-notice b { color: var(--ink); font-weight: 600; }
+  .immutability-notice .ref-link { color: var(--navy-700); font-weight: 600; text-decoration: none; }
+  .immutability-notice .ref-link:hover { text-decoration: underline; }
+
+  /* Blocked event special styling */
+  .block-banner {
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: var(--red-700);
+    color: #fff;
+    border-radius: 3px;
+    font-size: 11.5px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+    letter-spacing: 0.02em;
+  }
+  .block-banner svg { color: #fff; flex-shrink: 0; }
+
+  /* ===== SIDE PANEL ===== */
+  .side-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; margin-bottom: 14px; position: sticky; top: calc(var(--topbar-h) + 16px); }
+  .side-card + .side-card { position: static; }
+  .side-head { padding: 12px 16px; border-bottom: 1px solid var(--grey-200); display: flex; align-items: center; justify-content: space-between; }
+  .side-title { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+  .side-title svg { color: var(--navy-700); }
+  .live-tag { font-size: 10px; color: var(--green-700); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+  .live-tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green-700); animation: blink 1.4s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+
+  .stat-big {
+    padding: 16px;
+    text-align: center;
+    border-bottom: 1px solid var(--grey-200);
+  }
+  .stat-big .num {
+    font-size: 28px; font-weight: 700; color: var(--ink);
+    font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.01em;
+  }
+  .stat-big .lbl {
+    font-size: 11px; color: var(--grey-500);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    font-weight: 600; margin-top: 4px;
+  }
+  .stat-big .sub { font-size: 11px; color: var(--grey-500); margin-top: 6px; }
+
+  .stat-section { padding: 14px 16px; border-bottom: 1px solid var(--grey-200); }
+  .stat-section:last-child { border-bottom: none; }
+  .stat-section h4 { margin: 0 0 10px; font-size: 11px; color: var(--grey-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .mini-bar {
+    display: grid; grid-template-columns: 90px 1fr 36px; gap: 8px;
+    align-items: center; padding: 4px 0;
+    font-size: 11.5px;
+  }
+  .mini-bar .name { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini-bar .name.muted { color: var(--grey-500); }
+  .mini-bar .name.bad { color: var(--red-700); font-weight: 600; }
+  .mini-bar .track { height: 6px; background: var(--grey-100); border-radius: 3px; overflow: hidden; }
+  .mini-bar .track .fill { height: 100%; background: var(--navy-700); border-radius: 3px; }
+  .mini-bar .track .fill.update { background: var(--navy-700); }
+  .mini-bar .track .fill.create { background: var(--green-700); }
+  .mini-bar .track .fill.status { background: var(--amber-700); }
+  .mini-bar .track .fill.delete { background: var(--red-700); }
+  .mini-bar .pct { font-variant-numeric: tabular-nums; color: var(--grey-700); font-weight: 500; text-align: right; }
+
+  /* Actor list */
+  .actor-row {
+    display: grid; grid-template-columns: 22px 1fr auto; gap: 8px;
+    align-items: center; padding: 5px 0;
+    font-size: 12px;
+  }
+  .actor-row .av {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--navy-100); color: var(--navy-800);
+    display: grid; place-items: center;
+    font-size: 9px; font-weight: 700;
+  }
+  .actor-row .av.sys { background: var(--grey-200); color: var(--grey-700); }
+  .actor-row .name { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .actor-row .name .role { color: var(--grey-500); font-size: 10.5px; }
+  .actor-row .count { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; font-size: 11.5px; }
+
+  .compliance-foot {
+    padding: 12px 16px;
+    background: #FBFBFB;
+    border-top: 1px solid var(--grey-200);
+    font-size: 11px; color: var(--grey-500);
+    display: flex; align-items: flex-start; gap: 6px;
+    line-height: 1.5;
+  }
+  .compliance-foot svg { color: var(--green-700); flex-shrink: 0; margin-top: 1px; }
+  .compliance-foot b { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div>
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+  <nav class="nav-scroll">
+    <div class="nav-group">
+      <div class="nav-group-header"><span>Reports</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13l4-4 3 3 5-6"/></svg>Revenue &amp; Sales</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="9" width="2.5" height="5"/><rect x="6.75" y="6" width="2.5" height="8"/><rect x="10.5" y="3" width="2.5" height="11"/></svg>Stocks</a>
+        <a class="nav-item" href="#">Customers</a>
+        <a class="nav-item active" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2a6 6 0 11-4.5 2"/><path d="M3.5 1.5v3h3M8 5v3.5l2 1.5"/></svg>Audit Log</a>
+      </div>
+    </div>
+  </nav>
+  <div class="app-user">
+    <div class="avatar">IA</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Ifeoma Achebe</div>
+      <div class="app-user-role">Internal Auditor</div>
+    </div>
+  </div>
+</aside>
+
+<main class="app-main">
+
+  <header class="topbar">
+    <div class="topbar-company">Enviable <span class="accent">Tricycle</span></div>
+    <div style="flex: 1;"></div>
+    <div class="topbar-user">
+      <div class="avatar">IA</div>
+      <div class="topbar-user-text">
+        <div class="topbar-user-name">Ifeoma Achebe</div>
+        <div class="topbar-user-role">Internal Auditor</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-content">
+  <div class="page">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div>
+        <div class="page-crumbs">
+          <a href="#">Reports</a><span class="sep">/</span>
+          <span class="current">Audit Log</span>
+        </div>
+        <h1 class="page-title">
+          Audit Log
+          <span class="immutable-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="10" height="6" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>
+            Immutable · append-only
+          </span>
+        </h1>
+        <div class="page-sub">Every state-changing action across the system, with actor, timestamp and before/after values. <b>Entries cannot be edited or deleted</b> — any attempt is itself recorded.</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8s2.5-4.5 6-4.5S14 8 14 8s-2.5 4.5-6 4.5S2 8 2 8z"/><circle cx="8" cy="8" r="2"/></svg>
+          Live tail
+        </button>
+        <button class="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+          Export Filtered
+        </button>
+      </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">Date Range</span>
+        <button class="filter-control">
+          <svg class="leading" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3.5" width="12" height="10" rx="1"/><path d="M2 6h12M5 2v3M11 2v3"/></svg>
+          <span class="value">15 May – 19 May 2026</span>
+          <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+        </button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Actor</span>
+        <button class="filter-control">
+          <svg class="leading" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2"/><circle cx="11" cy="7" r="1.5"/><path d="M2 13c0-2 1.8-3.5 4-3.5S10 11 10 13M10 13c0-1.5 1-2.5 2-2.5s2 1 2 2.5"/></svg>
+          <span class="placeholder">All actors</span>
+          <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+        </button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Entity Type</span>
+        <button class="filter-control">
+          <svg class="leading" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/></svg>
+          <span class="value">3 selected</span>
+          <span class="count-badge">3</span>
+        </button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Action</span>
+        <button class="filter-control">
+          <svg class="leading" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8s2.5-4.5 6-4.5S14 8 14 8s-2.5 4.5-6 4.5S2 8 2 8z"/><circle cx="8" cy="8" r="2"/></svg>
+          <span class="placeholder">All actions</span>
+          <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+        </button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Search</span>
+        <div class="filter-control" style="cursor: text;">
+          <svg class="leading" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+          <input placeholder="Search refs, notes, fields…" />
+        </div>
+      </div>
+      <button class="filter-reset">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8a5 5 0 1 1 1.5 3.5"/><path d="M3 4v3.5h3.5"/></svg>
+        Reset
+      </button>
+    </div>
+
+    <!-- LAYOUT -->
+    <div class="audit-layout">
+
+      <!-- ============== FEED ============== -->
+      <section class="feed-card">
+        <div class="feed-head">
+          <span class="summary-text"><b>142</b> entries · sorted newest first · <b>Shipment</b>, <b>SalesOrder</b>, <b>Audit</b> filters active</span>
+          <div class="right">
+            <button class="sort-btn">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 1v8M2 6l3 3 3-3"/></svg>
+              Newest first
+            </button>
+            <button class="sort-btn">Show: 15</button>
+          </div>
+        </div>
+
+        <!-- DAY: 19 May -->
+        <div class="day-sep">Today · 19 May 2026 <span class="count">9 events</span></div>
+
+        <!-- ENTRY 1 -->
+        <div class="entry">
+          <div class="entry-avatar opdir">OA</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor">Olufemi Adesanya</span>
+              <span class="entry-verb status">STATUS_CHANGE</span>
+              <a href="#" class="entry-ref">SO-2026-001</a>
+              <span class="entry-meta">→ <b>ReleaseAuthorised</b></span>
+              <span class="entry-time">14:42:08 WAT<span class="rel"> · 4 min ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action status">status_change</span>
+              <span class="tag tag-entity so">SalesOrder</span>
+              <span class="tag-id">#audit-1056</span>
+            </div>
+            <button class="expand-toggle" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open');">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 2l3 3-3 3"/></svg>
+              Show changes
+            </button>
+            <div class="changes-panel">
+              <div class="changes-tabs">
+                <button class="changes-tab active">Property diff</button>
+                <button class="changes-tab">Before / After JSON</button>
+              </div>
+              <div class="changes-body">
+                <div class="prop-diff">
+                  <div class="prop-row"><span class="k">state</span><span class="before">PaymentReceived</span><span class="after">ReleaseAuthorised</span></div>
+                  <div class="prop-row"><span class="k">released_by_user_id</span><span class="before none">(null)</span><span class="after">usr_olufemi.adesanya</span></div>
+                  <div class="prop-row"><span class="k">released_at</span><span class="before none">(null)</span><span class="after">2026-05-19T14:42:08+01:00</span></div>
+                  <div class="prop-row"><span class="k">release_ref</span><span class="before none">(null)</span><span class="after">RA-2026-001</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENTRY 2 (expanded by default for demo) -->
+        <div class="entry">
+          <div class="entry-avatar">AE</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor">Adaobi Eze</span>
+              <span class="entry-verb update">UPDATE</span>
+              <a href="#" class="entry-ref">SO-2026-001</a>
+              <span class="entry-meta">— payment recorded · FBN-20260515-093421</span>
+              <span class="entry-time">14:42:01 WAT<span class="rel"> · 4 min ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action update">update</span>
+              <span class="tag tag-entity payment">Payment</span>
+              <span class="tag tag-entity so">SalesOrder</span>
+              <span class="tag-id">#audit-1055</span>
+            </div>
+            <button class="expand-toggle open" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open');">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 2l3 3-3 3"/></svg>
+              Hide changes
+            </button>
+            <div class="changes-panel open">
+              <div class="changes-tabs">
+                <button class="changes-tab active">Property diff</button>
+                <button class="changes-tab">Before / After JSON</button>
+              </div>
+              <div class="changes-body">
+                <div class="prop-diff">
+                  <div class="prop-row"><span class="k">payment_status</span><span class="before">Pending</span><span class="after">Confirmed</span></div>
+                  <div class="prop-row"><span class="k">amount_received_ngn</span><span class="before">0.00</span><span class="after">9,567,500.00</span></div>
+                  <div class="prop-row"><span class="k">bank_reference</span><span class="before none">(null)</span><span class="after">FBN-20260515-093421</span></div>
+                  <div class="prop-row"><span class="k">confirmation_source</span><span class="before none">(null)</span><span class="after">manual_upload</span></div>
+                  <div class="prop-row"><span class="k">receipt_doc_id</span><span class="before none">(null)</span><span class="after">doc_a47b8c</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENTRY 3 -->
+        <div class="entry">
+          <div class="entry-avatar">AE</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor">Adaobi Eze</span>
+              <span class="entry-verb create">CREATE</span>
+              <a href="#" class="entry-ref">SO-2026-001</a>
+              <span class="entry-meta">for ABC Tricycle Dealers Ltd. · 3 units · ₦9,567,500.00</span>
+              <span class="entry-time">14:08:54 WAT<span class="rel"> · 38 min ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action create">create</span>
+              <span class="tag tag-entity so">SalesOrder</span>
+              <span class="tag-id">#audit-1051</span>
+            </div>
+            <button class="expand-toggle" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open');"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 2l3 3-3 3"/></svg>Show changes</button>
+            <div class="changes-panel"><div class="changes-body" style="padding: 10px 14px;"><span style="font-size: 11.5px; color: var(--grey-500);">New record created · 14 fields set.</span></div></div>
+          </div>
+        </div>
+
+        <!-- ENTRY 4 -->
+        <div class="entry">
+          <div class="entry-avatar proc">DO</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor">Daniel Omage</span>
+              <span class="entry-verb create">CREATE</span>
+              <a href="#" class="entry-ref">AJ-2026-0119</a>
+              <span class="entry-meta">— assembly job · 8 units queued</span>
+              <span class="entry-time">11:42:11 WAT<span class="rel"> · 3 h ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action create">create</span>
+              <span class="tag tag-entity unit">AssemblyJob</span>
+              <span class="tag-id">#audit-1042</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENTRY 5 -->
+        <div class="entry">
+          <div class="entry-avatar warn">KE</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor">Kelechi Ekuru</span>
+              <span class="entry-verb update">UPDATE</span>
+              <a href="#" class="entry-ref">SHP-2026-002</a>
+              <span class="entry-meta">— variance flagged on NEP Blue (-2 units)</span>
+              <span class="entry-time">08:14:32 WAT<span class="rel"> · 6 h ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action update">update</span>
+              <span class="tag tag-entity shipment">Shipment</span>
+              <span class="tag-id">#audit-1031</span>
+            </div>
+            <button class="expand-toggle" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open');"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 2l3 3-3 3"/></svg>Show changes</button>
+            <div class="changes-panel">
+              <div class="changes-body">
+                <div class="prop-diff">
+                  <div class="prop-row"><span class="k">manifest.line[2].received_qty</span><span class="before">200</span><span class="after">198</span></div>
+                  <div class="prop-row"><span class="k">manifest.line[2].variance</span><span class="before">0</span><span class="after">-2</span></div>
+                  <div class="prop-row"><span class="k">manifest.line[2].reason</span><span class="before none">(null)</span><span class="after" style="font-family: var(--font-sans); white-space: normal; font-weight: 500;">"2 cartons opened at port inspection showed signs of water damage to lower kit; awaiting supplier acknowledgement"</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DAY: 18 May -->
+        <div class="day-sep">Yesterday · 18 May 2026 <span class="count">2 events</span></div>
+
+        <!-- ENTRY 6 -->
+        <div class="entry">
+          <div class="entry-avatar warn">KE</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor">Kelechi Ekuru</span>
+              <span class="entry-verb status">STATUS_CHANGE</span>
+              <a href="#" class="entry-ref">SHP-2026-001</a>
+              <span class="entry-meta">→ <b>Received</b> · 2,070 units recorded</span>
+              <span class="entry-time">14:22:08 WAT<span class="rel"> · 1 day ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action status">status_change</span>
+              <span class="tag tag-entity shipment">Shipment</span>
+              <span class="tag-id">#audit-1018</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENTRY 7 -->
+        <div class="entry">
+          <div class="entry-avatar proc">DO</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor">Daniel Omage</span>
+              <span class="entry-verb update">UPDATE</span>
+              <a href="#" class="entry-ref">SHP-2026-001</a>
+              <span class="entry-meta">— uploaded landed cost invoice (NPA port charges)</span>
+              <span class="entry-time">14:08:21 WAT<span class="rel"> · 1 day ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action update">update</span>
+              <span class="tag tag-entity shipment">Shipment</span>
+              <span class="tag-id">#audit-1014</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DAY: 16 May -->
+        <div class="day-sep">16 May 2026 <span class="count">1 event</span></div>
+
+        <!-- ENTRY 8 -->
+        <div class="entry">
+          <div class="entry-avatar proc">FA</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor">Funmi Adebayo</span>
+              <span class="entry-verb create">CREATE</span>
+              <a href="#" class="entry-ref">PO-2026-002</a>
+              <span class="entry-meta">— Purchase Order · VSK Motors and Traders FZE · 800 units</span>
+              <span class="entry-time">12:08:42 WAT<span class="rel"> · 3 days ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action create">create</span>
+              <span class="tag tag-entity po">PurchaseOrder</span>
+              <span class="tag-id">#audit-0987</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DAY: 15 May (immutability demo + others) -->
+        <div class="day-sep">15 May 2026 <span class="count">5 events</span></div>
+
+        <!-- ENTRY 9 — THE TARGET of the blocked modification -->
+        <div class="entry">
+          <div class="entry-avatar sys">IT</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor">IT Admin</span>
+              <span class="entry-verb create">CREATE</span>
+              <a href="#" class="entry-ref">PriceList: Reseller Standard v3</a>
+              <span class="entry-meta">— effective 01 May 2026 · 5 SKUs priced</span>
+              <span class="entry-time">14:38:11 WAT<span class="rel"> · 4 days ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action create">create</span>
+              <span class="tag tag-entity">PriceList</span>
+              <span class="tag-id">#audit-0942</span>
+            </div>
+
+            <!-- The immutability notice attached to this entry -->
+            <div class="immutability-notice">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="10" height="6" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>
+              <div>
+                This log entry was attempted to be modified by <b>IT Admin</b> on <b>2026-05-15 at 16:42</b>. The attempt was blocked. The blocking event is itself logged below
+                <a href="#audit-0943" class="ref-link">(#audit-0943 ↓)</a>.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENTRY 10 — THE BLOCKING EVENT itself -->
+        <div class="entry is-blocked" id="audit-0943">
+          <div class="entry-avatar sys" style="background: var(--red-700); color: #fff;">⛔</div>
+          <div class="entry-body">
+            <div class="block-banner">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M4 4l8 8"/></svg>
+              IMMUTABILITY VIOLATION ATTEMPT · BLOCKED BY SYSTEM
+            </div>
+            <div class="entry-top">
+              <span class="entry-actor sys">SYSTEM</span>
+              <span class="entry-verb delete">DELETE_BLOCKED</span>
+              <a href="#" class="entry-ref" style="color: var(--red-700); background: var(--red-50);">AuditEntry #audit-0942</a>
+              <span class="entry-meta">— attempted by <b>IT Admin</b> (usr_it.admin) · request denied at write-layer</span>
+              <span class="entry-time">16:42:07 WAT<span class="rel"> · 4 days ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action delete-blocked">delete · blocked</span>
+              <span class="tag tag-entity audit">AuditEntry</span>
+              <span class="tag-id">#audit-0943</span>
+            </div>
+            <button class="expand-toggle open" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open');">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 2l3 3-3 3"/></svg>
+              Hide attempt context
+            </button>
+            <div class="changes-panel open">
+              <div class="changes-tabs">
+                <button class="changes-tab active">Attempt context</button>
+                <button class="changes-tab">Block policy</button>
+              </div>
+              <div class="changes-body">
+                <div class="prop-diff">
+                  <div class="prop-row"><span class="k">attempted_action</span><span class="before none">—</span><span class="after">UPDATE AuditEntry SET amount_ngn = ...</span></div>
+                  <div class="prop-row"><span class="k">target_entry</span><span class="before none">—</span><span class="after">#audit-0942 (PriceList create)</span></div>
+                  <div class="prop-row"><span class="k">attempted_by</span><span class="before none">—</span><span class="after">usr_it.admin · IT Admin role</span></div>
+                  <div class="prop-row"><span class="k">source_ip</span><span class="before none">—</span><span class="after">10.0.2.14 (Lagos HQ · admin VLAN)</span></div>
+                  <div class="prop-row"><span class="k">user_agent</span><span class="before none">—</span><span class="after">Mozilla/5.0 (Win64) PostgreSQL_client/15.2</span></div>
+                  <div class="prop-row"><span class="k">blocked_by</span><span class="before none">—</span><span class="after">row-level trigger trg_audit_immutable · policy "no_mutation_of_audit_table"</span></div>
+                  <div class="prop-row"><span class="k">notification_sent_to</span><span class="before none">—</span><span class="after">Adaeze Okeke (MD), Ifeoma Achebe (Internal Auditor), Olufemi Adesanya (Operations Director)</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENTRY 11 -->
+        <div class="entry">
+          <div class="entry-avatar proc">FA</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor">Funmi Adebayo</span>
+              <span class="entry-verb create">CREATE</span>
+              <a href="#" class="entry-ref">ORD0000023649</a>
+              <span class="entry-meta">— Proforma Invoice Rev 1 received from VSK</span>
+              <span class="entry-time">14:32:14 WAT<span class="rel"> · 4 days ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action create">create</span>
+              <span class="tag tag-entity pi">ProformaInvoice</span>
+              <span class="tag-id">#audit-0938</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENTRY 12 -->
+        <div class="entry">
+          <div class="entry-avatar proc">FA</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor">Funmi Adebayo</span>
+              <span class="entry-verb create">CREATE</span>
+              <a href="#" class="entry-ref">VSK Motors and Traders FZE</a>
+              <span class="entry-meta">— added as <b>Supplier</b> counterparty</span>
+              <span class="entry-time">10:24:08 WAT<span class="rel"> · 4 days ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action create">create</span>
+              <span class="tag tag-entity cp">CounterParty</span>
+              <span class="tag-id">#audit-0921</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENTRY 13 -->
+        <div class="entry">
+          <div class="entry-avatar proc">FA</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor">Funmi Adebayo</span>
+              <span class="entry-verb create">CREATE</span>
+              <a href="#" class="entry-ref">TVS Motor Company Limited</a>
+              <span class="entry-meta">— added as <b>Manufacturer</b> counterparty</span>
+              <span class="entry-time">10:18:42 WAT<span class="rel"> · 4 days ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action create">create</span>
+              <span class="tag tag-entity cp">CounterParty</span>
+              <span class="tag-id">#audit-0919</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENTRY 14 -->
+        <div class="entry is-system">
+          <div class="entry-avatar sys">IT</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor sys">IT Admin</span>
+              <span class="entry-verb create">CREATE</span>
+              <span class="entry-ref" style="color: var(--grey-700); background: var(--grey-100);">12 user accounts (bulk)</span>
+              <span class="entry-meta">— initial system seed · all roles</span>
+              <span class="entry-time">09:42:00 WAT<span class="rel"> · 4 days ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action create">create</span>
+              <span class="tag tag-entity user">User</span>
+              <span class="tag-id">#audit-0904 → #audit-0915</span>
+            </div>
+            <button class="expand-toggle" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open');"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 2l3 3-3 3"/></svg>Show 12 user accounts</button>
+            <div class="changes-panel">
+              <div class="changes-body" style="font-size: 11.5px; line-height: 1.8; font-family: var(--font-mono); color: var(--grey-700);">
+                usr_adaeze.okeke (MD) · usr_olufemi.adesanya (Ops Director) · usr_funmi.adebayo (Procurement) · usr_kelechi.ekuru (Warehouse Mgr) · usr_chinonso.eze (Warehouse) · usr_daniel.omage (Assembly Floor) · usr_adaobi.eze (Sales) · usr_chioma.nwankwo (Sales) · usr_suraj.aliyu (Sales Supervisor) · usr_ifeoma.achebe (Internal Auditor) · usr_emeka.eze (External Comms) · usr_it.admin (IT Admin)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ENTRY 15 -->
+        <div class="entry is-system">
+          <div class="entry-avatar sys">IT</div>
+          <div class="entry-body">
+            <div class="entry-top">
+              <span class="entry-actor sys">IT Admin</span>
+              <span class="entry-verb create">CREATE</span>
+              <span class="entry-ref" style="color: var(--grey-700); background: var(--grey-100);">Historical shipment data import</span>
+              <span class="entry-meta">— 217 rows · 14 prior shipments · 2024–2025 archive</span>
+              <span class="entry-time">09:12:08 WAT<span class="rel"> · 4 days ago</span></span>
+            </div>
+            <div class="entry-tags">
+              <span class="tag tag-action create">create</span>
+              <span class="tag tag-entity shipment">Shipment</span>
+              <span class="tag-id">#audit-0890</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ============== SIDE PANEL ============== -->
+      <aside>
+
+        <section class="side-card">
+          <div class="side-head">
+            <h3 class="side-title">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="9" width="2.5" height="5"/><rect x="6.75" y="6" width="2.5" height="8"/><rect x="10.5" y="3" width="2.5" height="11"/></svg>
+              Filtered Stats
+            </h3>
+            <span class="live-tag">Live</span>
+          </div>
+
+          <div class="stat-big">
+            <div class="num">142</div>
+            <div class="lbl">Entries match this filter</div>
+            <div class="sub">across 5 days · 19 entries / day average</div>
+          </div>
+
+          <div class="stat-section">
+            <h4>Top actions</h4>
+            <div class="mini-bar">
+              <span class="name">update</span>
+              <div class="track"><div class="fill update" style="width: 62%;"></div></div>
+              <span class="pct">62%</span>
+            </div>
+            <div class="mini-bar">
+              <span class="name">create</span>
+              <div class="track"><div class="fill create" style="width: 24%;"></div></div>
+              <span class="pct">24%</span>
+            </div>
+            <div class="mini-bar">
+              <span class="name">status_change</span>
+              <div class="track"><div class="fill status" style="width: 13%;"></div></div>
+              <span class="pct">13%</span>
+            </div>
+            <div class="mini-bar">
+              <span class="name bad">delete · blocked</span>
+              <div class="track"><div class="fill delete" style="width: 1%;"></div></div>
+              <span class="pct">1%</span>
+            </div>
+          </div>
+
+          <div class="stat-section">
+            <h4>Distinct actors · 7</h4>
+            <div class="actor-row"><span class="av proc" style="background:#FBEFE0;color:var(--amber-700);">FA</span><span class="name">Funmi Adebayo <span class="role">· Procurement</span></span><span class="count">38</span></div>
+            <div class="actor-row"><span class="av" style="background: #FAE3E3; color: var(--red-700);">KE</span><span class="name">Kelechi Ekuru <span class="role">· Warehouse Mgr</span></span><span class="count">31</span></div>
+            <div class="actor-row"><span class="av proc" style="background:#FBEFE0;color:var(--amber-700);">DO</span><span class="name">Daniel Omage <span class="role">· Assembly Floor</span></span><span class="count">24</span></div>
+            <div class="actor-row"><span class="av">AE</span><span class="name">Adaobi Eze <span class="role">· Sales</span></span><span class="count">18</span></div>
+            <div class="actor-row"><span class="av sys">IT</span><span class="name">IT Admin <span class="role">· System</span></span><span class="count">16</span></div>
+            <div class="actor-row"><span class="av opdir" style="background:#E8F2E9;color:var(--green-700);">OA</span><span class="name">Olufemi Adesanya <span class="role">· Ops Director</span></span><span class="count">9</span></div>
+            <div class="actor-row"><span class="av sys">SY</span><span class="name">SYSTEM <span class="role">· auto / triggers</span></span><span class="count">6</span></div>
+          </div>
+
+          <div class="stat-section">
+            <h4>Entities touched</h4>
+            <div class="mini-bar">
+              <span class="name">Shipment</span>
+              <div class="track"><div class="fill update" style="width: 42%;"></div></div>
+              <span class="pct">42</span>
+            </div>
+            <div class="mini-bar">
+              <span class="name">Unit</span>
+              <div class="track"><div class="fill update" style="width: 30%;"></div></div>
+              <span class="pct">31</span>
+            </div>
+            <div class="mini-bar">
+              <span class="name">SalesOrder</span>
+              <div class="track"><div class="fill update" style="width: 18%;"></div></div>
+              <span class="pct">19</span>
+            </div>
+            <div class="mini-bar">
+              <span class="name">CounterParty</span>
+              <div class="track"><div class="fill update" style="width: 14%;"></div></div>
+              <span class="pct">14</span>
+            </div>
+            <div class="mini-bar">
+              <span class="name">PurchaseOrder</span>
+              <div class="track"><div class="fill update" style="width: 12%;"></div></div>
+              <span class="pct">12</span>
+            </div>
+            <div class="mini-bar">
+              <span class="name">Other</span>
+              <div class="track"><div class="fill update" style="width: 22%;background: var(--grey-400);"></div></div>
+              <span class="pct">24</span>
+            </div>
+          </div>
+
+          <div class="compliance-foot">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
+            <div><b>Integrity verified</b> 14:42 WAT · hash chain unbroken · last anchor block #B-1056</div>
+          </div>
+        </section>
+
+        <section class="side-card" style="position: static;">
+          <div class="side-head">
+            <h3 class="side-title">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.5 5-5 6-2.5-1-5-3-5-6V4l5-2z"/><path d="M6 8l1.5 1.5L10.5 6.5"/></svg>
+              Compliance Checks
+            </h3>
+          </div>
+          <div style="padding: 12px 16px; font-size: 12px; line-height: 1.5; color: var(--grey-700);">
+            <div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 0;">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--green-700)" stroke-width="2" style="margin-top: 2px; flex-shrink: 0;"><path d="M3 8l3.5 3.5L13 4"/></svg>
+              <span>All entries signed and chained · last verify <b style="color: var(--ink);">14:42 WAT</b></span>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 0;">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--green-700)" stroke-width="2" style="margin-top: 2px; flex-shrink: 0;"><path d="M3 8l3.5 3.5L13 4"/></svg>
+              <span>No backdated entries detected · <b style="color: var(--ink);">142/142</b> within ±5s of server clock</span>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 0;">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--amber-700)" stroke-width="2" style="margin-top: 2px; flex-shrink: 0;"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.01"/></svg>
+              <span><b style="color: var(--ink);">1 mutation attempt</b> on audit table · blocked (see <a href="#audit-0943" style="color: var(--navy-700);">#audit-0943</a>)</span>
+            </div>
+          </div>
+        </section>
+
+      </aside>
+
+    </div>
+
+  </div>
+  </div>
+
+</main>
+
+<script>
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+  });
+  document.querySelectorAll('.changes-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      t.parentElement.querySelectorAll('.changes-tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+</script>
+
+<script src="role-switcher.js"></script>
+</body>
+</html>

@@ -1,49 +1,56 @@
 /**
- * Design tokens. Authoritative TS mirror of the values declared in
- * src/app/globals.css. Use these when token values need to be referenced
- * outside of Tailwind utilities (e.g. inline styles, charts, canvas).
- *
- * Source: design handoff. NetSuite/Odoo enterprise density.
- * Do not edit these in isolation - keep both files aligned.
+ * Design tokens. TS mirror of src/app/globals.css; both are reconciled against
+ * design_handoff_enviable_io/tokens.css (the design source of truth, per
+ * CLAUDE.md section 4). Use these when token values need to be referenced
+ * outside of Tailwind utilities (inline styles, charts, canvas).
+ * Keep both files aligned when changing a value.
  */
 
 export const color = {
   navy: {
-    50: "#F0F6FB",
-    100: "#DCE9F4",
+    50: "#F2F6FA",
+    100: "#E6EEF6",
     200: "#B6CFE3",
     300: "#87AED0",
     400: "#5689BC",
-    500: "#3A70A6",
-    600: "#2A5D8F",
+    500: "#5A82A8",
+    600: "#2C5E8E",
     700: "#1F4E79",
-    800: "#17395B",
-    900: "#102845",
+    800: "#163C61",
+    900: "#0F2A44",
   },
   ink: {
     50: "#F7F8FA",
-    100: "#EEF0F3",
-    200: "#DDE1E6",
-    300: "#C5CCD3",
-    400: "#9AA3AD",
-    500: "#6B7480",
+    100: "#F2F3F5",
+    200: "#E6E8EC",
+    300: "#D2D5DB",
+    400: "#AEB1B8",
+    500: "#7B7F87",
     600: "#4A525C",
-    700: "#333A42",
+    700: "#43474F",
     800: "#1F242A",
-    900: "#11151A",
+    900: "#1A1A1A",
   },
-  success: { 50: "#E8F4ED", 100: "#C9E4D3", 600: "#1F8A4D", 700: "#1F7544", 800: "#155E36" },
-  warning: { 50: "#FBF1DD", 100: "#F5E0B0", 600: "#B97A0B", 700: "#A06700", 800: "#835300" },
-  danger:  { 50: "#FBE9E6", 100: "#F4CCC5", 600: "#C5392D", 700: "#A92E23", 800: "#8A241B" },
+  success: { 50: "#E8F2E9", 100: "#C9E4D3", 600: "#1F8A4D", 700: "#2E7D32", 800: "#155E36" },
+  warning: { 50: "#FBEFE0", 100: "#F5E0B0", 600: "#B97A0B", 700: "#B45F06", 800: "#835300" },
+  danger:  { 50: "#FAE3E3", 100: "#F4CCC5", 600: "#C5392D", 700: "#C00000", 800: "#8A241B" },
   surface: {
     DEFAULT: "#FFFFFF",
-    muted: "#F7F8FA",
-    sunken: "#EEF0F3",
+    muted: "#F6F7F9",
+    sunken: "#F2F3F5",
   },
   border: {
-    subtle: "#EEF0F3",
-    default: "#DDE1E6",
-    strong: "#C5CCD3",
+    subtle: "#F2F3F5",
+    default: "#E6E8EC",
+    strong: "#D2D5DB",
+  },
+  sidebar: {
+    bg: "#163C61",
+    fg: "#CFDCEC",
+    muted: "#8AA6C4",
+    label: "#6F8AA6",
+    hover: "#B6CAE0",
+    activeBar: "#5A9FE8",
   },
 } as const;
 
@@ -55,8 +62,8 @@ export const radius = {
 } as const;
 
 export const size = {
-  control: 28,   // button + input height
-  row: 30,       // table row height
+  control: 28,
+  row: 30,
   topbar: 44,
   sidebar: 212,
 } as const;

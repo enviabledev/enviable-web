@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Record Payment — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  /* ===== APP SHELL (minimal for context) ===== */
+  body { display: flex; min-height: 100vh; }
+  .app-sidebar { width: var(--sidebar-w); background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; font-size: var(--fs-13); }
+  .app-brand { height: var(--topbar-h); padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .app-brand-mark { width: 30px; height: 30px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 13.5px; }
+  .app-brand-sub  { color: #8aa6c4; font-size: 10.5px; }
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 8px 8px 12px; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; color: #6f8aa6; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600; cursor: pointer; user-select: none; }
+  .nav-group.collapsed .nav-group-body { display: none; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 7px 12px; border-radius: 3px; color: #cfdcec; text-decoration: none; line-height: 1.3; position: relative; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; font-weight: 500; }
+  .nav-item svg { width: 16px; height: 16px; opacity: .85; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px; flex-shrink: 0; }
+  .app-user-meta { line-height: 1.25; flex: 1; min-width: 0; }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; }
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: var(--topbar-h); border-bottom: 1px solid var(--grey-200); background: #fff; display: flex; align-items: center; padding: 0 20px; gap: 16px; position: sticky; top: 0; z-index: 30; }
+  .topbar-company { font-size: 14px; font-weight: 600; color: var(--ink); padding-right: 18px; border-right: 1px solid var(--grey-200); height: 28px; display: flex; align-items: center; }
+  .topbar-company .accent { color: var(--navy-700); }
+  .topbar-user { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 999px; }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 11px; border: none; }
+  .topbar-user-text { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-user-name { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .topbar-user-role { font-size: 11px; color: var(--grey-500); }
+
+  /* ===== BACKGROUND (Sales Order detail visible behind modal) ===== */
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; }
+  .page { padding: 24px 28px; max-width: 1280px; }
+  .bg-page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--grey-200); gap: 24px; }
+  .bg-crumbs { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .bg-crumbs .sep { color: var(--grey-300); }
+  .bg-crumbs .current { color: var(--ink); font-weight: 500; font-family: var(--font-mono); }
+  .bg-title-row { display: flex; align-items: center; gap: 12px; }
+  .bg-title { font-size: 22px; font-weight: 600; color: var(--ink); margin: 0; }
+  .bg-title .mono { font-family: var(--font-mono); }
+  .so-tag { font-family: var(--font-mono); font-size: 12px; color: var(--navy-700); background: var(--navy-50); padding: 4px 10px; border-radius: 3px; font-weight: 600; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+  .pill-amber { background: var(--amber-50); color: var(--amber-700); }
+  .pill-amber::before { background: var(--amber-700); }
+  .pill-green { background: var(--green-50); color: var(--green-700); }
+  .pill-green::before { background: var(--green-700); }
+  .bg-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; padding: 18px 22px; margin-bottom: 14px; }
+  .bg-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
+  .bg-kv { padding: 0 14px; border-right: 1px solid var(--grey-200); }
+  .bg-kv:first-child { padding-left: 0; }
+  .bg-kv:last-child { border-right: none; padding-right: 0; }
+  .bg-kv .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey-500); font-weight: 600; margin-bottom: 4px; }
+  .bg-kv .v { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .bg-kv .v.mono { font-family: var(--font-mono); }
+  .bg-kv .v.amount { font-variant-numeric: tabular-nums; }
+
+  /* ===== MODAL ===== */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 80;
+    background: rgba(15,42,68,0.45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 32px;
+    backdrop-filter: blur(2px);
+  }
+  .modal {
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 12px 40px rgba(15,42,68,0.20), 0 4px 12px rgba(15,42,68,0.10);
+    width: 100%; max-width: 580px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    max-height: 88vh;
+    animation: modalIn .18s ease-out;
+  }
+  @keyframes modalIn { from { transform: translateY(8px); opacity: 0; } }
+  .modal-header {
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--grey-200);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .modal-title-block { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .modal-title-block svg { color: var(--navy-700); flex-shrink: 0; }
+  .modal-title-block h3 {
+    margin: 0; font-size: 15px; font-weight: 600; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .modal-title-block h3 .mono { font-family: var(--font-mono); }
+  .modal-close {
+    width: 28px; height: 28px; display: grid; place-items: center;
+    background: transparent; border: none; border-radius: 3px;
+    color: var(--grey-500); cursor: pointer; flex-shrink: 0;
+  }
+  .modal-close:hover { background: var(--grey-100); color: var(--ink); }
+
+  .modal-body {
+    padding: 18px 22px 22px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  /* Amount due highlight strip */
+  .amount-due-card {
+    background: linear-gradient(135deg, var(--navy-700) 0%, var(--navy-800) 100%);
+    color: #fff;
+    border-radius: 5px;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+  }
+  .amount-due-card .due-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: rgba(255,255,255,0.7); font-weight: 600;
+    margin-bottom: 3px;
+  }
+  .amount-due-card .due-meta {
+    font-size: 11.5px; color: rgba(255,255,255,0.75);
+    margin-top: 4px;
+  }
+  .amount-due-card .due-amount {
+    font-size: 26px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+  .amount-due-card .due-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 700;
+    background: rgba(180, 95, 6, 0.25);
+    color: #FBD494;
+    padding: 3px 8px; border-radius: 3px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    border: 1px solid rgba(180,95,6,0.4);
+  }
+  .amount-due-card .due-status::before {
+    content: ''; width: 5px; height: 5px; border-radius: 50%; background: #FBD494;
+  }
+
+  /* Fields */
+  .field-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px; }
+  .field-group.row-half { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field-label { font-size: 12px; color: var(--grey-700); font-weight: 500; display: inline-flex; align-items: center; gap: 5px; }
+  .req { color: var(--red-700); }
+  .field-hint { font-size: 11px; color: var(--grey-500); line-height: 1.4; }
+  .field { height: 34px; padding: 0 12px; background: #fff; border: 1px solid var(--grey-300); border-radius: 3px; font-size: 13px; color: var(--ink); font-family: inherit; width: 100%; }
+  .field:focus { outline: none; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+  select.field { padding-right: 32px; appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%238A8A8A' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; cursor: pointer; }
+
+  /* Currency input with NGN prefix */
+  .with-prefix { display: flex; align-items: stretch; border: 1px solid var(--grey-300); border-radius: 3px; background: #fff; height: 34px; overflow: hidden; }
+  .with-prefix:focus-within { border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+  .with-prefix .affix { background: var(--grey-100); color: var(--grey-700); display: grid; place-items: center; padding: 0 10px; font-weight: 600; font-size: 12px; border-right: 1px solid var(--grey-200); }
+  .with-prefix input { all: unset; flex: 1; padding: 0 12px; font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 500; }
+  .match-tag {
+    margin-top: 2px;
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--green-700); font-weight: 500;
+  }
+  .match-tag.short { color: var(--amber-700); }
+  .match-tag.over { color: var(--amber-700); }
+
+  /* Method select with phase 2 option */
+  .method-options { display: flex; flex-direction: column; gap: 8px; }
+  .method-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--grey-300); border-radius: 4px;
+    background: #fff; cursor: pointer;
+  }
+  .method-row:hover { border-color: var(--navy-600); }
+  .method-row.selected { border-color: var(--navy-700); background: var(--navy-50); box-shadow: 0 0 0 2px rgba(31,78,121,0.06); }
+  .method-row.disabled { background: var(--grey-100); border-color: var(--grey-200); cursor: not-allowed; opacity: 0.7; }
+  .method-row.disabled:hover { border-color: var(--grey-200); }
+  .method-radio { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--grey-400); background: #fff; flex-shrink: 0; position: relative; }
+  .method-row.selected .method-radio { border-color: var(--navy-700); }
+  .method-row.selected .method-radio::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--navy-700); }
+  .method-row.disabled .method-radio { border-color: var(--grey-300); }
+  .method-icon { width: 26px; height: 26px; border-radius: 4px; background: var(--navy-50); color: var(--navy-700); display: grid; place-items: center; flex-shrink: 0; }
+  .method-row.disabled .method-icon { background: var(--grey-200); color: var(--grey-400); }
+  .method-body { flex: 1; min-width: 0; }
+  .method-name { font-size: 13px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+  .method-row.disabled .method-name { color: var(--grey-500); }
+  .method-desc { font-size: 11.5px; color: var(--grey-500); margin-top: 2px; }
+  .phase-tag { font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 3px; background: var(--amber-50); color: var(--amber-700); text-transform: uppercase; }
+
+  /* Date-time field */
+  .dt-field { display: flex; align-items: stretch; border: 1px solid var(--grey-300); border-radius: 3px; background: #fff; height: 34px; cursor: pointer; }
+  .dt-field:focus-within { border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+  .dt-field input { all: unset; flex: 1; padding: 0 12px; font-size: 13px; color: var(--ink); cursor: pointer; font-variant-numeric: tabular-nums; }
+  .dt-field .dt-affix { display: grid; place-items: center; padding: 0 10px; color: var(--grey-500); border-left: 1px solid var(--grey-200); background: #fff; }
+  .now-link { font-size: 11px; color: var(--navy-700); font-weight: 500; cursor: pointer; }
+
+  /* File drop zone */
+  .file-drop {
+    border: 1px dashed var(--grey-300);
+    border-radius: 4px;
+    padding: 16px 18px;
+    background: var(--canvas);
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer;
+    transition: border-color .12s, background .12s;
+  }
+  .file-drop:hover { border-color: var(--navy-700); background: var(--navy-50); }
+  .file-drop-icon { width: 36px; height: 36px; background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; color: var(--navy-700); display: grid; place-items: center; flex-shrink: 0; }
+  .file-drop-text { flex: 1; min-width: 0; }
+  .file-drop-title { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .file-drop-title .link { color: var(--navy-700); }
+  .file-drop-hint { font-size: 11.5px; color: var(--grey-500); margin-top: 2px; }
+  .file-chip {
+    margin-top: 8px;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 5px 10px 5px 8px;
+    background: var(--green-50); color: var(--green-700);
+    border: 1px solid #C5E2C8; border-radius: 3px;
+    font-size: 11.5px; font-family: var(--font-mono);
+  }
+  .file-chip .x { opacity: 0.6; cursor: pointer; }
+  .file-chip .x:hover { opacity: 1; }
+
+  /* Confirmation source — radio */
+  .source-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .source-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--grey-300); border-radius: 4px;
+    background: #fff; cursor: pointer;
+  }
+  .source-card:hover { border-color: var(--navy-600); }
+  .source-card.selected { border-color: var(--navy-700); background: var(--navy-50); box-shadow: 0 0 0 2px rgba(31,78,121,0.06); }
+  .source-card.disabled { background: var(--grey-100); border-color: var(--grey-200); cursor: not-allowed; opacity: 0.7; }
+  .source-radio { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--grey-400); flex-shrink: 0; position: relative; }
+  .source-card.selected .source-radio { border-color: var(--navy-700); }
+  .source-card.selected .source-radio::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; background: var(--navy-700); }
+  .source-card.disabled .source-radio { border-color: var(--grey-300); }
+  .source-body { line-height: 1.3; min-width: 0; }
+  .source-name { font-size: 12.5px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+  .source-card.disabled .source-name { color: var(--grey-500); }
+  .source-desc { font-size: 11px; color: var(--grey-500); margin-top: 1px; }
+
+  /* Notes */
+  .notes-textarea { width: 100%; min-height: 70px; padding: 10px 12px; background: #fff; border: 1px solid var(--grey-300); border-radius: 3px; font-family: inherit; font-size: 13px; color: var(--ink); resize: vertical; line-height: 1.5; }
+  .notes-textarea:focus { outline: none; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+
+  /* Footer */
+  .modal-footer {
+    padding: 14px 22px;
+    border-top: 1px solid var(--grey-200);
+    background: #FBFBFB;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .modal-footer-info { font-size: 11.5px; color: var(--grey-500); }
+  .modal-footer-info b { color: var(--ink); }
+  .modal-footer-actions { display: flex; gap: 8px; }
+
+  /* Toast */
+  .toast-stack {
+    position: fixed; bottom: 24px; right: 24px; z-index: 100;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    min-width: 360px; max-width: 460px;
+    background: #fff; border: 1px solid var(--grey-200); border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(15,42,68,0.12);
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 14px;
+    animation: toastIn .2s ease-out;
+    border-left: 3px solid var(--green-700);
+  }
+  @keyframes toastIn { from { transform: translateX(8px); opacity: 0; } }
+  .toast-icon { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; color: var(--green-700); }
+  .toast-body { flex: 1; font-size: 13px; }
+  .toast-title { font-weight: 600; color: var(--ink); margin-bottom: 1px; }
+  .toast-msg { color: var(--grey-700); line-height: 1.45; }
+  .toast-close { background: transparent; border: none; color: var(--grey-400); cursor: pointer; padding: 0; line-height: 0; }
+  .toast-close:hover { color: var(--ink); }
+
+  /* Demo helper — re-open modal */
+  .reopen-bar {
+    margin-top: 18px; padding: 12px 14px;
+    background: #fff; border: 1px solid var(--grey-200); border-radius: 4px;
+    display: none; align-items: center; gap: 12px;
+    font-size: 12px; color: var(--grey-500);
+  }
+  .reopen-bar.show { display: flex; }
+  .reopen-bar a { color: var(--navy-700); font-weight: 500; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- ====================== SIDEBAR ====================== -->
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div>
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+  <nav class="nav-scroll">
+    <div class="nav-group">
+      <div class="nav-group-header">Sales</div>
+      <div class="nav-group-body">
+        <a class="nav-item active" href="#">Sales Orders</a>
+        <a class="nav-item" href="#">Customers</a>
+        <a class="nav-item" href="#">Invoices &amp; Payments</a>
+      </div>
+    </div>
+  </nav>
+  <div class="app-user">
+    <div class="avatar">AE</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Adaobi Eze</div>
+      <div class="app-user-role">Sales Officer · Warehouse</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ====================== MAIN ====================== -->
+<main class="app-main">
+
+  <header class="topbar">
+    <div class="topbar-company">Enviable <span class="accent">Tricycle</span></div>
+    <div style="flex: 1;"></div>
+    <div class="topbar-user">
+      <div class="avatar">AE</div>
+      <div class="topbar-user-text">
+        <div class="topbar-user-name">Adaobi Eze</div>
+        <div class="topbar-user-role">Sales Officer · Warehouse</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-content">
+  <div class="page">
+
+    <!-- Context: SO detail visible behind modal -->
+    <div class="bg-page-header">
+      <div>
+        <div class="bg-crumbs">
+          <span>Sales</span><span class="sep">/</span>
+          <span>Sales Orders</span><span class="sep">/</span>
+          <span class="current">SO-2026-001</span>
+        </div>
+        <div class="bg-title-row">
+          <h1 class="bg-title">Sales Order <span class="mono">SO-2026-001</span></h1>
+          <span class="so-tag">SO-2026-001</span>
+          <span class="pill pill-amber">AwaitingPayment</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-card">
+      <div class="bg-row">
+        <div class="bg-kv"><div class="k">Customer</div><div class="v">ABC Tricycle Dealers Ltd.</div></div>
+        <div class="bg-kv"><div class="k">Lines</div><div class="v amount">3 lines · 3 units</div></div>
+        <div class="bg-kv"><div class="k">Order Date</div><div class="v">19 May 2026</div></div>
+        <div class="bg-kv"><div class="k">Amount Due · NGN</div><div class="v amount" style="font-size: 15px; font-weight: 700; color: var(--navy-800);">₦ 9,567,500.00</div></div>
+      </div>
+    </div>
+
+    <!-- Re-open helper appears after confirmation -->
+    <div class="reopen-bar" id="reopenBar">
+      Modal closed.
+      <a id="reopenBtn">Re-open Record Payment modal</a>
+    </div>
+
+  </div>
+  </div>
+
+</main>
+
+<!-- ============== MODAL ============== -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+
+    <div class="modal-header">
+      <div class="modal-title-block">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M2 5h12v8a1 1 0 01-1 1H3a1 1 0 01-1-1V5z"/>
+          <path d="M2 5l2-2h8l2 2"/>
+          <path d="M6 9h4"/>
+        </svg>
+        <h3>Record Payment for <span class="mono">SO-2026-001</span></h3>
+      </div>
+      <button class="modal-close" id="closeBtn"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- AMOUNT DUE HIGHLIGHT -->
+      <div class="amount-due-card">
+        <div>
+          <div class="due-label">Sales Order amount due</div>
+          <div class="due-amount">₦ 9,567,500.00</div>
+          <div class="due-meta">ABC Tricycle Dealers Ltd. · 3 units · invoice INV-2026-001</div>
+        </div>
+        <span class="due-status">AwaitingPayment</span>
+      </div>
+
+      <!-- METHOD -->
+      <div class="field-group">
+        <label class="field-label">Payment Method <span class="req">*</span></label>
+        <div class="method-options">
+          <div class="method-row selected">
+            <span class="method-radio"></span>
+            <span class="method-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-3 6 3M3 6v6h10V6M5 7v4M8 7v4M11 7v4M2 13h12"/></svg></span>
+            <div class="method-body">
+              <div class="method-name">Bank Transfer</div>
+              <div class="method-desc">Funds settled to the company NGN account · reconciled by reference number</div>
+            </div>
+          </div>
+          <div class="method-row disabled" title="Coming in phase 2">
+            <span class="method-radio"></span>
+            <span class="method-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="8" rx="1"/><path d="M2 7h12M5 10h2"/></svg></span>
+            <div class="method-body">
+              <div class="method-name">POS Terminal <span class="phase-tag">Phase 2</span></div>
+              <div class="method-desc">Card payment captured on a Verifone/Moniepoint terminal at the warehouse</div>
+            </div>
+          </div>
+        </div>
+        <span class="field-hint">Cash is not accepted at the warehouse channel — bank transfer only for MVP.</span>
+      </div>
+
+      <!-- AMOUNT -->
+      <div class="field-group">
+        <label class="field-label">Amount Received <span class="req">*</span></label>
+        <div class="with-prefix">
+          <span class="affix">₦ NGN</span>
+          <input value="9,567,500.00" id="amountInput" />
+        </div>
+        <span class="match-tag" id="matchTag">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg>
+          Matches amount due exactly
+        </span>
+      </div>
+
+      <!-- BANK REF -->
+      <div class="field-group">
+        <label class="field-label">Bank Reference Number <span class="req">*</span></label>
+        <input class="field" placeholder="FBN-20260515-093421" style="font-family: var(--font-mono); letter-spacing: 0.04em;" />
+        <span class="field-hint">From the bank's transfer confirmation · used to reconcile against the bank statement</span>
+      </div>
+
+      <!-- RECEIVED DATE/TIME -->
+      <div class="field-group">
+        <label class="field-label">Received Date &amp; Time <span class="req">*</span></label>
+        <div class="dt-field">
+          <input id="receivedAt" value="19 May 2026 · 14:42 WAT" readonly />
+          <span class="dt-affix"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3.5" width="12" height="10" rx="1"/><path d="M2 6h12M5 2v3M11 2v3"/></svg></span>
+        </div>
+        <span class="field-hint">Defaulted to now · <span class="now-link">Set to current time</span></span>
+      </div>
+
+      <!-- RECEIPT DOCUMENT -->
+      <div class="field-group">
+        <label class="field-label">Receipt Document <span class="req">*</span></label>
+        <label class="file-drop">
+          <div class="file-drop-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 4v12m0 0l-4-4m4 4l4-4M4 18h16"/></svg>
+          </div>
+          <div class="file-drop-text">
+            <div class="file-drop-title"><span class="link">Click to upload</span> or drag &amp; drop</div>
+            <div class="file-drop-hint">PDF, JPG or PNG · screenshot of bank app, transfer receipt, or branch slip</div>
+          </div>
+          <input type="file" accept="application/pdf,image/*" hidden />
+        </label>
+        <span class="file-chip">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg>
+          FBN-transfer-FBN-20260515-093421.pdf · 184 KB
+          <span class="x">×</span>
+        </span>
+      </div>
+
+      <!-- CONFIRMATION SOURCE -->
+      <div class="field-group">
+        <label class="field-label">Confirmation Source <span class="req">*</span></label>
+        <div class="source-row">
+          <div class="source-card disabled" title="Coming in phase 2">
+            <span class="source-radio"></span>
+            <div class="source-body">
+              <div class="source-name">Webhook <span class="phase-tag">Phase 2</span></div>
+              <div class="source-desc">Auto-confirmed by the bank's webhook</div>
+            </div>
+          </div>
+          <div class="source-card selected">
+            <span class="source-radio"></span>
+            <div class="source-body">
+              <div class="source-name">Manual upload &amp; confirmation</div>
+              <div class="source-desc">You're confirming this transfer manually</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOTES -->
+      <div class="field-group" style="margin-bottom: 0;">
+        <label class="field-label">Notes <span style="color: var(--grey-400); font-weight: 400;">— optional</span></label>
+        <textarea class="notes-textarea" placeholder="Anything finance should know — partial payment, FX context, customer rep who confirmed the transfer, etc."></textarea>
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <div class="modal-footer-info">
+        Recorded by <b>Adaobi Eze</b> · audit-logged with timestamp
+      </div>
+      <div class="modal-footer-actions">
+        <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="confirmBtn">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 8l3.5 3.5L14 3"/></svg>
+          Confirm Payment
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST STACK -->
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+  const modal = document.getElementById('modal');
+  const reopenBar = document.getElementById('reopenBar');
+  const reopenBtn = document.getElementById('reopenBtn');
+  function closeModal() { modal.style.display = 'none'; reopenBar.classList.add('show'); }
+  function openModal()  { modal.style.display = 'flex';  reopenBar.classList.remove('show'); }
+  document.getElementById('closeBtn').addEventListener('click', closeModal);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  reopenBtn.addEventListener('click', openModal);
+
+  // Backdrop click closes
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+  // Method row selection
+  document.querySelectorAll('.method-row').forEach(r => {
+    r.addEventListener('click', () => {
+      if (r.classList.contains('disabled')) return;
+      document.querySelectorAll('.method-row').forEach(x => x.classList.remove('selected'));
+      r.classList.add('selected');
+    });
+  });
+
+  // Source card selection (only one active option)
+  document.querySelectorAll('.source-card').forEach(s => {
+    s.addEventListener('click', () => {
+      if (s.classList.contains('disabled')) return;
+      document.querySelectorAll('.source-card').forEach(x => x.classList.remove('selected'));
+      s.classList.add('selected');
+    });
+  });
+
+  // Amount match feedback
+  const amtInput = document.getElementById('amountInput');
+  const matchTag = document.getElementById('matchTag');
+  amtInput.addEventListener('input', () => {
+    const val = parseFloat(amtInput.value.replace(/,/g, '')) || 0;
+    const due = 9567500;
+    matchTag.classList.remove('short', 'over');
+    if (val === due) {
+      matchTag.innerHTML = '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg> Matches amount due exactly';
+    } else if (val < due) {
+      matchTag.classList.add('short');
+      const diff = (due - val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      matchTag.innerHTML = '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.01"/></svg> Short by ₦ ' + diff + ' · partial payment';
+    } else {
+      matchTag.classList.add('over');
+      const diff = (val - due).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      matchTag.innerHTML = '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.01"/></svg> Overpaid by ₦ ' + diff;
+    }
+  });
+
+  // Confirm payment → close modal + show toast
+  document.getElementById('confirmBtn').addEventListener('click', () => {
+    closeModal();
+    fireToast();
+  });
+
+  function fireToast() {
+    const stack = document.getElementById('toastStack');
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.innerHTML = `
+      <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
+      <div class="toast-body">
+        <div class="toast-title">Payment confirmed</div>
+        <div class="toast-msg">Release authorisation can now be issued for this order.</div>
+      </div>
+      <button class="toast-close" onclick="this.closest('.toast').remove()">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
+      </button>`;
+    stack.appendChild(el);
+    setTimeout(() => el.remove(), 6500);
+  }
+</script>
+
+<script src="role-switcher.js"></script>
+</body>
+</html>

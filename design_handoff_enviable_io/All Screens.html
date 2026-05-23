@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Enviable I&O — All Screens</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-sans); }
+
+  /* ====== TOP NAV ====== */
+  .all-topbar {
+    position: sticky; top: 0; z-index: 200;
+    background: var(--navy-800); color: #fff;
+    height: 48px;
+    display: flex; align-items: center;
+    padding: 0 18px;
+    gap: 14px;
+    box-shadow: 0 2px 8px rgba(15,42,68,0.18);
+  }
+  .all-topbar .brand-mark {
+    width: 26px; height: 26px; border-radius: 4px;
+    background: linear-gradient(135deg, #2c5e8e, #5a82a8);
+    display: grid; place-items: center;
+    color: #fff; font-weight: 700; font-size: 11px; letter-spacing: 0.04em;
+  }
+  .all-topbar .brand-text { line-height: 1.15; }
+  .all-topbar .brand-text .name { font-size: 13px; font-weight: 600; }
+  .all-topbar .brand-text .sub { font-size: 10.5px; color: #8aa6c4; }
+  .all-topbar .divider { width: 1px; height: 22px; background: rgba(255,255,255,0.18); }
+  .all-topbar .system-title { font-size: 13px; font-weight: 500; color: #fff; }
+  .all-topbar .system-meta { font-size: 11px; color: #8aa6c4; }
+  .all-topbar .spacer { flex: 1; }
+  .all-topbar .toolbar-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 28px; padding: 0 12px;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 3px;
+    font-family: inherit; font-size: 12px; font-weight: 500;
+    cursor: pointer;
+  }
+  .all-topbar .toolbar-btn:hover { background: rgba(255,255,255,0.15); }
+  .all-topbar .toolbar-btn.primary { background: var(--navy-700); border-color: var(--navy-700); }
+  .all-topbar .toolbar-btn.primary:hover { background: var(--navy-600); }
+
+  /* ====== TOC ====== */
+  .all-layout { display: grid; grid-template-columns: 220px 1fr; }
+  .all-toc {
+    background: #fff;
+    border-right: 1px solid var(--grey-200);
+    position: sticky; top: 48px;
+    align-self: start;
+    height: calc(100vh - 48px);
+    overflow-y: auto;
+    padding: 14px 10px;
+  }
+  .all-toc .toc-section {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--grey-500); font-weight: 700;
+    padding: 14px 10px 6px 10px;
+  }
+  .all-toc a {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 10px;
+    font-size: 12px; color: var(--grey-700); font-weight: 500;
+    text-decoration: none; border-radius: 3px;
+    line-height: 1.3;
+  }
+  .all-toc a:hover { background: var(--grey-100); color: var(--ink); text-decoration: none; }
+  .all-toc a.active { background: var(--navy-50); color: var(--navy-700); font-weight: 600; }
+  .all-toc a .num {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--grey-400); width: 16px; flex-shrink: 0;
+  }
+  .all-toc a.active .num { color: var(--navy-700); }
+  .all-toc a .label { flex: 1; min-width: 0; }
+
+  /* ====== MAIN STAGE ====== */
+  .all-stage {
+    padding: 20px 24px 60px;
+    min-width: 0;
+  }
+  .screen-section {
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 4px;
+    margin-bottom: 22px;
+    box-shadow: 0 1px 3px rgba(15,42,68,0.05);
+    overflow: hidden;
+    scroll-margin-top: 60px;
+  }
+  .screen-header {
+    padding: 14px 20px;
+    border-bottom: 2px solid var(--navy-700);
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 16px; background: linear-gradient(180deg, #fff 0%, var(--navy-50) 100%);
+  }
+  .screen-header-block { min-width: 0; }
+  .screen-header h2 {
+    font-size: 18px; font-weight: 600; color: var(--ink);
+    margin: 0 0 3px; letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .screen-header h2 .num-tag {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--navy-700); background: var(--navy-100);
+    padding: 3px 8px; border-radius: 3px;
+    font-weight: 600;
+  }
+  .screen-header .meta {
+    font-size: 12px; color: var(--grey-700);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .screen-header .meta .role {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    padding: 2px 7px; border-radius: 3px;
+    text-transform: uppercase;
+  }
+  .role.warehouse  { background: #E6F0EB; color: #1F5A37; }
+  .role.procurement{ background: var(--amber-50); color: var(--amber-700); }
+  .role.sales      { background: #F4E8F1; color: #8E4A7C; }
+  .role.executive  { background: var(--navy-700); color: #fff; }
+  .role.it         { background: var(--grey-100); color: var(--grey-700); border: 1px solid var(--grey-300); }
+  .role.auditor    { background: var(--red-50); color: var(--red-700); }
+  .role.shared     { background: var(--navy-100); color: var(--navy-800); }
+  .screen-header .actions { display: flex; gap: 6px; }
+  .screen-header .actions a {
+    font-size: 11px; color: var(--navy-700); text-decoration: none;
+    padding: 4px 9px; border: 1px solid var(--grey-300); border-radius: 3px;
+    background: #fff; font-weight: 500;
+  }
+  .screen-header .actions a:hover { background: var(--navy-50); }
+  .screen-frame {
+    width: 100%; border: none; display: block;
+    background: var(--canvas);
+    min-height: 600px;
+  }
+
+  /* ====== SECTION DIVIDER ====== */
+  .stage-section-head {
+    margin: 12px 4px 8px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--grey-500); font-weight: 700;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .stage-section-head::before {
+    content: ''; width: 18px; height: 2px; background: var(--navy-700); border-radius: 1px;
+  }
+  .stage-section-head::after {
+    content: ''; flex: 1; height: 1px; background: var(--grey-300);
+  }
+  .stage-section-head .count {
+    font-family: var(--font-mono); color: var(--grey-400); font-size: 10px;
+  }
+
+  /* ====== LOADING SHIMMER ====== */
+  .screen-frame[data-loading="1"] { min-height: 600px; background: linear-gradient(90deg, #f6f7f9, #fff 50%, #f6f7f9) 0/200% no-repeat; animation: shimmer 1.4s linear infinite; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* ====== PRINT ====== */
+  @media print {
+    .all-topbar, .all-toc { display: none; }
+    .all-layout { display: block; }
+    .all-stage { padding: 0; }
+    .screen-section { page-break-before: always; box-shadow: none; border: none; margin: 0; border-radius: 0; }
+    .screen-section:first-child { page-break-before: avoid; }
+    .screen-header { background: #fff; }
+    .stage-section-head { page-break-before: always; padding: 24px 0; font-size: 14px; }
+    body { background: #fff; }
+  }
+</style>
+</head>
+<body>
+
+<div class="all-topbar">
+  <div class="brand-mark">EI</div>
+  <div class="brand-text">
+    <div class="name">Enviable I&amp;O</div>
+    <div class="sub">Inventory &amp; Operations</div>
+  </div>
+  <div class="divider"></div>
+  <div>
+    <div class="system-title">Complete System · All Screens</div>
+    <div class="system-meta">22 screens · scroll, jump from the side index, or use ⌘P to export the whole system as PDF</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="toolbar-btn" id="expandAllBtn">Expand all</button>
+  <button class="toolbar-btn primary" id="printBtn">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 9.5h10v3a.5.5 0 01-.5.5h-9a.5.5 0 01-.5-.5v-3z"/><path d="M5 9.5V3h6v6.5M5 5h6"/></svg>
+    Export PDF
+  </button>
+</div>
+
+<div class="all-layout">
+
+  <aside class="all-toc" id="toc">
+    <!-- generated by JS -->
+  </aside>
+
+  <main class="all-stage" id="stage">
+    <!-- generated by JS -->
+  </main>
+
+</div>
+
+<script>
+  /* ----------------------------------------------------------
+     SCREEN MANIFEST — every screen in the system, grouped.
+     Order matches the natural product walkthrough.
+     ---------------------------------------------------------- */
+  const GROUPS = [
+    { name: 'Foundation', screens: [
+      { num: '00', file: 'Design System.html',           title: 'Design System',                  role: 'shared',     subtitle: 'Buttons · inputs · pills · tables · modals · toasts · empty states', height: 4200 },
+      { num: '01', file: 'App Shell.html',               title: 'Application Shell',              role: 'shared',     subtitle: 'Topbar · sidebar · empty content area · notifications popover', height: 760 }
+    ]},
+    { name: 'Dashboards · per role', screens: [
+      { num: '02', file: 'Dashboard.html',               title: 'Dashboard — Warehouse Manager',  role: 'warehouse',  subtitle: 'Kelechi Ekuru · stock snapshot, active shipments, variant bar chart', height: 1500 },
+      { num: '03', file: 'Dashboard - Procurement.html', title: 'Dashboard — Procurement Officer',role: 'procurement',subtitle: 'Funmi Adebayo · POs by status, recent PIs, supplier groups', height: 1500 },
+      { num: '04', file: 'Dashboard - Sales.html',       title: 'Dashboard — Sales Officer',      role: 'sales',      subtitle: 'Chioma Nwankwo · stock available for sale (CKD + CBU), no cost data', height: 1500 },
+      { num: '05', file: 'Dashboard - Executive.html',   title: 'Dashboard — Executive',          role: 'executive',  subtitle: 'Adaeze Okeke · MD/ED/GM read-only oversight, recent activity feed', height: 1800 }
+    ]},
+    { name: 'Procurement', screens: [
+      { num: '06', file: 'Create Purchase Order.html',   title: 'Create Purchase Order',          role: 'procurement',subtitle: 'PO-2026-002 · TVS supplier, line items, totals, attachments', height: 1700 },
+      { num: '06b', file: 'Purchase Order Detail.html',  title: 'Purchase Order Detail',          role: 'procurement',subtitle: 'PO-2026-001 · ApprovalLadder · 4-stage approval flow · stage 3 pending', height: 1500 },
+      { num: '07', file: 'Review Proforma Invoice.html', title: 'Review Proforma Invoice',        role: 'procurement',subtitle: 'PI ORD0000023649 Rev 1 · tabbed line items / diff / source PDF', height: 1900 },
+      { num: '08', file: 'Receive Shipment.html',        title: 'Receive Shipment',               role: 'warehouse',  subtitle: 'SHP-2026-002 · manifest match, serialisation, landed cost, docs', height: 2000 }
+    ]},
+    { name: 'Inventory', screens: [
+      { num: '09', file: 'Units Listing.html',           title: 'Units (Kekes) Listing',          role: 'warehouse',  subtitle: '2,070 individually-tracked units · filter + row actions', height: 1500 },
+      { num: '10', file: 'Unit Detail.html',             title: 'Unit Detail',                    role: 'warehouse',  subtitle: 'TVSKGS25E0001234 · summary + movement-history timeline', height: 1900 },
+      { num: '11', file: 'New Assembly Job.html',        title: 'New Assembly Job',               role: 'warehouse',  subtitle: 'AJ-2026-0119 · scan/bulk-add CKD units, 4-step workflow guide', height: 1700 }
+    ]},
+    { name: 'Sales', screens: [
+      { num: '12', file: 'New Customer.html',            title: 'New Customer',                   role: 'sales',      subtitle: 'Reseller customer form · pricing tier with live price preview', height: 1900 },
+      { num: '13', file: 'New Sales Order.html',         title: 'New Sales Order',                role: 'sales',      subtitle: 'SO-2026-001 · per-unit allocation, totals panel, 9-state lifecycle', height: 2000 },
+      { num: '14', file: 'Record Payment Modal.html',    title: 'Record Payment Modal',           role: 'sales',      subtitle: 'Bank transfer · manual confirmation · success toast', height: 1100 },
+      { num: '15', file: 'SO Documents Review.html',     title: 'Sales Order Documents',          role: 'sales',      subtitle: 'Invoice + Release Authorisation + Delivery Note + lifecycle sidebar', height: 1800 }
+    ]},
+    { name: 'Reports', screens: [
+      { num: '16', file: 'Stocks Report.html',           title: 'Stocks Report',                  role: 'executive',  subtitle: 'As-of inventory with state breakdown · spare parts · charts', height: 1700 },
+      { num: '17', file: 'Audit Log.html',               title: 'Audit Log',                      role: 'auditor',    subtitle: 'Immutable log · property diffs · blocked-mutation forensic record', height: 2200 }
+    ]},
+    { name: 'Admin', screens: [
+      { num: '18', file: 'Users v2.html',                title: 'Users · List',                   role: 'it',         subtitle: '12 accounts · reports-to relationships · status segmented filter', height: 1100 },
+      { num: '19', file: 'User Detail.html',             title: 'User Detail',                    role: 'it',         subtitle: 'Kelechi Ekuru · Profile / Roles / Activity tabs', height: 1300 },
+      { num: '20', file: 'Historical Data Load.html',    title: 'Historical Data Load',           role: 'it',         subtitle: '5-step import wizard · Step 2 (Upload Kekes) active', height: 1700 }
+    ]},
+    { name: 'Responsive variants', screens: [
+      { num: '21', file: 'Dashboard — Tablet.html',         title: 'Dashboard · Tablet (1024)',      role: 'warehouse', subtitle: 'Icon-rail sidebar, 4-col KPIs, 2-col content', height: 1000 },
+      { num: '22', file: 'Dashboard — Mobile.html',         title: 'Dashboard · Mobile (390)',       role: 'warehouse', subtitle: 'Hamburger drawer, KPI stack, card-list shipments', height: 1400 },
+      { num: '23', file: 'New Sales Order — Tablet.html',   title: 'New Sales Order · Tablet (1024)',role: 'sales',     subtitle: 'Icon sidebar, dense form, lines+totals 2-col', height: 950 },
+      { num: '24', file: 'New Sales Order — Mobile.html',   title: 'New Sales Order · Mobile (390)', role: 'sales',     subtitle: 'Line items as cards, lifecycle scroll, sticky submit', height: 1400 },
+      { num: '25', file: 'Unit Detail — Tablet.html',       title: 'Unit Detail · Tablet (1024)',    role: 'warehouse', subtitle: 'Hero with avatar, 2-col KV, dense timeline', height: 950 },
+      { num: '26', file: 'Unit Detail — Mobile.html',       title: 'Unit Detail · Mobile (390)',     role: 'warehouse', subtitle: 'Hero + tabs, KV stacks, vertical timeline', height: 1500 }
+    ]}
+  ];
+
+  /* ----------------------------------------------------------
+     RENDER
+     ---------------------------------------------------------- */
+  const toc = document.getElementById('toc');
+  const stage = document.getElementById('stage');
+
+  let totalCount = 0;
+  GROUPS.forEach(group => totalCount += group.screens.length);
+
+  GROUPS.forEach((group, gi) => {
+    // TOC: section + items
+    const tocSec = document.createElement('div');
+    tocSec.className = 'toc-section';
+    tocSec.textContent = group.name;
+    toc.appendChild(tocSec);
+    group.screens.forEach(s => {
+      const a = document.createElement('a');
+      a.href = '#screen-' + s.num;
+      a.innerHTML = `<span class="num">${s.num}</span><span class="label">${s.title.replace(/\s—\s.*/, '')}</span>`;
+      toc.appendChild(a);
+    });
+
+    // Stage: section header
+    const sh = document.createElement('div');
+    sh.className = 'stage-section-head';
+    sh.innerHTML = `<span>${group.name}</span><span class="count">${group.screens.length} ${group.screens.length === 1 ? 'screen' : 'screens'}</span>`;
+    stage.appendChild(sh);
+
+    // Stage: each screen
+    group.screens.forEach(s => {
+      const sec = document.createElement('section');
+      sec.className = 'screen-section';
+      sec.id = 'screen-' + s.num;
+      sec.innerHTML = `
+        <div class="screen-header">
+          <div class="screen-header-block">
+            <h2><span class="num-tag">${s.num}</span>${s.title}</h2>
+            <div class="meta">
+              <span class="role ${s.role}">${s.role}</span>
+              <span>${s.subtitle}</span>
+            </div>
+          </div>
+          <div class="actions">
+            <a href="${encodeURI(s.file)}" target="_blank" rel="noopener">Open standalone ↗</a>
+          </div>
+        </div>
+        <iframe class="screen-frame" loading="lazy" data-loading="1" data-h="${s.height}" data-file="${s.file}"></iframe>
+      `;
+      stage.appendChild(sec);
+    });
+  });
+
+  /* ----------------------------------------------------------
+     LAZY LOAD + AUTO-SIZE IFRAMES, HIDE WIDGETS INSIDE
+     ---------------------------------------------------------- */
+  const frames = stage.querySelectorAll('.screen-frame');
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const f = e.target;
+        if (!f.src) {
+          f.style.height = f.dataset.h + 'px';
+          f.src = f.dataset.file;
+        }
+        io.unobserve(f);
+      }
+    });
+  }, { rootMargin: '300px' });
+  frames.forEach(f => io.observe(f));
+
+  // After each iframe loads, hide its floating widgets so they don't stack
+  function postLoad(f) {
+    try {
+      const doc = f.contentDocument;
+      if (!doc) return;
+      const style = doc.createElement('style');
+      style.textContent = '#role-switcher, #system-state-switcher { display: none !important; }';
+      doc.head.appendChild(style);
+      // Best-fit height
+      requestAnimationFrame(() => {
+        const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+        if (h > 0) f.style.height = (h + 20) + 'px';
+        f.removeAttribute('data-loading');
+      });
+    } catch (e) { /* same-origin only; ignore */ }
+  }
+  frames.forEach(f => f.addEventListener('load', () => postLoad(f)));
+
+  /* ----------------------------------------------------------
+     ACTIVE TOC LINK ON SCROLL
+     ---------------------------------------------------------- */
+  const links = toc.querySelectorAll('a');
+  const scrollObs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = e.target.id;
+        links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-40% 0px -55% 0px' });
+  document.querySelectorAll('.screen-section').forEach(s => scrollObs.observe(s));
+
+  /* ----------------------------------------------------------
+     TOOLBAR ACTIONS
+     ---------------------------------------------------------- */
+  document.getElementById('printBtn').addEventListener('click', () => {
+    // Force all frames to load before print
+    frames.forEach(f => { if (!f.src) { f.style.height = f.dataset.h + 'px'; f.src = f.dataset.file; } });
+    setTimeout(() => window.print(), 2400);
+  });
+
+  document.getElementById('expandAllBtn').addEventListener('click', () => {
+    frames.forEach(f => { if (!f.src) { f.style.height = f.dataset.h + 'px'; f.src = f.dataset.file; } });
+    document.getElementById('expandAllBtn').textContent = 'Loading all…';
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Stocks Report — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  body { display: flex; min-height: 100vh; }
+  .app-sidebar { width: var(--sidebar-w); background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; font-size: var(--fs-13); }
+  .app-brand { height: var(--topbar-h); padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .app-brand-mark { width: 30px; height: 30px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 13.5px; }
+  .app-brand-sub { color: #8aa6c4; font-size: 10.5px; }
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 8px 8px 12px; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; color: #6f8aa6; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600; cursor: pointer; user-select: none; }
+  .nav-group-header .chev { color: #6f8aa6; transition: transform .15s ease; }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .nav-group-body { display: none; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 7px 12px; border-radius: 3px; color: #cfdcec; text-decoration: none; line-height: 1.3; position: relative; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -8px; top: 4px; bottom: 4px; width: 3px; border-radius: 0 2px 2px 0; background: #5a9fe8; }
+  .nav-item svg { width: 16px; height: 16px; opacity: .85; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px; flex-shrink: 0; }
+  .app-user-meta { line-height: 1.25; flex: 1; min-width: 0; }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; }
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: var(--topbar-h); border-bottom: 1px solid var(--grey-200); background: #fff; display: flex; align-items: center; padding: 0 20px; gap: 16px; position: sticky; top: 0; z-index: 30; }
+  .topbar-company { font-size: 14px; font-weight: 600; color: var(--ink); padding-right: 18px; border-right: 1px solid var(--grey-200); height: 28px; display: flex; align-items: center; }
+  .topbar-company .accent { color: var(--navy-700); }
+  .topbar-user { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 999px; }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 11px; border: none; }
+  .topbar-user-text { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-user-name { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .topbar-user-role { font-size: 11px; color: var(--grey-500); }
+
+  /* ===== PAGE ===== */
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; }
+  .page { padding: 24px 28px 60px; max-width: 1620px; }
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--grey-200); gap: 24px; }
+  .page-crumbs { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .page-crumbs a { color: var(--grey-500); text-decoration: none; }
+  .page-crumbs .sep { color: var(--grey-300); }
+  .page-crumbs .current { color: var(--ink); font-weight: 500; }
+  .page-title { font-size: 24px; font-weight: 600; color: var(--ink); margin: 0 0 4px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
+  .as-of-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; background: var(--grey-100); color: var(--grey-700); font-size: 11px; font-weight: 500; border-radius: 3px; font-variant-numeric: tabular-nums; }
+  .as-of-tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green-700); }
+  .page-sub { color: var(--grey-500); font-size: 13px; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ===== FILTER BAR ===== */
+  .filter-bar { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; padding: 12px 16px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 12px; align-items: end; }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .filter-label { font-size: 11px; color: var(--grey-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .filter-control { height: 32px; background: #fff; border: 1px solid var(--grey-300); border-radius: 3px; padding: 0 10px; font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; }
+  .filter-control:hover { border-color: var(--grey-400); }
+  .filter-control .leading { color: var(--grey-500); flex-shrink: 0; }
+  .filter-control .value { color: var(--ink); font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .filter-control .placeholder { color: var(--grey-400); }
+  .filter-control .chev { color: var(--grey-400); flex-shrink: 0; margin-left: auto; }
+  .filter-reset { height: 32px; padding: 0 12px; border: 1px solid transparent; background: transparent; color: var(--navy-700); cursor: pointer; font-size: 13px; font-weight: 500; border-radius: 3px; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
+  .filter-reset:hover { background: var(--navy-50); }
+  .filter-reset[disabled] { color: var(--grey-400); cursor: default; }
+
+  /* ===== KPI ===== */
+  .kpi-row { display: grid; grid-template-columns: 1.4fr 1.6fr 1fr; gap: 14px; margin-bottom: 16px; }
+  .kpi { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; padding: 16px 20px; }
+  .kpi.headline { background: linear-gradient(180deg, #fff 0%, var(--navy-50) 100%); border-color: var(--navy-100); }
+  .kpi-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--grey-500); font-weight: 600; }
+  .kpi-icon { width: 28px; height: 28px; border-radius: 4px; display: grid; place-items: center; color: var(--navy-700); background: var(--navy-50); }
+  .kpi.headline .kpi-icon { background: var(--navy-700); color: #fff; }
+  .kpi-value { font-size: 32px; font-weight: 600; color: var(--ink); line-height: 1.05; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin-bottom: 8px; }
+  .kpi.headline .kpi-value { font-size: 34px; color: var(--navy-800); }
+  .kpi-unit { font-size: 14px; font-weight: 500; color: var(--grey-500); margin-left: 4px; }
+  .kpi-foot { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .kpi-foot b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 500; }
+  .kpi-split { display: inline-flex; align-items: center; gap: 6px; }
+  .kpi-split .dot { width: 8px; height: 8px; border-radius: 2px; }
+  .kpi-split .dot.ckd { background: var(--navy-700); }
+  .kpi-split .dot.cbu { background: var(--green-700); }
+
+  /* ===== CARD CHROME ===== */
+  .card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; margin-bottom: 16px; }
+  .card-header { padding: 12px 18px; border-bottom: 1px solid var(--grey-200); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .card-title-block { display: flex; align-items: center; gap: 10px; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0; }
+  .card-count { font-size: 11px; color: var(--grey-500); font-weight: 500; background: var(--grey-100); padding: 2px 7px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+  .card-help { font-size: 12px; color: var(--grey-500); }
+
+  /* ===== STOCKS TABLE ===== */
+  .dt { width: 100%; font-size: 13px; }
+  .dt th { text-align: left; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey-500); padding: 11px 12px; border-bottom: 1px solid var(--grey-200); background: var(--grey-100); white-space: nowrap; }
+  .dt th.r { text-align: right; }
+  .dt td { padding: 12px; border-bottom: 1px solid var(--grey-200); color: var(--ink); vertical-align: middle; }
+  .dt td.r { text-align: right; font-variant-numeric: tabular-nums; }
+  .dt td.r.zero { color: var(--grey-400); }
+  .dt tr:hover td { background: var(--navy-50); }
+  .dt tr:last-child td { border-bottom: none; }
+  .dt tfoot td { background: #FBFBFB; border-top: 2px solid var(--ink); font-weight: 700; color: var(--ink); }
+  .dt tfoot td.r { font-variant-numeric: tabular-nums; }
+  .variant-cell .name { font-weight: 500; color: var(--ink); }
+  .variant-cell .sku { font-family: var(--font-mono); font-size: 10.5px; color: var(--grey-500); margin-top: 2px; }
+  .total-col { font-weight: 600; }
+
+  /* ===== CHARTS ROW ===== */
+  .charts-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 16px; }
+  .charts-row > .card { min-width: 0; }
+
+  /* Donut */
+  .donut-body { padding: 18px; display: flex; align-items: center; gap: 22px; }
+  .donut-wrap { width: 160px; height: 160px; position: relative; flex-shrink: 0; }
+  .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .donut-center .num { font-size: 24px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .donut-center .lbl { font-size: 10px; color: var(--grey-500); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; font-weight: 600; }
+  .donut-legend { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .legend-row { display: grid; grid-template-columns: 12px 1fr auto auto; gap: 10px; align-items: center; padding: 6px 0; font-size: 12px; border-bottom: 1px dashed var(--grey-200); }
+  .legend-row:last-child { border-bottom: none; }
+  .legend-sw { width: 10px; height: 10px; border-radius: 2px; }
+  .legend-sw.ckd { background: var(--navy-700); }
+  .legend-sw.cbu { background: var(--green-700); }
+  .legend-sw.assy { background: var(--amber-700); }
+  .legend-sw.sold { background: #6F8AA6; }
+  .legend-sw.other { background: var(--grey-300); }
+  .legend-name { color: var(--ink); }
+  .legend-row.zero .legend-name { color: var(--grey-400); }
+  .legend-row.zero .legend-sw { background: var(--grey-200); }
+  .legend-val { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+  .legend-row.zero .legend-val { color: var(--grey-400); font-weight: 400; }
+  .legend-pct { font-variant-numeric: tabular-nums; color: var(--grey-500); font-size: 11px; min-width: 40px; text-align: right; }
+
+  /* Horizontal bars */
+  .bars-body { padding: 14px 18px; }
+  .bar-row { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr) 130px; gap: 14px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--grey-200); }
+  .bar-row:last-child { border-bottom: none; }
+  .bar-label { font-size: 12.5px; color: var(--ink); font-weight: 500; display: flex; align-items: center; gap: 6px; line-height: 1.3; min-width: 0; }
+  .bar-tag { font-family: var(--font-mono); font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 500; flex-shrink: 0; }
+  .bar-tag.ckd { background: var(--navy-100); color: var(--navy-800); }
+  .bar-tag.cbu { background: var(--green-50); color: var(--green-700); }
+  .bar-track { height: 20px; background: var(--grey-100); border-radius: 2px; overflow: hidden; display: flex; }
+  .bar-seg { height: 100%; display: flex; align-items: center; padding: 0 8px; color: #fff; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bar-seg.ckd { background: var(--navy-700); }
+  .bar-seg.cbu { background: var(--green-700); }
+  .bar-right { display: flex; align-items: center; justify-content: flex-end; gap: 10px; font-variant-numeric: tabular-nums; }
+  .bar-count { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .bar-share { font-size: 11px; color: var(--grey-500); width: 38px; text-align: right; }
+
+  /* discrepancy strip */
+  .discrepancy-strip {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    background: var(--amber-50);
+    border: 1px solid #F1DBC0;
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--amber-700);
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .discrepancy-strip svg { color: var(--amber-700); flex-shrink: 0; margin-top: 1px; }
+  .discrepancy-strip b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div>
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+  <nav class="nav-scroll">
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Inventory</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body"><a class="nav-item" href="#">Units (kekes)</a></div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-header"><span>Reports</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13l4-4 3 3 5-6"/><path d="M11 6h3v3"/></svg>Revenue &amp; Sales</a>
+        <a class="nav-item active" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="9" width="2.5" height="5"/><rect x="6.75" y="6" width="2.5" height="8"/><rect x="10.5" y="3" width="2.5" height="11"/></svg>Stocks</a>
+        <a class="nav-item" href="#">Customers</a>
+        <a class="nav-item" href="#">Audit Log</a>
+      </div>
+    </div>
+  </nav>
+  <div class="app-user">
+    <div class="avatar">KE</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Kelechi Ekuru</div>
+      <div class="app-user-role">Warehouse Manager</div>
+    </div>
+  </div>
+</aside>
+
+<main class="app-main">
+
+  <header class="topbar">
+    <div class="topbar-company">Enviable <span class="accent">Tricycle</span></div>
+    <div style="flex: 1;"></div>
+    <div class="topbar-user">
+      <div class="avatar">KE</div>
+      <div class="topbar-user-text">
+        <div class="topbar-user-name">Kelechi Ekuru</div>
+        <div class="topbar-user-role">Warehouse Manager</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-content">
+  <div class="page">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div>
+        <div class="page-crumbs">
+          <a href="#">Reports</a><span class="sep">/</span>
+          <span class="current">Stocks</span>
+        </div>
+        <h1 class="page-title">Stocks Report <span class="as-of-tag">As of <b style="color:var(--ink);font-weight:600;">19 May 2026 · 14:42 WAT</b></span></h1>
+        <div class="page-sub">Snapshot of on-hand inventory across all states, with market valuation for finished goods.</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9.5h10v3a.5.5 0 01-.5.5h-9a.5.5 0 01-.5-.5v-3z"/><path d="M5 9.5V3h6v6.5M5 5h6"/></svg>
+          Print
+        </button>
+        <button class="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+          Export to CSV
+        </button>
+      </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">As-of Date</span>
+        <button class="filter-control">
+          <svg class="leading" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>
+          <span class="value">Now</span>
+          <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+        </button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Warehouse</span>
+        <button class="filter-control">
+          <svg class="leading" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-3.5L14 6v7H2V6z"/><path d="M6 13V9h4v4"/></svg>
+          <span class="value">All warehouses</span>
+          <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+        </button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Variant</span>
+        <button class="filter-control">
+          <svg class="leading" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 11h2l1-3.5h6L12 11h2.5"/><circle cx="5" cy="12.5" r="1.3"/><circle cx="11" cy="12.5" r="1.3"/></svg>
+          <span class="placeholder">All variants</span>
+          <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+        </button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Status</span>
+        <button class="filter-control">
+          <svg class="leading" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5" fill="currentColor"/></svg>
+          <span class="placeholder">All statuses</span>
+          <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+        </button>
+      </div>
+      <button class="filter-reset" disabled>
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8a5 5 0 1 1 1.5 3.5"/><path d="M3 4v3.5h3.5"/></svg>
+        Reset
+      </button>
+    </div>
+
+    <!-- KPI ROW -->
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-head">
+          <span class="kpi-label">Total Units</span>
+          <span class="kpi-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 11h2l1-3.5h6L12 11h2.5"/><circle cx="5" cy="12.5" r="1.3"/><circle cx="11" cy="12.5" r="1.3"/></svg></span>
+        </div>
+        <div class="kpi-value">2,070<span class="kpi-unit">units</span></div>
+        <div class="kpi-foot">
+          <span class="kpi-split"><span class="dot ckd"></span><b>1,955</b> CKD</span>
+          <span class="kpi-split"><span class="dot cbu"></span><b>115</b> CBU</span>
+        </div>
+      </div>
+
+      <div class="kpi headline">
+        <div class="kpi-head">
+          <span class="kpi-label">Total Market Value</span>
+          <span class="kpi-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6l6-3.5L14 6v7H2V6z"/><path d="M6 13V9h4v4"/></svg></span>
+        </div>
+        <div class="kpi-value">₦5.96<span class="kpi-unit">billion</span></div>
+        <div class="kpi-foot">
+          <span><b>₦5,964,000,000.00</b> · valued at <b>Reseller Standard v3</b></span>
+        </div>
+      </div>
+
+      <div class="kpi">
+        <div class="kpi-head">
+          <span class="kpi-label">Total Variants</span>
+          <span class="kpi-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/></svg></span>
+        </div>
+        <div class="kpi-value">5<span class="kpi-unit">SKUs</span></div>
+        <div class="kpi-foot">
+          <span>4 GS+ · 1 ZS+</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STOCKS TABLE -->
+    <section class="card">
+      <div class="card-header">
+        <div class="card-title-block"><h2 class="card-title">Stock by Variant</h2><span class="card-count">5 variants · 2,070 units</span></div>
+        <span class="card-help">Counts shown per lifecycle state · Market Value = Total × Market Price</span>
+      </div>
+      <table class="dt">
+        <thead>
+          <tr>
+            <th>Variant</th>
+            <th class="r">CKD<br/><span style="font-weight:400;color:var(--grey-400);text-transform:none;letter-spacing:0;font-size:10px;">in warehouse</span></th>
+            <th class="r">In Assembly</th>
+            <th class="r">CBU<br/><span style="font-weight:400;color:var(--grey-400);text-transform:none;letter-spacing:0;font-size:10px;">in warehouse</span></th>
+            <th class="r">Sold</th>
+            <th class="r">Other</th>
+            <th class="r">Total</th>
+            <th class="r">Market Price · NGN</th>
+            <th class="r">Market Value · NGN</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><div class="variant-cell"><div class="name">TVS King GS+ DP CKD EXP10 G Yellow</div><div class="sku">TVS-KING-GSPDP-EXP10-GY · CKD</div></div></td>
+            <td class="r">1,472</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r total-col">1,472</td>
+            <td class="r">₦ 2,800,000</td>
+            <td class="r"><b>₦ 4,121,600,000</b></td>
+          </tr>
+          <tr>
+            <td><div class="variant-cell"><div class="name">TVS King GS+ DP CKD EXP10 NEP Blue</div><div class="sku">TVS-KING-GSPDP-EXP10-NB · CKD</div></div></td>
+            <td class="r">368</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r total-col">368</td>
+            <td class="r">₦ 2,800,000</td>
+            <td class="r"><b>₦ 1,030,400,000</b></td>
+          </tr>
+          <tr>
+            <td><div class="variant-cell"><div class="name">TVS King GS+ DP CKD EXP10 NF Wine Red</div><div class="sku">TVS-KING-GSPDP-EXP10-WR · CKD</div></div></td>
+            <td class="r">69</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r total-col">69</td>
+            <td class="r">₦ 2,800,000</td>
+            <td class="r"><b>₦ 193,200,000</b></td>
+          </tr>
+          <tr>
+            <td><div class="variant-cell"><div class="name">TVS King GS+ DP CKD EXP10 Eco Green</div><div class="sku">TVS-KING-GSPDP-EXP10-EG · CKD</div></div></td>
+            <td class="r">46</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r total-col">46</td>
+            <td class="r">₦ 2,800,000</td>
+            <td class="r"><b>₦ 128,800,000</b></td>
+          </tr>
+          <tr>
+            <td><div class="variant-cell"><div class="name">TVS King ZS+ EXP G Yellow</div><div class="sku">TVS-KING-ZSPEXP-CBU-GY · CBU · assembled</div></div></td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r">115</td>
+            <td class="r zero">0</td>
+            <td class="r zero">0</td>
+            <td class="r total-col">115</td>
+            <td class="r">₦ 3,500,000</td>
+            <td class="r"><b>₦ 402,500,000</b></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>Totals · 5 variants</td>
+            <td class="r">1,955</td>
+            <td class="r">0</td>
+            <td class="r">115</td>
+            <td class="r">0</td>
+            <td class="r">0</td>
+            <td class="r">2,070</td>
+            <td class="r" style="font-weight:400;color:var(--grey-500);">avg ₦ 2,881,159</td>
+            <td class="r" style="color: var(--navy-800);">₦ 5,964,000,000</td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+
+    <!-- SPARE PARTS -->
+    <section class="card">
+      <div class="card-header">
+        <div class="card-title-block">
+          <h2 class="card-title">Spare Parts</h2>
+          <span class="card-count">5 SKUs · 1,260 pieces on hand</span>
+        </div>
+        <span class="card-help">Valued at landed cost · not sold in MVP (no market price)</span>
+      </div>
+      <table class="dt">
+        <thead>
+          <tr>
+            <th style="width: 160px;">SKU</th>
+            <th>Description</th>
+            <th class="r" style="width: 130px;">Qty on Hand</th>
+            <th class="r" style="width: 170px;">Landed Cost / Unit · NGN</th>
+            <th class="r" style="width: 190px;">Total Landed Cost · NGN</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 500;">SP-BRK-PAD-FR</span></td>
+            <td>Brake pad set — front · TVS OE</td>
+            <td class="r">400</td>
+            <td class="r">₦ 18,400.00</td>
+            <td class="r"><b>₦ 7,360,000.00</b></td>
+          </tr>
+          <tr>
+            <td><span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 500;">SP-AIR-FLT-STD</span></td>
+            <td>Air filter element · TVS OE</td>
+            <td class="r">500</td>
+            <td class="r">₦ 9,200.00</td>
+            <td class="r"><b>₦ 4,600,000.00</b></td>
+          </tr>
+          <tr>
+            <td><span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 500;">SP-SPK-PLG-CR8</span></td>
+            <td>Spark plug CR8E equivalent · NGK aftermarket</td>
+            <td class="r">288</td>
+            <td class="r">₦ 3,750.00</td>
+            <td class="r"><b>₦ 1,080,000.00</b></td>
+          </tr>
+          <tr>
+            <td><span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 500;">SP-HDL-ASM-12V</span></td>
+            <td>Headlamp assembly · 12V · TVS OE</td>
+            <td class="r">60</td>
+            <td class="r">₦ 41,500.00</td>
+            <td class="r"><b>₦ 2,490,000.00</b></td>
+          </tr>
+          <tr>
+            <td><span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 500;">SP-CLT-CBL-STD</span></td>
+            <td>Clutch cable assembly · TVS OE</td>
+            <td class="r">12</td>
+            <td class="r">₦ 6,800.00</td>
+            <td class="r"><b>₦ 81,600.00</b></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2">Totals · 5 SKUs</td>
+            <td class="r">1,260</td>
+            <td class="r" style="font-weight:400; color: var(--grey-500);">—</td>
+            <td class="r" style="color: var(--navy-800);">₦ 15,611,600.00</td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+
+    <!-- CHARTS -->
+    <div class="charts-row">
+
+      <!-- DONUT -->
+      <section class="card" style="margin-bottom: 0;">
+        <div class="card-header">
+          <div class="card-title-block"><h2 class="card-title">Stock by State</h2></div>
+          <span class="card-help">All lifecycle states</span>
+        </div>
+        <div class="donut-body">
+          <div class="donut-wrap">
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              <circle cx="80" cy="80" r="64" fill="none" stroke="var(--grey-100)" stroke-width="20"/>
+              <g transform="rotate(-90 80 80)">
+                <!-- CKD: 1955/2070 = 94.44%, circumference = 2π·64 = 402.12, ckd arc = 379.81 -->
+                <circle cx="80" cy="80" r="64" fill="none" stroke="var(--navy-700)" stroke-width="20"
+                        stroke-dasharray="379.81 402.12" stroke-dashoffset="0" />
+                <!-- CBU: 5.56% = 22.36 -->
+                <circle cx="80" cy="80" r="64" fill="none" stroke="var(--green-700)" stroke-width="20"
+                        stroke-dasharray="22.36 402.12" stroke-dashoffset="-379.81" />
+              </g>
+            </svg>
+            <div class="donut-center">
+              <div class="num">2,070</div>
+              <div class="lbl">Units</div>
+            </div>
+          </div>
+          <div class="donut-legend">
+            <div class="legend-row">
+              <span class="legend-sw ckd"></span>
+              <span class="legend-name">InWarehouseCKD</span>
+              <span class="legend-val">1,955</span>
+              <span class="legend-pct">94.4%</span>
+            </div>
+            <div class="legend-row">
+              <span class="legend-sw cbu"></span>
+              <span class="legend-name">InWarehouseCBU</span>
+              <span class="legend-val">115</span>
+              <span class="legend-pct">5.6%</span>
+            </div>
+            <div class="legend-row zero">
+              <span class="legend-sw assy"></span>
+              <span class="legend-name">InAssembly</span>
+              <span class="legend-val">0</span>
+              <span class="legend-pct">0%</span>
+            </div>
+            <div class="legend-row zero">
+              <span class="legend-sw sold"></span>
+              <span class="legend-name">Sold</span>
+              <span class="legend-val">0</span>
+              <span class="legend-pct">0%</span>
+            </div>
+            <div class="legend-row zero">
+              <span class="legend-sw other"></span>
+              <span class="legend-name">Other</span>
+              <span class="legend-val">0</span>
+              <span class="legend-pct">0%</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BARS -->
+      <section class="card" style="margin-bottom: 0;">
+        <div class="card-header">
+          <div class="card-title-block"><h2 class="card-title">Stock by Variant</h2></div>
+          <span class="card-help">Scaled to largest variant (1,472)</span>
+        </div>
+        <div class="bars-body">
+          <div class="bar-row">
+            <div class="bar-label">TVS King GS+ DP CKD EXP10 G Yellow <span class="bar-tag ckd">CKD</span></div>
+            <div class="bar-track"><div class="bar-seg ckd" style="width: 100%;">1,472</div></div>
+            <div class="bar-right"><span class="bar-count">1,472</span><span class="bar-share">71.1%</span></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label">TVS King GS+ DP CKD EXP10 NEP Blue <span class="bar-tag ckd">CKD</span></div>
+            <div class="bar-track"><div class="bar-seg ckd" style="width: 25.0%;">368</div></div>
+            <div class="bar-right"><span class="bar-count">368</span><span class="bar-share">17.8%</span></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label">TVS King ZS+ EXP G Yellow <span class="bar-tag cbu">CBU</span></div>
+            <div class="bar-track"><div class="bar-seg cbu" style="width: 7.81%;">115</div></div>
+            <div class="bar-right"><span class="bar-count">115</span><span class="bar-share">5.6%</span></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label">TVS King GS+ DP CKD EXP10 NF Wine Red <span class="bar-tag ckd">CKD</span></div>
+            <div class="bar-track"><div class="bar-seg ckd" style="width: 4.69%;">69</div></div>
+            <div class="bar-right"><span class="bar-count">69</span><span class="bar-share">3.3%</span></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label">TVS King GS+ DP CKD EXP10 Eco Green <span class="bar-tag ckd">CKD</span></div>
+            <div class="bar-track"><div class="bar-seg ckd" style="width: 3.13%;">46</div></div>
+            <div class="bar-right"><span class="bar-count">46</span><span class="bar-share">2.2%</span></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </div>
+  </div>
+
+</main>
+
+<script>
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+  });
+</script>
+
+<script src="role-switcher.js"></script>
+</body>
+</html>

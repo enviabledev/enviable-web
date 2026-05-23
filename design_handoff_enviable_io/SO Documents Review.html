@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Documents — SO-2026-001 — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  /* ===== APP SHELL ===== */
+  body { display: flex; min-height: 100vh; }
+  .app-sidebar { width: var(--sidebar-w); background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; font-size: var(--fs-13); }
+  .app-brand { height: var(--topbar-h); padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .app-brand-mark { width: 30px; height: 30px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 13.5px; }
+  .app-brand-sub { color: #8aa6c4; font-size: 10.5px; }
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 8px 8px 12px; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; color: #6f8aa6; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600; cursor: pointer; user-select: none; }
+  .nav-group-header .chev { color: #6f8aa6; transition: transform .15s ease; }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .nav-group-body { display: none; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 7px 12px; border-radius: 3px; color: #cfdcec; text-decoration: none; line-height: 1.3; position: relative; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -8px; top: 4px; bottom: 4px; width: 3px; border-radius: 0 2px 2px 0; background: #5a9fe8; }
+  .nav-item svg { width: 16px; height: 16px; opacity: .85; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px; flex-shrink: 0; }
+  .app-user-meta { line-height: 1.25; flex: 1; min-width: 0; }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; }
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: var(--topbar-h); border-bottom: 1px solid var(--grey-200); background: #fff; display: flex; align-items: center; padding: 0 20px; gap: 16px; position: sticky; top: 0; z-index: 30; }
+  .topbar-company { font-size: 14px; font-weight: 600; color: var(--ink); padding-right: 18px; border-right: 1px solid var(--grey-200); height: 28px; display: flex; align-items: center; }
+  .topbar-company .accent { color: var(--navy-700); }
+  .topbar-user { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 999px; }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 11px; border: none; }
+  .topbar-user-text { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-user-name { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .topbar-user-role { font-size: 11px; color: var(--grey-500); }
+
+  /* ===== PAGE ===== */
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; }
+  .page { padding: 22px 24px 50px; max-width: 1500px; }
+
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--grey-200); gap: 24px; }
+  .page-crumbs { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .page-crumbs a { color: var(--grey-500); text-decoration: none; }
+  .page-crumbs a:hover { color: var(--navy-700); }
+  .page-crumbs .sep { color: var(--grey-300); }
+  .page-crumbs .current { color: var(--ink); font-weight: 500; }
+  .page-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .page-title { font-size: 22px; font-weight: 600; color: var(--ink); margin: 0; letter-spacing: -0.01em; }
+  .page-title .mono { font-family: var(--font-mono); }
+  .so-tag { font-family: var(--font-mono); font-size: 12px; color: var(--navy-700); background: var(--navy-50); padding: 4px 10px; border-radius: 3px; font-weight: 600; }
+  .page-sub { color: var(--grey-500); font-size: 13px; }
+  .page-sub b { color: var(--ink); font-weight: 500; }
+
+  /* pills */
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+  .pill-amber { background: var(--amber-50); color: var(--amber-700); }
+  .pill-amber::before { background: var(--amber-700); }
+  .pill-green { background: var(--green-50); color: var(--green-700); }
+  .pill-green::before { background: var(--green-700); }
+  .pill-navy { background: var(--navy-50); color: var(--navy-700); }
+  .pill-navy::before { background: var(--navy-700); }
+
+  /* ===== 2-COL: MAIN + RIGHT SIDEBAR ===== */
+  .doc-layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 18px;
+    align-items: start;
+  }
+
+  /* ===== TABS / DOC CARD ===== */
+  .doc-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; min-width: 0; }
+  .tab-strip { display: flex; align-items: stretch; border-bottom: 1px solid var(--grey-200); padding: 0 8px; background: #fff; overflow-x: auto; }
+  .tab-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 16px; background: transparent; border: none; color: var(--grey-700); font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn.active { color: var(--navy-700); border-bottom-color: var(--navy-700); }
+  .tab-btn svg { color: var(--grey-500); }
+  .tab-btn.active svg { color: var(--navy-700); }
+  .tab-btn .ref { font-family: var(--font-mono); font-size: 10.5px; color: var(--grey-500); background: var(--grey-100); padding: 1px 6px; border-radius: 2px; font-weight: 500; }
+  .tab-btn.active .ref { background: var(--navy-50); color: var(--navy-700); }
+  .tab-spacer { flex: 1; }
+  .tab-strip-meta { display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 11.5px; color: var(--grey-500); }
+
+  /* Doc toolbar */
+  .doc-toolbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--grey-200);
+    background: #FBFBFB;
+  }
+  .doc-tool-info { font-size: 11.5px; color: var(--grey-500); display: flex; align-items: center; gap: 8px; }
+  .doc-tool-info b { color: var(--ink); }
+  .doc-tool-info .mono { font-family: var(--font-mono); }
+  .doc-tool-spacer { flex: 1; }
+  .phase-tag-tiny { font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 3px; background: var(--amber-50); color: var(--amber-700); text-transform: uppercase; margin-left: 4px; }
+  .btn-disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* PDF stage */
+  .pdf-stage {
+    background: var(--grey-200);
+    padding: 26px 28px 28px;
+    min-height: 720px;
+    overflow-x: auto;
+  }
+  .pdf-doc {
+    background: #fff;
+    width: 100%; max-width: 820px;
+    margin: 0 auto;
+    padding: 44px 52px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.05), 0 8px 24px rgba(15,42,68,0.10);
+    font-family: 'Times New Roman', serif;
+    color: #111;
+    font-size: 12px;
+    line-height: 1.5;
+    position: relative;
+  }
+
+  /* --- Common doc primitives --- */
+  .pdf-letterhead {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid #111;
+    margin-bottom: 18px;
+  }
+  .pdf-logo-box {
+    width: 78px; height: 78px;
+    background: #163C61;
+    color: #fff;
+    display: grid; place-items: center;
+    font-family: 'Inter', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: 0.08em;
+    flex-shrink: 0;
+    border-radius: 3px;
+    position: relative;
+  }
+  .pdf-logo-box .logo-sub {
+    position: absolute; bottom: -22px; left: 0; right: 0;
+    font-size: 8px; font-weight: 700; color: #163C61;
+    text-align: center; letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: #fff;
+  }
+  .pdf-letterhead-text { flex: 1; }
+  .pdf-letterhead-text .org { font-size: 17px; font-weight: 700; letter-spacing: 0.005em; margin-bottom: 3px; }
+  .pdf-letterhead-text .org-sub { font-size: 10.5px; color: #444; line-height: 1.55; }
+  .pdf-doc-id { text-align: right; font-size: 10px; color: #444; line-height: 1.6; }
+  .pdf-doc-id .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: #777; font-weight: 700; margin-bottom: 2px; }
+  .pdf-doc-id .id-num { font-family: 'Courier New', monospace; font-size: 14px; color: #111; font-weight: 700; letter-spacing: 0.04em; }
+
+  .pdf-title-banner {
+    text-align: center;
+    font-size: 17px; font-weight: 700; letter-spacing: 0.18em;
+    margin: 10px 0 18px;
+    padding: 6px 0;
+    border-top: 1px solid #888;
+    border-bottom: 1px solid #888;
+  }
+  .pdf-title-banner.internal { background: #FDF7EE; border-color: #B45F06; color: #B45F06; }
+  .pdf-title-banner.delivery { background: #EDF4FA; border-color: #1F4E79; color: #1F4E79; }
+
+  .pdf-meta-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px 32px;
+    margin-bottom: 18px;
+  }
+  .pdf-meta-block .pdf-meta-head { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: #666; font-weight: 700; margin-bottom: 4px; }
+  .pdf-meta-block .pdf-meta-body { font-size: 11.5px; line-height: 1.55; }
+  .pdf-meta-block .pdf-meta-body b { font-weight: 700; }
+  .pdf-meta-block.full { grid-column: span 2; }
+
+  .pdf-terms-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 6px 16px;
+    margin-bottom: 14px;
+    padding: 8px 12px;
+    background: #fafafa;
+    border: 1px solid #ddd;
+  }
+  .pdf-terms-row { font-size: 11px; }
+  .pdf-terms-row .k { color: #666; text-transform: uppercase; letter-spacing: 0.06em; font-size: 8.5px; font-weight: 700; display: block; }
+  .pdf-terms-row .v { font-weight: 600; }
+
+  .pdf-line-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  .pdf-line-table th, .pdf-line-table td { border: 1px solid #888; padding: 6px 8px; font-size: 11px; text-align: left; }
+  .pdf-line-table th { background: #efefef; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+  .pdf-line-table td.r, .pdf-line-table th.r { text-align: right; font-family: 'Courier New', monospace; }
+  .pdf-line-table .variant-name { font-weight: 600; }
+  .pdf-line-table .variant-meta { font-family: 'Courier New', monospace; font-size: 9.5px; color: #555; margin-top: 1px; }
+  .pdf-totals { margin-left: auto; width: 320px; font-size: 11.5px; }
+  .pdf-totals .tr { display: flex; justify-content: space-between; padding: 3px 8px; }
+  .pdf-totals .tr.divider { border-top: 1px solid #999; padding-top: 6px; margin-top: 2px; }
+  .pdf-totals .tr.grand { border-top: 2px solid #111; padding-top: 6px; font-weight: 700; font-size: 13px; margin-top: 4px; }
+
+  .pdf-bank-block {
+    margin-top: 22px;
+    padding: 12px 14px;
+    background: #F4F8FC;
+    border: 1px solid #C8D9E8;
+    border-radius: 2px;
+    font-size: 11px; line-height: 1.6;
+  }
+  .pdf-bank-block .h { font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; color: #163C61; }
+  .pdf-bank-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 18px; }
+  .pdf-bank-grid .k { color: #555; }
+  .pdf-bank-grid .v { font-weight: 600; font-family: 'Courier New', monospace; }
+
+  .pdf-foot-note {
+    margin-top: 22px;
+    padding-top: 12px;
+    border-top: 1px solid #ccc;
+    font-size: 9.5px; color: #777; line-height: 1.5;
+    text-align: center;
+  }
+
+  /* Signature blocks */
+  .sig-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 28px; }
+  .sig-grid.two { grid-template-columns: 1fr 1fr; }
+  .sig-block { display: flex; flex-direction: column; }
+  .sig-line { border-top: 1px solid #111; padding-top: 6px; font-size: 9.5px; color: #555; min-height: 60px; display: flex; flex-direction: column; justify-content: flex-end; }
+  .sig-block .role { font-size: 10px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 38px; }
+  .sig-block .ink-name {
+    font-family: 'Brush Script MT', cursive;
+    font-size: 22px; color: #1a3a64;
+    margin-bottom: -4px;
+    margin-top: auto;
+  }
+  .pdf-stamp {
+    display: inline-block;
+    border: 1.5px solid #2E7D32;
+    color: #2E7D32;
+    padding: 7px 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transform: rotate(-7deg);
+    margin: 4px 0;
+    opacity: 0.82;
+  }
+  .pdf-watermark {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) rotate(-22deg);
+    font-family: 'Inter', sans-serif;
+    font-size: 88px; font-weight: 800;
+    color: rgba(31,78,121,0.06);
+    pointer-events: none;
+    letter-spacing: 0.10em;
+    white-space: nowrap;
+  }
+
+  /* ===== RIGHT SIDEBAR — LIFECYCLE TIMELINE ===== */
+  .lifecycle-card {
+    background: #fff; border: 1px solid var(--grey-200); border-radius: 4px;
+    position: sticky; top: calc(var(--topbar-h) + 16px);
+  }
+  .lifecycle-head {
+    padding: 14px 16px; border-bottom: 1px solid var(--grey-200);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .lifecycle-head h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+  .lifecycle-head h3 svg { color: var(--navy-700); }
+  .lifecycle-head .sub { font-size: 11px; color: var(--grey-500); }
+  .lifecycle-head .sub b { color: var(--ink); }
+
+  .progress-fill {
+    margin-top: 6px;
+    height: 4px; background: var(--grey-200); border-radius: 2px; overflow: hidden;
+  }
+  .progress-fill .fill {
+    height: 100%; background: linear-gradient(to right, var(--green-700), var(--navy-700));
+    width: 44.4%; border-radius: 2px;
+  }
+
+  .lifecycle-list { padding: 12px 0; position: relative; }
+  /* vertical rail */
+  .lifecycle-list::before {
+    content: ''; position: absolute;
+    top: 30px; bottom: 30px; left: 24px;
+    width: 2px; background: var(--grey-200);
+  }
+  .ls-step { padding: 6px 16px 6px 16px; display: flex; gap: 12px; align-items: center; position: relative; }
+  .ls-step .dot {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--grey-100);
+    border: 2px solid var(--grey-300);
+    color: var(--grey-500);
+    display: grid; place-items: center;
+    font-size: 9px; font-weight: 700;
+    flex-shrink: 0;
+    position: relative; z-index: 2;
+  }
+  .ls-step.done .dot { background: var(--green-700); border-color: var(--green-700); color: #fff; }
+  .ls-step.current .dot { background: var(--navy-700); border-color: var(--navy-700); color: #fff; box-shadow: 0 0 0 3px rgba(31,78,121,0.15); }
+  .ls-step-body { flex: 1; min-width: 0; }
+  .ls-step-name { font-size: 12.5px; color: var(--grey-700); font-weight: 500; }
+  .ls-step.done .ls-step-name { color: var(--green-700); }
+  .ls-step.current .ls-step-name { color: var(--navy-700); font-weight: 600; }
+  .ls-step-when { font-size: 10.5px; color: var(--grey-400); font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .ls-step.current .ls-step-when { color: var(--navy-700); }
+  .ls-step.upcoming .dot { background: #fff; border-style: dashed; }
+
+  .lifecycle-foot {
+    padding: 12px 16px; border-top: 1px solid var(--grey-200);
+    background: #FBFBFB;
+    font-size: 11px; color: var(--grey-500);
+    line-height: 1.5;
+  }
+  .lifecycle-foot b { color: var(--ink); }
+
+  /* Order summary mini card (above lifecycle) */
+  .order-mini {
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .order-mini .head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey-500); font-weight: 600; margin-bottom: 6px; }
+  .order-mini .so-id { font-family: var(--font-mono); font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+  .order-mini .kv { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11.5px; }
+  .order-mini .kv .k { color: var(--grey-500); }
+  .order-mini .kv .v { color: var(--ink); font-weight: 500; }
+  .order-mini .kv .v.mono { font-family: var(--font-mono); }
+  .order-mini .kv .v.amount { font-variant-numeric: tabular-nums; }
+
+  /* sticky right-rail container */
+  .right-rail { position: sticky; top: calc(var(--topbar-h) + 16px); }
+
+</style>
+</head>
+<body>
+
+<!-- ====================== SIDEBAR ====================== -->
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div>
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+  <nav class="nav-scroll">
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Inventory</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Units (kekes)</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-header"><span>Sales</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item active" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="10" height="11.5" rx="1"/><path d="M5.5 6h5M5.5 8.5h5M5.5 11h3"/></svg>Sales Orders</a>
+        <a class="nav-item" href="#">Customers</a>
+        <a class="nav-item" href="#">Invoices &amp; Payments</a>
+        <a class="nav-item" href="#">Deliveries</a>
+      </div>
+    </div>
+  </nav>
+  <div class="app-user">
+    <div class="avatar">AE</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Adaobi Eze</div>
+      <div class="app-user-role">Sales Officer · Warehouse</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ====================== MAIN ====================== -->
+<main class="app-main">
+
+  <header class="topbar">
+    <div class="topbar-company">Enviable <span class="accent">Tricycle</span></div>
+    <div style="flex: 1;"></div>
+    <div class="topbar-user">
+      <div class="avatar">AE</div>
+      <div class="topbar-user-text">
+        <div class="topbar-user-name">Adaobi Eze</div>
+        <div class="topbar-user-role">Sales Officer · Warehouse</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-content">
+  <div class="page">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div>
+        <div class="page-crumbs">
+          <a href="#">Sales</a><span class="sep">/</span>
+          <a href="#">Sales Orders</a><span class="sep">/</span>
+          <a href="#" style="font-family: var(--font-mono);">SO-2026-001</a><span class="sep">/</span>
+          <span class="current">Documents</span>
+        </div>
+        <div class="page-title-row">
+          <h1 class="page-title">Documents for <span class="mono">SO-2026-001</span></h1>
+          <span class="pill pill-navy">ReleaseAuthorised</span>
+        </div>
+        <div class="page-sub">3 documents auto-generated · <b>ABC Tricycle Dealers Ltd.</b> · 3 units · <b>₦9,567,500.00</b></div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+          Download all (.zip)
+        </button>
+      </div>
+    </div>
+
+    <!-- DOC LAYOUT -->
+    <div class="doc-layout">
+
+      <!-- ============== MAIN — TABS + DOC ============== -->
+      <section class="doc-card">
+
+        <!-- Tab strip -->
+        <div class="tab-strip">
+          <button class="tab-btn active" data-tab="invoice">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3M5.5 8.5h5M5.5 11h3.5"/></svg>
+            Invoice
+            <span class="ref">INV-2026-001</span>
+          </button>
+          <button class="tab-btn" data-tab="release">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.5 5-5 6-2.5-1-5-3-5-6V4l5-2z"/><path d="M6 8l1.5 1.5L10.5 6.5"/></svg>
+            Release Authorisation
+            <span class="ref">RA-2026-001</span>
+          </button>
+          <button class="tab-btn" data-tab="delivery">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h7v6H2zM9 7h3.5l2 2v1.5H9z"/><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>
+            Delivery Note
+            <span class="ref">DN-2026-001</span>
+          </button>
+          <div class="tab-spacer"></div>
+          <div class="tab-strip-meta">All auto-generated · last regenerated <b style="color: var(--ink);">14:42 WAT</b></div>
+        </div>
+
+        <!-- ============== TAB · INVOICE ============== -->
+        <div class="tab-panel active" id="tab-invoice">
+
+          <div class="doc-toolbar">
+            <div class="doc-tool-info">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/></svg>
+              <b class="mono">INV-2026-001</b>
+              <span style="color: var(--grey-300);">·</span>
+              <span>Issued 19 May 2026</span>
+              <span style="color: var(--grey-300);">·</span>
+              <span>Due 19 May 2026 (paid in full)</span>
+            </div>
+            <div class="doc-tool-spacer"></div>
+            <button class="btn btn-secondary btn-sm btn-disabled">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h12v8H2zM2 4.5l6 4 6-4"/></svg>
+              Send to Customer (email) <span class="phase-tag-tiny">Phase 2</span>
+            </button>
+            <button class="btn btn-primary btn-sm">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+              Download PDF
+            </button>
+          </div>
+
+          <div class="pdf-stage">
+            <div class="pdf-doc">
+              <div class="pdf-watermark">PAID</div>
+
+              <div class="pdf-letterhead">
+                <div class="pdf-logo-box">ET</div>
+                <div class="pdf-letterhead-text">
+                  <div class="org">Enviable Tricycle Auto Parts Ltd.</div>
+                  <div class="org-sub">
+                    Plot 14B, Apapa-Oshodi Expressway · Apapa, Lagos · Nigeria<br/>
+                    +234 1 280 4818 · accounts@enviable-tricycle.ng<br/>
+                    <b>RC No:</b> 1748392 &nbsp;·&nbsp; <b>TIN:</b> 21845-0001 &nbsp;·&nbsp; <b>VAT ID:</b> NG-VAT-218450001
+                  </div>
+                </div>
+                <div class="pdf-doc-id">
+                  <div class="label">VAT Invoice</div>
+                  <div class="id-num">INV-2026-001</div>
+                  <div style="margin-top: 6px;">Issue: 19 May 2026<br/>Due: 19 May 2026<br/><b>SO Ref: SO-2026-001</b></div>
+                </div>
+              </div>
+
+              <div class="pdf-title-banner">TAX INVOICE</div>
+
+              <div class="pdf-meta-grid">
+                <div class="pdf-meta-block">
+                  <div class="pdf-meta-head">Billed To</div>
+                  <div class="pdf-meta-body">
+                    <b>ABC Tricycle Dealers Ltd.</b><br/>
+                    Plot 24, Ikeja Industrial Estate<br/>
+                    Off Acme Road, Ogba<br/>
+                    Ikeja, Lagos · Nigeria<br/>
+                    <b>TIN:</b> 19248-0042 · Contact: Emeka Eze · +234 803 414 8821
+                  </div>
+                </div>
+                <div class="pdf-meta-block">
+                  <div class="pdf-meta-head">Reference</div>
+                  <div class="pdf-meta-body">
+                    <b>Sales Order:</b> SO-2026-001<br/>
+                    <b>Customer PO:</b> ABC-PO-2026-042<br/>
+                    <b>Channel:</b> Warehouse · Lagos HQ<br/>
+                    <b>Payment Terms:</b> Bank transfer at order · paid in full<br/>
+                    <b>Reference No:</b> FBN-20260515-093421
+                  </div>
+                </div>
+              </div>
+
+              <table class="pdf-line-table">
+                <thead>
+                  <tr>
+                    <th style="width: 30px;">#</th>
+                    <th>Description &amp; Engine #</th>
+                    <th style="width: 70px;" class="r">Qty</th>
+                    <th style="width: 110px;" class="r">Unit Price · NGN</th>
+                    <th style="width: 90px;" class="r">Discount</th>
+                    <th style="width: 130px;" class="r">Line Total · NGN</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>1</td>
+                    <td>
+                      <div class="variant-name">TVS King GS+ DP CKD EXP10 — G Yellow</div>
+                      <div class="variant-meta">Engine TVSKGS25E0001234 · Chassis MD3TVSGS25C0001234</div>
+                    </td>
+                    <td class="r">1</td>
+                    <td class="r">2,800,000.00</td>
+                    <td class="r">—</td>
+                    <td class="r">2,800,000.00</td>
+                  </tr>
+                  <tr>
+                    <td>2</td>
+                    <td>
+                      <div class="variant-name">TVS King GS+ DP CKD EXP10 — G Yellow</div>
+                      <div class="variant-meta">Engine TVSKGS25E0001235 · Chassis MD3TVSGS25C0001235</div>
+                    </td>
+                    <td class="r">1</td>
+                    <td class="r">2,800,000.00</td>
+                    <td class="r">—</td>
+                    <td class="r">2,800,000.00</td>
+                  </tr>
+                  <tr>
+                    <td>3</td>
+                    <td>
+                      <div class="variant-name">TVS King ZS+ EXP CBU — G Yellow (assembled)</div>
+                      <div class="variant-meta">Engine TVSKZS25E0000017 · Chassis MD3TVSZS25C0000017</div>
+                    </td>
+                    <td class="r">1</td>
+                    <td class="r">3,500,000.00</td>
+                    <td class="r">100,000.00</td>
+                    <td class="r">3,400,000.00</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="pdf-totals">
+                <div class="tr"><span>Subtotal (3 lines)</span><span>NGN 9,000,000.00</span></div>
+                <div class="tr"><span>Discount</span><span>NGN (100,000.00)</span></div>
+                <div class="tr divider"><span>Net before VAT</span><span>NGN 8,900,000.00</span></div>
+                <div class="tr"><span>VAT (7.5%)</span><span>NGN 667,500.00</span></div>
+                <div class="tr grand"><span>Total Due · NGN</span><span>NGN 9,567,500.00</span></div>
+                <div class="tr" style="color: #2E7D32; font-weight: 700; padding-top: 8px;"><span>Paid on 19 May 2026</span><span>NGN (9,567,500.00)</span></div>
+                <div class="tr" style="border-top: 1px solid #888; padding-top: 6px; font-weight: 700;"><span>Balance Outstanding</span><span>NGN 0.00</span></div>
+              </div>
+
+              <div class="pdf-bank-block">
+                <div class="h">Beneficiary Bank Details &nbsp;·&nbsp; For reference only — this invoice is paid in full</div>
+                <div class="pdf-bank-grid">
+                  <div class="k">Bank:</div><div class="v">First Bank of Nigeria PLC</div>
+                  <div class="k">Account Name:</div><div class="v">ENVIABLE TRICYCLE AUTO PARTS LTD</div>
+                  <div class="k">Account Number:</div><div class="v">2014729183</div>
+                  <div class="k">Sort Code:</div><div class="v">011-152-014</div>
+                </div>
+              </div>
+
+              <div class="pdf-foot-note">
+                Goods sold are not returnable except where covered by manufacturer warranty. Warranty is provided by TVS Motor Company Limited under the terms supplied with each unit.<br/>
+                This is a system-generated invoice; signature is not required.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============== TAB · RELEASE AUTHORISATION ============== -->
+        <div class="tab-panel" id="tab-release">
+
+          <div class="doc-toolbar">
+            <div class="doc-tool-info">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.5 5-5 6-2.5-1-5-3-5-6V4l5-2z"/></svg>
+              <b class="mono">RA-2026-001</b>
+              <span style="color: var(--grey-300);">·</span>
+              <span>Internal · authorises picking and dispatch</span>
+              <span style="color: var(--grey-300);">·</span>
+              <span>Confidential — do not share with customer</span>
+            </div>
+            <div class="doc-tool-spacer"></div>
+            <button class="btn btn-secondary btn-sm">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+              Download PDF
+            </button>
+            <button class="btn btn-primary btn-sm">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9.5h10v3a.5.5 0 01-.5.5h-9a.5.5 0 01-.5-.5v-3z"/><path d="M5 9.5V3h6v6.5M5 5h6"/></svg>
+              Print
+            </button>
+          </div>
+
+          <div class="pdf-stage">
+            <div class="pdf-doc">
+              <div class="pdf-watermark" style="color: rgba(180,95,6,0.06);">INTERNAL</div>
+
+              <div class="pdf-letterhead">
+                <div class="pdf-logo-box">ET</div>
+                <div class="pdf-letterhead-text">
+                  <div class="org">Enviable Tricycle Auto Parts Ltd.</div>
+                  <div class="org-sub">
+                    Lagos HQ Warehouse · Plot 14B, Apapa-Oshodi Expressway, Apapa, Lagos<br/>
+                    <b style="color: #B45F06;">CONFIDENTIAL — Internal use only</b>
+                  </div>
+                </div>
+                <div class="pdf-doc-id">
+                  <div class="label">Release Authorisation</div>
+                  <div class="id-num">RA-2026-001</div>
+                  <div style="margin-top: 6px;">Issued: 19 May 2026<br/>14:42 WAT</div>
+                </div>
+              </div>
+
+              <div class="pdf-title-banner internal">RELEASE AUTHORISATION</div>
+
+              <div style="background: #E8F2E9; border: 1px solid #C0DBC4; padding: 10px 14px; border-radius: 2px; margin-bottom: 18px; display: flex; align-items: flex-start; gap: 10px;">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#2E7D32" stroke-width="2" style="flex-shrink: 0; margin-top: 1px;"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
+                <div style="font-size: 11.5px; color: #1B4D1F; line-height: 1.5;">
+                  <b style="color: #111;">Payment of NGN 9,567,500.00 confirmed received</b> on 19 May 2026, 14:42 WAT (bank reference FBN-20260515-093421). The warehouse is authorised to release the items listed below for picking and onward dispatch.
+                </div>
+              </div>
+
+              <div class="pdf-meta-grid">
+                <div class="pdf-meta-block">
+                  <div class="pdf-meta-head">Sales Order</div>
+                  <div class="pdf-meta-body">
+                    <b>SO-2026-001</b> · 3 units · NGN 9,567,500.00<br/>
+                    Created by: Adaobi Eze (Sales Officer)<br/>
+                    Order date: 19 May 2026<br/>
+                    State: <b>ReleaseAuthorised</b>
+                  </div>
+                </div>
+                <div class="pdf-meta-block">
+                  <div class="pdf-meta-head">Customer</div>
+                  <div class="pdf-meta-body">
+                    <b>ABC Tricycle Dealers Ltd.</b><br/>
+                    Ikeja, Lagos · Tier: Reseller Standard<br/>
+                    Contact: Emeka Eze · +234 803 414 8821<br/>
+                    Customer PO: ABC-PO-2026-042
+                  </div>
+                </div>
+              </div>
+
+              <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #666; font-weight: 700; margin: 6px 0 6px;">Items to be Released</div>
+
+              <table class="pdf-line-table">
+                <thead>
+                  <tr>
+                    <th style="width: 30px;">#</th>
+                    <th>Variant</th>
+                    <th style="width: 60px;">Form</th>
+                    <th style="width: 130px;">Engine #</th>
+                    <th style="width: 150px;">Chassis #</th>
+                    <th style="width: 60px;">Bay</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>1</td><td>TVS King GS+ DP CKD EXP10 G Yellow</td><td>CKD</td><td class="r">TVSKGS25E0001234</td><td class="r">MD3TVSGS25C0001234</td><td>B-04</td></tr>
+                  <tr><td>2</td><td>TVS King GS+ DP CKD EXP10 G Yellow</td><td>CKD</td><td class="r">TVSKGS25E0001235</td><td class="r">MD3TVSGS25C0001235</td><td>B-04</td></tr>
+                  <tr><td>3</td><td>TVS King ZS+ EXP G Yellow</td><td>CBU</td><td class="r">TVSKZS25E0000017</td><td class="r">MD3TVSZS25C0000017</td><td>CBU-A</td></tr>
+                </tbody>
+              </table>
+
+              <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #666; font-weight: 700; margin: 18px 0 4px;">Special Instructions</div>
+              <div style="font-size: 11.5px; line-height: 1.55; padding: 10px 12px; background: #fafafa; border: 1px solid #ddd;">
+                <b>Pre-delivery inspection:</b> visually verify chassis weld points and fuel cap seal on CBU unit before release.<br/>
+                <b>Documentation:</b> hand over manufacturer warranty card and chassis stamping certificate with each unit. Customer must sign DN-2026-001 on receipt.<br/>
+                <b>Dispatch window:</b> deliver by 22 May 2026. Defer if customer site is unattended.
+              </div>
+
+              <div class="sig-grid two">
+                <div class="sig-block">
+                  <div class="role">Authorised By</div>
+                  <div class="ink-name">Olufemi Adesanya</div>
+                  <div class="sig-line">
+                    <b>Olufemi Adesanya</b><br/>
+                    Operations Director · 19 May 2026, 14:42 WAT<br/>
+                    <span style="color: #888;">Authentication: SAML/MS-Entra · session #s8j2k</span>
+                  </div>
+                </div>
+                <div class="sig-block" style="align-items: flex-end;">
+                  <div class="role" style="align-self: flex-end;">Stamp &amp; Seal</div>
+                  <div class="pdf-stamp">ENVIABLE · TREASURY CLEARED · 19 MAY 26</div>
+                  <div class="sig-line" style="text-align: right; width: 100%;">
+                    System-stamped on payment confirmation.<br/>
+                    Reference RA-2026-001 in all downstream documents.
+                  </div>
+                </div>
+              </div>
+
+              <div class="pdf-foot-note">
+                Internal document — not for customer distribution. Disclose only to assigned warehouse, dispatch and audit personnel.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============== TAB · DELIVERY NOTE ============== -->
+        <div class="tab-panel" id="tab-delivery">
+
+          <div class="doc-toolbar">
+            <div class="doc-tool-info">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h7v6H2zM9 7h3.5l2 2v1.5H9z"/><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>
+              <b class="mono">DN-2026-001</b>
+              <span style="color: var(--grey-300);">·</span>
+              <span>Picking list &amp; waybill · 2 copies needed (customer + driver)</span>
+            </div>
+            <div class="doc-tool-spacer"></div>
+            <button class="btn btn-secondary btn-sm">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+              Download PDF
+            </button>
+            <button class="btn btn-primary btn-sm">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9.5h10v3a.5.5 0 01-.5.5h-9a.5.5 0 01-.5-.5v-3z"/><path d="M5 9.5V3h6v6.5M5 5h6"/></svg>
+              Print Delivery Note
+            </button>
+          </div>
+
+          <div class="pdf-stage">
+            <div class="pdf-doc">
+              <div class="pdf-watermark" style="color: rgba(31,78,121,0.06);">DELIVERY</div>
+
+              <div class="pdf-letterhead">
+                <div class="pdf-logo-box">ET</div>
+                <div class="pdf-letterhead-text">
+                  <div class="org">Enviable Tricycle Auto Parts Ltd.</div>
+                  <div class="org-sub">
+                    Lagos HQ Warehouse · Plot 14B, Apapa-Oshodi Expressway, Apapa, Lagos<br/>
+                    +234 1 280 4818 · dispatch@enviable-tricycle.ng &nbsp;·&nbsp; RC: 1748392 · TIN: 21845-0001
+                  </div>
+                </div>
+                <div class="pdf-doc-id">
+                  <div class="label">Delivery Note</div>
+                  <div class="id-num">DN-2026-001</div>
+                  <div style="margin-top: 6px;">Issued: 19 May 2026<br/>Delivery: 22 May 2026</div>
+                </div>
+              </div>
+
+              <div class="pdf-title-banner delivery">DELIVERY NOTE / WAYBILL</div>
+
+              <div class="pdf-meta-grid">
+                <div class="pdf-meta-block">
+                  <div class="pdf-meta-head">Consignor</div>
+                  <div class="pdf-meta-body">
+                    <b>Enviable Tricycle Auto Parts Ltd.</b><br/>
+                    Lagos HQ Warehouse · Apapa<br/>
+                    Released under RA-2026-001
+                  </div>
+                </div>
+                <div class="pdf-meta-block">
+                  <div class="pdf-meta-head">Consignee</div>
+                  <div class="pdf-meta-body">
+                    <b>ABC Tricycle Dealers Ltd.</b><br/>
+                    Plot 24, Ikeja Industrial Estate, Off Acme Road, Ogba<br/>
+                    Ikeja, Lagos · +234 803 414 8821 (Emeka Eze)
+                  </div>
+                </div>
+              </div>
+
+              <div class="pdf-terms-grid">
+                <div class="pdf-terms-row"><span class="k">Sales Order</span><span class="v">SO-2026-001</span></div>
+                <div class="pdf-terms-row"><span class="k">Invoice</span><span class="v">INV-2026-001</span></div>
+                <div class="pdf-terms-row"><span class="k">Customer PO</span><span class="v">ABC-PO-2026-042</span></div>
+                <div class="pdf-terms-row"><span class="k">Units</span><span class="v">3 (2 CKD · 1 CBU)</span></div>
+                <div class="pdf-terms-row"><span class="k">Vehicle</span><span class="v">LSR-241-XK · Tata flatbed</span></div>
+                <div class="pdf-terms-row"><span class="k">Driver</span><span class="v">Sunday Oyelaran</span></div>
+                <div class="pdf-terms-row"><span class="k">Driver Phone</span><span class="v">+234 805 412 7708</span></div>
+                <div class="pdf-terms-row"><span class="k">Departure</span><span class="v">22 May 2026 · 08:30 WAT</span></div>
+              </div>
+
+              <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #666; font-weight: 700; margin: 6px 0 6px;">Picking List</div>
+
+              <table class="pdf-line-table">
+                <thead>
+                  <tr>
+                    <th style="width: 30px;">#</th>
+                    <th>Variant</th>
+                    <th style="width: 56px;">Form</th>
+                    <th style="width: 130px;">Engine #</th>
+                    <th style="width: 60px;">Bay</th>
+                    <th style="width: 70px;">Picked ☐</th>
+                    <th style="width: 70px;">Loaded ☐</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>1</td><td>TVS King GS+ DP CKD EXP10 G Yellow</td><td>CKD</td><td class="r">TVSKGS25E0001234</td><td>B-04</td><td></td><td></td></tr>
+                  <tr><td>2</td><td>TVS King GS+ DP CKD EXP10 G Yellow</td><td>CKD</td><td class="r">TVSKGS25E0001235</td><td>B-04</td><td></td><td></td></tr>
+                  <tr><td>3</td><td>TVS King ZS+ EXP G Yellow (CBU)</td><td>CBU</td><td class="r">TVSKZS25E0000017</td><td>CBU-A</td><td></td><td></td></tr>
+                </tbody>
+              </table>
+
+              <div style="font-size: 10px; color: #555; margin: 8px 0 0; padding: 6px 10px; background: #FBF7ED; border-left: 2px solid #B45F06;">
+                <b>Note:</b> Tick the Picked and Loaded boxes against each unit. Driver must verify engine numbers match the manifest before departure.
+              </div>
+
+              <div class="sig-grid">
+                <div class="sig-block">
+                  <div class="role">Released by — Warehouse</div>
+                  <div class="sig-line">
+                    Name &amp; Signature<br/>
+                    Date &amp; Time:_________________<br/>
+                    Bay sign-off
+                  </div>
+                </div>
+                <div class="sig-block">
+                  <div class="role">Driver Acceptance</div>
+                  <div class="sig-line">
+                    Sunday Oyelaran · LSR-241-XK<br/>
+                    Signature: _________________<br/>
+                    Date &amp; Time: __________________
+                  </div>
+                </div>
+                <div class="sig-block">
+                  <div class="role">Customer Receipt</div>
+                  <div class="sig-line">
+                    Name in Block Caps: ____________<br/>
+                    Signature: _________________<br/>
+                    Date &amp; Time: __________________
+                  </div>
+                </div>
+              </div>
+
+              <div class="pdf-foot-note">
+                This delivery note becomes the proof of delivery once signed by the customer. Driver to return signed original to dispatch desk within 24 hours.<br/>
+                Goods remain the property of Enviable Tricycle Auto Parts Ltd. until receipted at consignee's premises.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ============== RIGHT SIDEBAR — LIFECYCLE ============== -->
+      <aside class="right-rail">
+
+        <div class="order-mini">
+          <div class="head">Sales Order</div>
+          <div class="so-id">SO-2026-001</div>
+          <div class="kv"><span class="k">Customer</span><span class="v">ABC Tricycle Dealers</span></div>
+          <div class="kv"><span class="k">Units</span><span class="v">3 · 2 CKD / 1 CBU</span></div>
+          <div class="kv"><span class="k">Total</span><span class="v amount">₦ 9,567,500.00</span></div>
+          <div class="kv"><span class="k">Invoice</span><span class="v mono">INV-2026-001</span></div>
+        </div>
+
+        <section class="lifecycle-card">
+          <div class="lifecycle-head">
+            <h3>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M4 8l4 4 4-4"/></svg>
+              Order Lifecycle
+            </h3>
+            <div class="sub">Stage <b>4</b> of <b>9</b> · <b>44%</b> complete</div>
+            <div class="progress-fill"><div class="fill"></div></div>
+          </div>
+
+          <div class="lifecycle-list">
+
+            <div class="ls-step done">
+              <div class="dot"><svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 8l3 3 7-7"/></svg></div>
+              <div class="ls-step-body">
+                <div class="ls-step-name">Draft</div>
+                <div class="ls-step-when">19 May, 14:08 · Adaobi</div>
+              </div>
+            </div>
+
+            <div class="ls-step done">
+              <div class="dot"><svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 8l3 3 7-7"/></svg></div>
+              <div class="ls-step-body">
+                <div class="ls-step-name">AwaitingPayment</div>
+                <div class="ls-step-when">19 May, 14:15 · system</div>
+              </div>
+            </div>
+
+            <div class="ls-step done">
+              <div class="dot"><svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="3"><path d="M3 8l3 3 7-7"/></svg></div>
+              <div class="ls-step-body">
+                <div class="ls-step-name">PaymentReceived</div>
+                <div class="ls-step-when">19 May, 14:42 · Adaobi</div>
+              </div>
+            </div>
+
+            <div class="ls-step current">
+              <div class="dot">4</div>
+              <div class="ls-step-body">
+                <div class="ls-step-name">ReleaseAuthorised</div>
+                <div class="ls-step-when">19 May, 14:42 · Olufemi · current</div>
+              </div>
+            </div>
+
+            <div class="ls-step upcoming">
+              <div class="dot">5</div>
+              <div class="ls-step-body">
+                <div class="ls-step-name">Picking</div>
+                <div class="ls-step-when">—</div>
+              </div>
+            </div>
+
+            <div class="ls-step upcoming">
+              <div class="dot">6</div>
+              <div class="ls-step-body">
+                <div class="ls-step-name">ReadyForDispatch</div>
+                <div class="ls-step-when">—</div>
+              </div>
+            </div>
+
+            <div class="ls-step upcoming">
+              <div class="dot">7</div>
+              <div class="ls-step-body">
+                <div class="ls-step-name">Dispatched</div>
+                <div class="ls-step-when">—</div>
+              </div>
+            </div>
+
+            <div class="ls-step upcoming">
+              <div class="dot">8</div>
+              <div class="ls-step-body">
+                <div class="ls-step-name">Delivered</div>
+                <div class="ls-step-when">expected 22 May</div>
+              </div>
+            </div>
+
+            <div class="ls-step upcoming">
+              <div class="dot">9</div>
+              <div class="ls-step-body">
+                <div class="ls-step-name">Closed</div>
+                <div class="ls-step-when">on signed DN return</div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="lifecycle-foot">
+            Next step: warehouse picker prints <b>DN-2026-001</b> and pulls units from Bay B-04 and CBU Yard A. Auto-transitions to <b>Picking</b> when picker logs in.
+          </div>
+        </section>
+
+      </aside>
+
+    </div>
+
+  </div>
+  </div>
+
+</main>
+
+<script>
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+  });
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${t}`));
+    });
+  });
+</script>
+
+<script src="role-switcher.js"></script>
+</body>
+</html>

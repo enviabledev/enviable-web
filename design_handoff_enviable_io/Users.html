@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Users — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  body { display: flex; min-height: 100vh; }
+  .app-sidebar { width: var(--sidebar-w); background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; font-size: var(--fs-13); }
+  .app-brand { height: var(--topbar-h); padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .app-brand-mark { width: 30px; height: 30px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 13.5px; }
+  .app-brand-sub { color: #8aa6c4; font-size: 10.5px; }
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 8px 8px 12px; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; color: #6f8aa6; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600; cursor: pointer; user-select: none; }
+  .nav-group-header .chev { color: #6f8aa6; transition: transform .15s ease; }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .nav-group-body { display: none; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 7px 12px; border-radius: 3px; color: #cfdcec; text-decoration: none; line-height: 1.3; position: relative; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -8px; top: 4px; bottom: 4px; width: 3px; border-radius: 0 2px 2px 0; background: #5a9fe8; }
+  .nav-item svg { width: 16px; height: 16px; opacity: .85; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px; flex-shrink: 0; }
+  .app-user-meta { line-height: 1.25; flex: 1; min-width: 0; }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; }
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: var(--topbar-h); border-bottom: 1px solid var(--grey-200); background: #fff; display: flex; align-items: center; padding: 0 20px; gap: 16px; position: sticky; top: 0; z-index: 30; }
+  .topbar-company { font-size: 14px; font-weight: 600; color: var(--ink); padding-right: 18px; border-right: 1px solid var(--grey-200); height: 28px; display: flex; align-items: center; }
+  .topbar-company .accent { color: var(--navy-700); }
+  .topbar-user { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 999px; }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 11px; border: none; }
+  .topbar-user-text { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-user-name { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .topbar-user-role { font-size: 11px; color: var(--grey-500); }
+
+  /* PAGE */
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; }
+  .page { padding: 22px 28px 50px; max-width: 1500px; }
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--grey-200); gap: 24px; }
+  .page-crumbs { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .page-crumbs a { color: var(--grey-500); text-decoration: none; }
+  .page-crumbs .sep { color: var(--grey-300); }
+  .page-crumbs .current { color: var(--ink); font-weight: 500; }
+  .page-title { font-size: 24px; font-weight: 600; color: var(--ink); margin: 0 0 4px; display: flex; align-items: center; gap: 10px; letter-spacing: -0.01em; }
+  .count-tag { font-family: var(--font-mono); font-size: 12px; color: var(--navy-700); background: var(--navy-50); padding: 4px 10px; border-radius: 3px; font-weight: 600; }
+  .page-sub { color: var(--grey-500); font-size: 13px; }
+
+  /* FILTER */
+  .filter-bar { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; padding: 12px 16px; margin-bottom: 14px; display: grid; grid-template-columns: 220px 1fr 1.4fr auto; gap: 12px; align-items: end; }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .filter-label { font-size: 11px; color: var(--grey-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .filter-control { height: 32px; background: #fff; border: 1px solid var(--grey-300); border-radius: 3px; padding: 0 10px; font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; }
+  .filter-control:hover { border-color: var(--grey-400); }
+  .filter-control .leading { color: var(--grey-500); flex-shrink: 0; }
+  .filter-control .value { color: var(--ink); font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .filter-control .placeholder { color: var(--grey-400); }
+  .filter-control .chev { color: var(--grey-400); margin-left: auto; flex-shrink: 0; }
+  .filter-control input { all: unset; flex: 1; min-width: 0; font-size: 13px; color: var(--ink); }
+  .filter-control input::placeholder { color: var(--grey-400); }
+  .filter-control .count-badge { background: var(--navy-700); color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 999px; font-weight: 600; }
+  .seg-toggle { display: inline-flex; padding: 3px; background: var(--grey-100); border-radius: 4px; gap: 2px; align-self: flex-start; }
+  .seg-btn { padding: 5px 12px; background: transparent; border: none; font-family: inherit; font-size: 12px; font-weight: 500; color: var(--grey-700); cursor: pointer; border-radius: 3px; }
+  .seg-btn.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
+  /* LAYOUT */
+  .users-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+
+  /* TABLE */
+  .users-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; min-width: 0; overflow-x: auto; }
+  .users-foot { padding: 10px 16px; border-top: 1px solid var(--grey-200); background: #FBFBFB; font-size: 12px; color: var(--grey-500); }
+  .users-foot b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .dt { width: 100%; font-size: 13px; }
+  .dt th { text-align: left; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey-500); padding: 11px 14px; border-bottom: 1px solid var(--grey-200); background: var(--grey-100); white-space: nowrap; }
+  .dt th.r { text-align: right; }
+  .dt td { padding: 12px 14px; border-bottom: 1px solid var(--grey-200); color: var(--ink); vertical-align: middle; }
+  .dt tr:hover td { background: var(--navy-50); }
+  .dt tr:last-child td { border-bottom: none; }
+  .dt tr.disabled td { background: #FBFBFC; color: var(--grey-500); }
+  .dt tr.disabled:hover td { background: var(--grey-100); }
+
+  .user-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .user-cell .av { width: 30px; height: 30px; border-radius: 50%; background: var(--navy-100); color: var(--navy-800); display: grid; place-items: center; font-size: 10px; font-weight: 700; letter-spacing: 0.02em; flex-shrink: 0; }
+  .user-cell .av.opdir { background: #E8F2E9; color: var(--green-700); }
+  .user-cell .av.proc { background: #FBEFE0; color: var(--amber-700); }
+  .user-cell .av.exec { background: #DDE7F0; color: var(--navy-800); }
+  .user-cell .av.sales { background: #F0E8EE; color: #6E2A5C; }
+  .user-cell .av.aud { background: #FAE3E3; color: var(--red-700); }
+  .user-cell .av.it { background: var(--grey-200); color: var(--grey-700); }
+  .user-cell .av.disabled { background: var(--grey-200); color: var(--grey-400); }
+  .user-cell .name { line-height: 1.3; min-width: 0; }
+  .user-cell .name .full { font-weight: 600; color: var(--ink); }
+  .dt tr.disabled .user-cell .name .full { color: var(--grey-700); }
+  .user-cell .name .uname { font-family: var(--font-mono); font-size: 11px; color: var(--grey-500); }
+  td.email { font-size: 12.5px; color: var(--ink); }
+  .dt tr.disabled td.email { color: var(--grey-500); }
+
+  /* role tags */
+  .role-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .role-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 7px; border-radius: 3px;
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .role-tag.exec { background: var(--navy-700); color: #fff; }
+  .role-tag.opdir { background: var(--green-700); color: #fff; }
+  .role-tag.proc-mgr { background: #FCF3E5; color: #8A4B05; border: 1px solid #F1DBC0; }
+  .role-tag.proc-off { background: var(--amber-50); color: var(--amber-700); }
+  .role-tag.sales-mgr { background: #E8DCEA; color: #6E2A5C; }
+  .role-tag.sales-off { background: #F4E8F1; color: #8E4A7C; }
+  .role-tag.warehouse { background: #E6F0EB; color: #1F5A37; }
+  .role-tag.auditor { background: var(--red-50); color: var(--red-700); border: 1px solid #F1C8C8; }
+  .role-tag.it { background: var(--grey-100); color: var(--grey-700); border: 1px solid var(--grey-300); }
+
+  /* status pill */
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+  .pill-green { background: var(--green-50); color: var(--green-700); }
+  .pill-green::before { background: var(--green-700); }
+  .pill-grey { background: var(--grey-100); color: var(--grey-700); }
+  .pill-grey::before { background: var(--grey-500); }
+
+  .login-cell { font-variant-numeric: tabular-nums; font-size: 12.5px; }
+  .login-cell .rel { font-size: 11px; color: var(--grey-500); display: block; }
+  .login-cell.never { color: var(--grey-400); font-style: italic; }
+
+  .actions-cell { display: flex; gap: 4px; justify-content: flex-end; }
+  .action-btn {
+    height: 26px; padding: 0 8px;
+    border: 1px solid var(--grey-300); background: #fff;
+    color: var(--grey-700);
+    border-radius: 3px; font-size: 11.5px; cursor: pointer; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .action-btn:hover { background: var(--grey-100); color: var(--ink); border-color: var(--grey-400); }
+  .action-btn.danger:hover { background: var(--red-50); color: var(--red-700); border-color: var(--red-700); }
+  .row-overflow { width: 26px; height: 26px; background: transparent; border: none; border-radius: 3px; color: var(--grey-400); cursor: pointer; display: grid; place-items: center; }
+  .row-overflow:hover { background: var(--grey-200); color: var(--ink); }
+
+  /* RIGHT PANEL — ROLES QUICK REFERENCE */
+  .roles-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; position: sticky; top: calc(var(--topbar-h) + 16px); }
+  .roles-head { padding: 14px 16px; border-bottom: 1px solid var(--grey-200); }
+  .roles-head h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+  .roles-head h3 svg { color: var(--navy-700); }
+  .roles-head .sub { font-size: 11px; color: var(--grey-500); margin-top: 3px; }
+  .roles-list { padding: 4px 0 8px; }
+  .role-row {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--grey-100);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .role-row:last-child { border-bottom: none; }
+  .role-row .role-icon {
+    width: 20px; height: 20px; border-radius: 4px;
+    display: grid; place-items: center;
+    font-size: 9px; font-weight: 800; letter-spacing: 0.02em;
+    flex-shrink: 0;
+  }
+  .role-row .body { line-height: 1.4; min-width: 0; flex: 1; }
+  .role-row .name { font-size: 12px; font-weight: 600; color: var(--ink); }
+  .role-row .desc { font-size: 11px; color: var(--grey-500); }
+  .role-row .count { font-size: 10.5px; color: var(--grey-700); font-variant-numeric: tabular-nums; font-weight: 600; background: var(--grey-100); padding: 1px 6px; border-radius: 999px; flex-shrink: 0; }
+  .roles-foot { padding: 10px 14px; border-top: 1px solid var(--grey-200); background: #FBFBFB; font-size: 11px; color: var(--grey-500); }
+  .roles-foot a { color: var(--navy-700); font-weight: 500; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div>
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+  <nav class="nav-scroll">
+    <div class="nav-group">
+      <div class="nav-group-header"><span>Admin</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item active" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5"/></svg>Users</a>
+        <a class="nav-item" href="#">Roles</a>
+        <a class="nav-item" href="Historical Data Load.html">Historical Data Load</a>
+        <a class="nav-item" href="#">Settings</a>
+      </div>
+    </div>
+  </nav>
+  <div class="app-user">
+    <div class="avatar">CN</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Chidi Nwosu</div>
+      <div class="app-user-role">IT Admin</div>
+    </div>
+  </div>
+</aside>
+
+<main class="app-main">
+
+  <header class="topbar">
+    <div class="topbar-company">Enviable <span class="accent">Tricycle</span></div>
+    <div style="flex: 1;"></div>
+    <div class="topbar-user">
+      <div class="avatar">CN</div>
+      <div class="topbar-user-text">
+        <div class="topbar-user-name">Chidi Nwosu</div>
+        <div class="topbar-user-role">IT Admin</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-content">
+  <div class="page">
+
+    <!-- HEADER -->
+    <div class="page-header">
+      <div>
+        <div class="page-crumbs"><a href="#">Admin</a><span class="sep">/</span><span class="current">Users</span></div>
+        <h1 class="page-title">Users <span class="count-tag">12 accounts</span></h1>
+        <div class="page-sub">All people with access to the Enviable I&amp;O system. Reset passwords, change roles, or disable an account from the row actions.</div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+          Export
+        </button>
+        <button class="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+          Add User
+        </button>
+      </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">Status</span>
+        <div class="seg-toggle">
+          <button class="seg-btn active">All <span style="color: var(--grey-500); font-weight: 400;">12</span></button>
+          <button class="seg-btn">Active <span style="color: var(--grey-500); font-weight: 400;">11</span></button>
+          <button class="seg-btn">Inactive <span style="color: var(--grey-500); font-weight: 400;">1</span></button>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Role</span>
+        <button class="filter-control">
+          <svg class="leading" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.5 5-5 6-2.5-1-5-3-5-6V4l5-2z"/></svg>
+          <span class="placeholder">All roles</span>
+          <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+        </button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Search</span>
+        <div class="filter-control" style="cursor: text;">
+          <svg class="leading" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+          <input placeholder="Search by name, email or username…" />
+        </div>
+      </div>
+      <button style="height: 32px; padding: 0 12px; border: 1px solid transparent; background: transparent; color: var(--navy-700); cursor: pointer; font-size: 13px; font-weight: 500; border-radius: 3px; font-family: inherit;" disabled>Reset</button>
+    </div>
+
+    <!-- LAYOUT -->
+    <div class="users-layout">
+
+      <!-- USERS TABLE -->
+      <section class="users-card">
+        <table class="dt">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role(s)</th>
+              <th>Status</th>
+              <th>Last Login</th>
+              <th style="text-align: right; width: 320px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            <tr>
+              <td><div class="user-cell"><span class="av exec">AO</span><span class="name"><div class="full">Adaeze Okeke</div><div class="uname">@adaeze.okeke</div></span></div></td>
+              <td class="email">adaeze.okeke@enviable-tricycle.ng</td>
+              <td><div class="role-tags"><span class="role-tag exec">Managing Director</span></div></td>
+              <td><span class="pill pill-green">Active</span></td>
+              <td class="login-cell">19 May, 14:08<span class="rel">today · 38 min ago</span></td>
+              <td><div class="actions-cell"><button class="action-btn">Reset Password</button><button class="action-btn">Edit Roles</button><button class="action-btn danger">Disable</button><button class="row-overflow"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button></div></td>
+            </tr>
+
+            <tr>
+              <td><div class="user-cell"><span class="av exec">BA</span><span class="name"><div class="full">Babatunde Adekunle</div><div class="uname">@babatunde.adekunle</div></span></div></td>
+              <td class="email">babatunde.adekunle@enviable-tricycle.ng</td>
+              <td><div class="role-tags"><span class="role-tag exec">Executive Director</span></div></td>
+              <td><span class="pill pill-green">Active</span></td>
+              <td class="login-cell">19 May, 09:42<span class="rel">today · 5 h ago</span></td>
+              <td><div class="actions-cell"><button class="action-btn">Reset Password</button><button class="action-btn">Edit Roles</button><button class="action-btn danger">Disable</button><button class="row-overflow"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button></div></td>
+            </tr>
+
+            <tr>
+              <td><div class="user-cell"><span class="av exec">NO</span><span class="name"><div class="full">Nkechi Okonkwo</div><div class="uname">@nkechi.okonkwo</div></span></div></td>
+              <td class="email">nkechi.okonkwo@enviable-tricycle.ng</td>
+              <td><div class="role-tags"><span class="role-tag exec">General Manager</span></div></td>
+              <td><span class="pill pill-green">Active</span></td>
+              <td class="login-cell">18 May, 17:22<span class="rel">1 day ago</span></td>
+              <td><div class="actions-cell"><button class="action-btn">Reset Password</button><button class="action-btn">Edit Roles</button><button class="action-btn danger">Disable</button><button class="row-overflow"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button></div></td>
+            </tr>
+
+            <tr>
+              <td><div class="user-cell"><span class="av opdir">OA</span><span class="name"><div class="full">Olufemi Adesanya</div><div class="uname">@olufemi.adesanya</div></span></div></td>
+              <td class="email">olufemi.adesanya@enviable-tricycle.ng</td>
+              <td><div class="role-tags"><span class="role-tag opdir">Operations Director</span></div></td>
+              <td><span class="pill pill-green">Active</span></td>
+              <td class="login-cell">19 May, 14:42<span class="rel">today · 4 min ago</span></td>
+              <td><div class="actions-cell"><button class="action-btn">Reset Password</button><button class="action-btn">Edit Roles</button><button class="action-btn danger">Disable</button><button class="row-overflow"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button></div></td>
+            </tr>
+
+            <tr>
+              <td><div class="user-cell"><span class="av proc">TB</span><span class="name"><div class="full">Tunde Bakare</div><div class="uname">@tunde.bakare</div></span></div></td>
+              <td class="email">tunde.bakare@enviable-tricycle.ng</td>
+              <td><div class="role-tags"><span class="role-tag proc-mgr">Procurement Manager</span></div></td>
+              <td><span class="pill pill-green">Active</span></td>
+              <td class="login-cell">19 May, 12:14<span class="rel">today · 2 h ago</span></td>
+              <td><div class="actions-cell"><button class="action-btn">Reset Password</button><button class="action-btn">Edit Roles</button><button class="action-btn danger">Disable</button><button class="row-overflow"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button></div></td>
+            </tr>
+
+            <tr>
+              <td><div class="user-cell"><span class="av proc">FA</span><span class="name"><div class="full">Funmi Adebayo</div><div class="uname">@funmi.adebayo</div></span></div></td>
+              <td class="email">funmi.adebayo@enviable-tricycle.ng</td>
+              <td><div class="role-tags"><span class="role-tag proc-off">Procurement Officer</span></div></td>
+              <td><span class="pill pill-green">Active</span></td>
+              <td class="login-cell">19 May, 11:08<span class="rel">today · 3 h ago</span></td>
+              <td><div class="actions-cell"><button class="action-btn">Reset Password</button><button class="action-btn">Edit Roles</button><button class="action-btn danger">Disable</button><button class="row-overflow"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button></div></td>
+            </tr>
+
+            <tr>
+              <td><div class="user-cell"><span class="av sales">SA</span><span class="name"><div class="full">Suraj Aliyu</div><div class="uname">@suraj.aliyu</div></span></div></td>
+              <td class="email">suraj.aliyu@enviable-tricycle.ng</td>
+              <td><div class="role-tags"><span class="role-tag sales-mgr">Sales Manager · Warehouse</span></div></td>
+              <td><span class="pill pill-green">Active</span></td>
+              <td class="login-cell">19 May, 13:02<span class="rel">today · 1 h ago</span></td>
+              <td><div class="actions-cell"><button class="action-btn">Reset Password</button><button class="action-btn">Edit Roles</button><button class="action-btn danger">Disable</button><button class="row-overflow"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button></div></td>
+            </tr>
+
+            <tr>
+              <td><div class="user-cell"><span class="av sales">CN</span><span class="name"><div class="full">Chioma Nwankwo</div><div class="uname">@chioma.nwankwo</div></span></div></td>
+              <td class="email">chioma.nwankwo@enviable-tricycle.ng</td>
+              <td><div class="role-tags"><span class="role-tag sales-off">Sales Officer · Warehouse</span></div></td>
+              <td><span class="pill pill-green">Active</span></td>
+              <td class="login-cell">19 May, 14:14<span class="rel">today · 28 min ago</span></td>
+              <td><div class="actions-cell"><button class="action-btn">Reset Password</button><button class="action-btn">Edit Roles</button><button class="action-btn danger">Disable</button><button class="row-overflow"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button></div></td>
+            </tr>
+
+            <tr>
+              <td><div class="user-cell"><span class="av" style="background: #E6F0EB; color: #1F5A37;">KE</span><span class="name"><div class="full">Kelechi Ekuru</div><div class="uname">@kelechi.ekuru</div></span></div></td>
+              <td class="email">kelechi.ekuru@enviable-tricycle.ng</td>
+              <td><div class="role-tags"><span class="role-tag warehouse">Warehouse Manager</span></div></td>
+              <td><span class="pill pill-green">Active</span></td>
+              <td class="login-cell">19 May, 08:14<span class="rel">today · 6 h ago</span></td>
+              <td><div class="actions-cell"><button class="action-btn">Reset Password</button><button class="action-btn">Edit Roles</button><button class="action-btn danger">Disable</button><button class="row-overflow"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button></div></td>
+            </tr>
+
+            <tr>
+              <td><div class="user-cell"><span class="av aud">IA</span><span class="name"><div class="full">Ifeoma Achebe</div><div class="uname">@ifeoma.achebe</div></span></div></td>
+              <td class="email">ifeoma.achebe@enviable-tricycle.ng</td>
+              <td><div class="role-tags"><span class="role-tag auditor">Internal Auditor</span></div></td>
+              <td><span class="pill pill-green">Active</span></td>
+              <td class="login-cell">19 May, 13:42<span class="rel">today · 1 h ago</span></td>
+              <td><div class="actions-cell"><button class="action-btn">Reset Password</button><button class="action-btn">Edit Roles</button><button class="action-btn danger">Disable</button><button class="row-overflow"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button></div></td>
+            </tr>
+
+            <tr>
+              <td><div class="user-cell"><span class="av it">CN</span><span class="name"><div class="full">Chidi Nwosu</div><div class="uname">@chidi.nwosu &nbsp;· you</div></span></div></td>
+              <td class="email">chidi.nwosu@enviable-tricycle.ng</td>
+              <td><div class="role-tags"><span class="role-tag it">IT Admin</span></div></td>
+              <td><span class="pill pill-green">Active</span></td>
+              <td class="login-cell">19 May, 14:42<span class="rel">current session</span></td>
+              <td><div class="actions-cell"><button class="action-btn">Reset Password</button><button class="action-btn" disabled title="Cannot edit your own roles">Edit Roles</button><button class="action-btn" disabled title="Cannot disable yourself">Disable</button><button class="row-overflow"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button></div></td>
+            </tr>
+
+            <tr class="disabled">
+              <td><div class="user-cell"><span class="av disabled">MY</span><span class="name"><div class="full">Maryam Yusuf</div><div class="uname">@maryam.yusuf</div></span></div></td>
+              <td class="email">maryam.yusuf@enviable-tricycle.ng</td>
+              <td><div class="role-tags"><span class="role-tag sales-off" style="opacity: 0.6;">Sales Officer · Warehouse</span></div></td>
+              <td><span class="pill pill-grey">Inactive</span></td>
+              <td class="login-cell never">02 May, 16:48<span class="rel">17 days ago · disabled</span></td>
+              <td><div class="actions-cell"><button class="action-btn">Reset Password</button><button class="action-btn" style="color: var(--green-700);">Re-enable</button><button class="row-overflow"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg></button></div></td>
+            </tr>
+
+          </tbody>
+        </table>
+        <div class="users-foot">
+          Showing <b>12</b> of <b>12</b> · last sync with identity provider <b>14:38 WAT</b> (4 min ago)
+        </div>
+      </section>
+
+      <!-- ROLES QUICK REFERENCE -->
+      <aside class="roles-card">
+        <div class="roles-head">
+          <h3><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.5 5-5 6-2.5-1-5-3-5-6V4l5-2z"/><path d="M6 8l1.5 1.5L10.5 6.5"/></svg> Roles Quick Reference</h3>
+          <div class="sub">11 roles defined · click a role for detailed permissions</div>
+        </div>
+
+        <div class="roles-list">
+
+          <div class="role-row">
+            <span class="role-icon" style="background: var(--navy-700); color: #fff;">MD</span>
+            <div class="body"><div class="name">Managing Director</div><div class="desc">Read-only view of all data; approvals at the highest level.</div></div>
+            <span class="count">1</span>
+          </div>
+          <div class="role-row">
+            <span class="role-icon" style="background: var(--navy-700); color: #fff;">ED</span>
+            <div class="body"><div class="name">Executive Director</div><div class="desc">Strategic oversight; final approval on commitments above ₦500M.</div></div>
+            <span class="count">1</span>
+          </div>
+          <div class="role-row">
+            <span class="role-icon" style="background: var(--navy-700); color: #fff;">GM</span>
+            <div class="body"><div class="name">General Manager</div><div class="desc">Day-to-day ops oversight across procurement, warehouse and sales.</div></div>
+            <span class="count">1</span>
+          </div>
+          <div class="role-row">
+            <span class="role-icon" style="background: var(--green-700); color: #fff;">OD</span>
+            <div class="body"><div class="name">Operations Director</div><div class="desc">Approves POs, release authorisations and resolves variances.</div></div>
+            <span class="count">1</span>
+          </div>
+          <div class="role-row">
+            <span class="role-icon" style="background: #FCF3E5; color: #8A4B05;">PM</span>
+            <div class="body"><div class="name">Procurement Manager</div><div class="desc">Owns supplier relationships; signs off on Form M and LC drafts.</div></div>
+            <span class="count">1</span>
+          </div>
+          <div class="role-row">
+            <span class="role-icon" style="background: var(--amber-50); color: var(--amber-700);">PO</span>
+            <div class="body"><div class="name">Procurement Officer</div><div class="desc">Raises POs, manages PIs, tracks shipments through customs.</div></div>
+            <span class="count">1</span>
+          </div>
+          <div class="role-row">
+            <span class="role-icon" style="background: #E8DCEA; color: #6E2A5C;">SM</span>
+            <div class="body"><div class="name">Sales Manager · Warehouse</div><div class="desc">Approves discounts; oversees the sales floor at warehouse channel.</div></div>
+            <span class="count">1</span>
+          </div>
+          <div class="role-row">
+            <span class="role-icon" style="background: #F4E8F1; color: #8E4A7C;">SO</span>
+            <div class="body"><div class="name">Sales Officer · Warehouse</div><div class="desc">Raises sales orders &amp; manages customers. <b>No cost or margin access.</b></div></div>
+            <span class="count">1</span>
+          </div>
+          <div class="role-row">
+            <span class="role-icon" style="background: #E6F0EB; color: #1F5A37;">WM</span>
+            <div class="body"><div class="name">Warehouse Manager</div><div class="desc">Receives shipments, runs assembly, manages physical stock.</div></div>
+            <span class="count">1</span>
+          </div>
+          <div class="role-row">
+            <span class="role-icon" style="background: var(--red-50); color: var(--red-700);">AU</span>
+            <div class="body"><div class="name">Internal Auditor</div><div class="desc">Read-only access to all entities and the full audit log.</div></div>
+            <span class="count">1</span>
+          </div>
+          <div class="role-row">
+            <span class="role-icon" style="background: var(--grey-200); color: var(--grey-700);">IT</span>
+            <div class="body"><div class="name">IT Admin</div><div class="desc">User &amp; role management; historical data import; system settings.</div></div>
+            <span class="count">1</span>
+          </div>
+
+        </div>
+        <div class="roles-foot">
+          Permissions for each role are defined in <a href="#">Admin → Roles</a> · changes are audit-logged.
+        </div>
+      </aside>
+
+    </div>
+
+  </div>
+  </div>
+
+</main>
+
+<script>
+  document.querySelectorAll('.nav-group-header').forEach(h => h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed')));
+  document.querySelectorAll('.seg-btn').forEach(b => b.addEventListener('click', () => { b.parentElement.querySelectorAll('.seg-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); }));
+</script>
+
+<script src="role-switcher.js"></script>
+</body>
+</html>

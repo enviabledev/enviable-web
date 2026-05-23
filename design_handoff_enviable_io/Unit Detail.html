@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Unit Detail — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  /* ===== APP SHELL ===== */
+  body { display: flex; min-height: 100vh; }
+  .app-sidebar { width: var(--sidebar-w); background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; font-size: var(--fs-13); }
+  .app-brand { height: var(--topbar-h); padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .app-brand-mark { width: 30px; height: 30px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 13.5px; line-height: 1.15; }
+  .app-brand-sub  { color: #8aa6c4; font-size: 10.5px; }
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 8px 8px 12px; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; color: #6f8aa6; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600; cursor: pointer; user-select: none; }
+  .nav-group-header .chev { color: #6f8aa6; transition: transform .15s ease; }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .nav-group-body { display: none; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 7px 12px; border-radius: 3px; color: #cfdcec; text-decoration: none; line-height: 1.3; position: relative; white-space: nowrap; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -8px; top: 4px; bottom: 4px; width: 3px; border-radius: 0 2px 2px 0; background: #5a9fe8; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .85; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
+  .app-user-meta { line-height: 1.25; flex: 1; min-width: 0; overflow: hidden; }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; }
+  .app-user-sign { color: #8aa6c4; font-size: 11px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; }
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: var(--topbar-h); border-bottom: 1px solid var(--grey-200); background: #fff; display: flex; align-items: center; padding: 0 20px; gap: 16px; position: sticky; top: 0; z-index: 30; }
+  .topbar-company { font-size: 14px; font-weight: 600; color: var(--ink); padding-right: 18px; border-right: 1px solid var(--grey-200); height: 28px; display: flex; align-items: center; }
+  .topbar-company .accent { color: var(--navy-700); }
+  .topbar-search { flex: 1; max-width: 560px; margin: 0 auto; height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--grey-100); border: 1px solid transparent; border-radius: 4px; color: var(--grey-500); font-size: 13px; }
+  .topbar-search input { all: unset; flex: 1; font-size: 13px; color: var(--ink); }
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .topbar-icon-btn { width: 32px; height: 32px; display: grid; place-items: center; background: transparent; border: none; border-radius: 4px; color: var(--grey-700); cursor: pointer; position: relative; }
+  .topbar-icon-btn:hover { background: var(--grey-100); color: var(--ink); }
+  .topbar-icon-btn.has-unread::after { content: ''; position: absolute; top: 7px; right: 8px; width: 8px; height: 8px; background: var(--red-700); border-radius: 50%; border: 1.5px solid #fff; }
+  .topbar-divider { width: 1px; height: 22px; background: var(--grey-200); margin: 0 6px; }
+  .topbar-user { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 999px; cursor: pointer; }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 11px; border: none; }
+  .topbar-user-text { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-user-name { font-size: 13px; color: var(--ink); font-weight: 500; line-height: 1.1; white-space: nowrap; }
+  .topbar-user-role { font-size: 11px; color: var(--grey-500); line-height: 1.1; }
+
+  /* ===== PAGE ===== */
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; }
+  .page { padding: 24px 28px 60px; max-width: 1120px; }
+
+  /* PAGE HEADER */
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--grey-200); gap: 24px; }
+  .page-crumbs { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .page-crumbs a { color: var(--grey-500); text-decoration: none; }
+  .page-crumbs a:hover { color: var(--navy-700); }
+  .page-crumbs .sep { color: var(--grey-300); }
+  .page-crumbs .current { color: var(--ink); font-weight: 500; font-family: var(--font-mono); }
+  .page-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .page-title { font-size: 24px; font-weight: 600; color: var(--ink); margin: 0; letter-spacing: -0.01em; }
+  .page-title .mono { font-family: var(--font-mono); font-weight: 600; }
+  .page-sub { color: var(--grey-500); font-size: 13px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .page-sub b { color: var(--ink); font-weight: 500; }
+
+  .header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; position: relative; }
+  .actions-menu-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 32px; padding: 0 12px 0 14px;
+    border: 1px solid var(--grey-300);
+    background: #fff;
+    border-radius: 3px;
+    font-family: inherit; font-size: 13px; font-weight: 500; color: var(--ink);
+    cursor: pointer;
+  }
+  .actions-menu-btn:hover { background: var(--grey-100); }
+  .actions-menu-btn.open { background: var(--grey-100); border-color: var(--grey-400); }
+  .actions-menu-btn .chev { color: var(--grey-500); }
+
+  /* dropdown popover */
+  .pop-menu {
+    position: absolute; z-index: 60;
+    top: 38px; right: 0;
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 4px; box-shadow: var(--shadow-lg);
+    min-width: 220px; padding: 4px;
+    font-size: 13px;
+    display: none;
+  }
+  .pop-menu.open { display: block; }
+  .pop-menu .item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 3px; cursor: pointer; color: var(--ink); }
+  .pop-menu .item:hover { background: var(--grey-100); }
+  .pop-menu .item svg { color: var(--grey-500); flex-shrink: 0; }
+  .pop-menu .item.danger { color: var(--red-700); }
+  .pop-menu .item.danger svg { color: var(--red-700); }
+  .pop-menu .item.danger:hover { background: var(--red-50); }
+  .pop-menu .sep { height: 1px; background: var(--grey-200); margin: 4px -4px; }
+  .pop-menu .kbd { margin-left: auto; }
+
+  /* ===== SUMMARY CARD ===== */
+  .summary-card {
+    background: #fff; border: 1px solid var(--grey-200); border-radius: 4px;
+    margin-bottom: 24px;
+  }
+  .summary-head {
+    padding: 14px 20px; border-bottom: 1px solid var(--grey-200);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .summary-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 10px; }
+  .summary-title svg { color: var(--navy-700); }
+  .summary-stamp {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--grey-500);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .summary-body {
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 64px;
+  }
+  .kv {
+    display: grid; grid-template-columns: 160px 1fr;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--grey-200);
+    align-items: baseline;
+    font-size: 13px;
+  }
+  .kv:last-child { border-bottom: none; }
+  .kv .k {
+    color: var(--grey-500);
+    font-size: 12px;
+    font-weight: 500;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .kv .v {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .kv .v.mono { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.02em; }
+  .kv .v .meta {
+    font-size: 11px; color: var(--grey-500); font-weight: 400;
+    display: block; margin-top: 2px;
+  }
+  .kv .v a { color: var(--navy-700); }
+  .kv .v.amount {
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  /* role-gated row */
+  .kv.role-gated {
+    background: linear-gradient(to right, rgba(31,78,121,0.02), transparent);
+    padding: 10px 8px 10px 12px;
+    margin: 0 -12px;
+    border-radius: 3px;
+    border-bottom: 1px dashed var(--grey-200);
+  }
+  .kv.role-gated .k svg { color: var(--navy-600); }
+  .gate-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 1px 6px; background: var(--navy-50); color: var(--navy-700);
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    border-radius: 2px;
+    margin-left: 6px;
+  }
+  .gate-tag svg { width: 9px; height: 9px; }
+
+  /* ===== TIMELINE ===== */
+  .timeline-card {
+    background: #fff; border: 1px solid var(--grey-200); border-radius: 4px;
+    margin-bottom: 24px;
+  }
+  .timeline-head {
+    padding: 14px 20px; border-bottom: 1px solid var(--grey-200);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .timeline-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 10px; }
+  .timeline-count {
+    font-size: 11px; color: var(--grey-500); font-weight: 500;
+    background: var(--grey-100); padding: 2px 7px; border-radius: 999px;
+  }
+  .timeline-filter {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .filter-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 24px; padding: 0 9px;
+    border-radius: 999px;
+    border: 1px solid var(--grey-300); background: #fff;
+    font-size: 11.5px; color: var(--grey-700); cursor: pointer;
+    font-family: inherit;
+  }
+  .filter-pill.active { background: var(--navy-50); color: var(--navy-800); border-color: var(--navy-700); }
+  .filter-pill:hover { background: var(--grey-100); }
+
+  .timeline-body {
+    padding: 26px 28px 32px;
+    position: relative;
+  }
+  /* The continuous vertical rail */
+  .timeline-rail {
+    position: absolute;
+    top: 24px;
+    bottom: 24px;
+    left: 46px;
+    width: 2px;
+    background: var(--grey-200);
+    border-radius: 1px;
+  }
+  .timeline-rail .dashed-part {
+    position: absolute; left: 0; right: 0;
+    top: 90px; bottom: 0;
+    border-left: 2px dashed var(--grey-300);
+    background: transparent;
+    margin-left: -1px;
+  }
+  .timeline-rail .solid-part {
+    position: absolute; left: 0; right: 0;
+    top: 0; height: 90px;
+    background: var(--navy-700);
+    border-radius: 1px;
+  }
+
+  .timeline-entry {
+    position: relative;
+    padding-left: 56px;
+    margin-bottom: 22px;
+  }
+  .timeline-entry:last-child { margin-bottom: 0; }
+
+  .timeline-dot {
+    position: absolute;
+    left: 12px; top: 0;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--green-50);
+    border: 2px solid var(--green-700);
+    color: var(--green-700);
+    display: grid; place-items: center;
+    z-index: 2;
+  }
+  .timeline-entry.is-placeholder .timeline-dot {
+    background: #fff;
+    border: 2px dashed var(--grey-300);
+    color: var(--grey-400);
+  }
+  .timeline-entry.is-receipt .timeline-dot { background: var(--green-50); border-color: var(--green-700); color: var(--green-700); }
+  .timeline-entry.is-assembly .timeline-dot { background: var(--amber-50); border-color: var(--amber-700); color: var(--amber-700); }
+  .timeline-entry.is-sale .timeline-dot { background: var(--green-50); border-color: var(--green-700); color: var(--green-700); }
+
+  .timeline-card-body {
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 4px;
+    padding: 14px 18px;
+  }
+  .timeline-entry.is-placeholder .timeline-card-body {
+    border: 1px dashed var(--grey-300);
+    background: #FBFBFC;
+  }
+  .timeline-entry.is-placeholder * { opacity: 0.85; }
+
+  .tl-row-head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .tl-title { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0; }
+  .timeline-entry.is-placeholder .tl-title { color: var(--grey-700); font-weight: 500; }
+  .tl-type-tag {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 3px 7px; border-radius: 3px;
+    background: var(--grey-100); color: var(--grey-700);
+  }
+  .tl-type-tag.receipt   { background: var(--green-50); color: var(--green-700); }
+  .tl-type-tag.assembly  { background: var(--amber-50); color: var(--amber-700); }
+  .tl-type-tag.sale      { background: var(--green-50); color: var(--green-700); }
+  .placeholder-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 7px;
+    background: #FBFBFC; color: var(--grey-500);
+    font-size: 10.5px; font-weight: 600;
+    border: 1px dashed var(--grey-300);
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .tl-time {
+    margin-left: auto;
+    font-size: 12px; color: var(--grey-500);
+    font-variant-numeric: tabular-nums;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tl-time .when-rel { color: var(--grey-400); font-size: 11px; }
+
+  .tl-state-transition {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px;
+    font-size: 12.5px;
+  }
+  .tl-state-transition .from {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--grey-500); font-style: italic;
+  }
+  .tl-state-transition .arrow { color: var(--grey-400); }
+  .tl-state-transition .to {
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+
+  .tl-meta-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 12px 20px;
+    font-size: 12.5px;
+    margin-bottom: 6px;
+  }
+  .tl-meta-grid .k {
+    font-size: 11px; color: var(--grey-500);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    font-weight: 600;
+    display: block; margin-bottom: 2px;
+  }
+  .tl-meta-grid .v { color: var(--ink); font-weight: 500; }
+  .tl-meta-grid .v.mono { font-family: var(--font-mono); font-size: 12px; }
+  .tl-meta-grid .v a { color: var(--navy-700); }
+  .tl-meta-grid .v.placeholder-val { color: var(--grey-400); font-style: italic; }
+
+  .actor-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 3px 9px 3px 3px;
+    background: var(--grey-100); border-radius: 999px;
+    font-size: 12px;
+  }
+  .actor-pill .mini-avatar {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--navy-100); color: var(--navy-800);
+    display: grid; place-items: center;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.02em;
+  }
+  .actor-pill.is-system .mini-avatar { background: var(--grey-200); color: var(--grey-700); }
+  .actor-pill.is-placeholder { background: transparent; border: 1px dashed var(--grey-300); }
+  .actor-pill.is-placeholder .mini-avatar { background: var(--grey-100); color: var(--grey-400); }
+
+  /* ===== DOCUMENTS CARD ===== */
+  .docs-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; }
+  .docs-head {
+    padding: 14px 20px; border-bottom: 1px solid var(--grey-200);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .docs-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 10px; }
+
+  .docs-empty {
+    padding: 40px 24px; text-align: center;
+    color: var(--grey-500); font-size: 13px;
+  }
+  .docs-empty-icon {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--grey-100); color: var(--grey-400);
+    display: grid; place-items: center;
+    margin: 0 auto 12px;
+  }
+  .docs-empty-title { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 4px; }
+  .docs-empty-desc { font-size: 12.5px; color: var(--grey-500); margin: 0 auto 12px; max-width: 380px; line-height: 1.55; }
+
+  /* role-banner */
+  .role-banner {
+    padding: 8px 14px;
+    background: var(--navy-50);
+    border-bottom: 1px solid var(--navy-100);
+    font-size: 12px;
+    color: var(--navy-800);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .role-banner svg { color: var(--navy-700); }
+  .role-banner b { font-weight: 600; }
+  .role-banner .toggle-tag {
+    margin-left: auto; font-size: 11px; color: var(--navy-700);
+    font-family: var(--font-mono); cursor: pointer;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ====================== SIDEBAR ====================== -->
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div>
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+  <nav class="nav-scroll">
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Overview</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body"><a class="nav-item" href="#">Dashboard</a></div>
+    </div>
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Procurement</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Purchase Orders</a>
+        <a class="nav-item" href="#">Proforma Invoices</a>
+        <a class="nav-item" href="#">Suppliers &amp; Counterparties</a>
+        <a class="nav-item" href="#">Shipments</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-header"><span>Inventory</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item active" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 11h2l1-3.5h6L12 11h2.5"/><path d="M2 11v1.5M14 11v1.5"/><circle cx="5" cy="12.5" r="1.3"/><circle cx="11" cy="12.5" r="1.3"/></svg>Units (kekes)</a>
+        <a class="nav-item" href="#">Spare Parts</a>
+        <a class="nav-item" href="#">Stock Movements</a>
+        <a class="nav-item" href="#">Assembly Jobs</a>
+      </div>
+    </div>
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Sales</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Sales Orders</a>
+        <a class="nav-item" href="#">Customers</a>
+      </div>
+    </div>
+  </nav>
+  <div class="app-user">
+    <div class="avatar">KE</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Kelechi Ekuru</div>
+      <div class="app-user-role">Warehouse Manager</div>
+      <a class="app-user-sign" href="#"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4V3a1 1 0 00-1-1H3.5a1 1 0 00-1 1v10a1 1 0 001 1H9a1 1 0 001-1v-1"/><path d="M7 8h7m0 0l-2.5-2.5M14 8l-2.5 2.5"/></svg>Sign out</a>
+    </div>
+  </div>
+</aside>
+
+<!-- ====================== MAIN ====================== -->
+<main class="app-main">
+
+  <header class="topbar">
+    <div class="topbar-company">Enviable <span class="accent">Tricycle</span></div>
+    <div class="topbar-search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+      <input placeholder="Search units, POs, customers…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-icon-btn" title="Help"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M6.5 6a1.5 1.5 0 113 0c0 1-1.5 1.2-1.5 2.5M8 11v.01"/></svg></button>
+      <button class="topbar-icon-btn has-unread" title="Notifications"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.5 11h9l-1-2V6.5a3.5 3.5 0 10-7 0V9l-1 2zM6.5 13a1.5 1.5 0 003 0"/></svg></button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="avatar">KE</div>
+        <div class="topbar-user-text">
+          <div class="topbar-user-name">Kelechi Ekuru</div>
+          <div class="topbar-user-role">Warehouse Manager</div>
+        </div>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--grey-400);"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-content">
+  <div class="page">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div>
+        <div class="page-crumbs">
+          <a href="#">Inventory</a><span class="sep">/</span>
+          <a href="#">Units</a><span class="sep">/</span>
+          <span class="current">TVSKGS25E0001234</span>
+        </div>
+        <div class="page-title-row">
+          <h1 class="page-title">Unit <span class="mono">TVSKGS25E0001234</span></h1>
+          <span class="pill pill-amber">InWarehouseCKD</span>
+        </div>
+        <div class="page-sub">
+          <span>TVS King GS+ DP CKD EXP10 G Yellow</span>
+          <span style="color: var(--grey-300);">·</span>
+          <span>Received from <b>SHP-2026-001</b> on <b>10 May 2026</b></span>
+          <span style="color: var(--grey-300);">·</span>
+          <span>Currently at <b>Lagos Main</b></span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+          Export PDF
+        </button>
+        <button class="actions-menu-btn" id="actionsBtn">
+          Actions
+          <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+        </button>
+        <div class="pop-menu" id="actionsMenu">
+          <div class="item">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5h9M8 2.5L11 5 8 7.5M14 11H5M8 8.5L5 11l3 2.5"/></svg>
+            Transfer to another warehouse
+          </div>
+          <div class="item">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M5 7l2 2 4-4"/></svg>
+            Allocate to Demo
+          </div>
+          <div class="sep"></div>
+          <div class="item danger">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2L1.5 13h13L8 2z"/><path d="M8 6.5v3M8 11v.01"/></svg>
+            Mark Damaged
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SUMMARY CARD ===== -->
+    <section class="summary-card">
+      <div class="summary-head">
+        <h2 class="summary-title">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 7h12M5 3v10"/></svg>
+          Unit Summary
+        </h2>
+        <span class="summary-stamp">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l1.5 1.5L7 2"/><path d="M9 5h5M9 8h5M9 11h3"/></svg>
+          Synced 2 min ago · live record
+        </span>
+      </div>
+
+      <div class="summary-body">
+        <!-- Left column -->
+        <div>
+          <div class="kv">
+            <div class="k">Engine Number</div>
+            <div class="v mono">TVSKGS25E0001234</div>
+          </div>
+          <div class="kv">
+            <div class="k">Chassis Number</div>
+            <div class="v mono">MD3TVSGS25C0001234</div>
+          </div>
+          <div class="kv">
+            <div class="k">Variant</div>
+            <div class="v">TVS King GS+ DP CKD EXP10 G Yellow <span class="meta">SKU · TVS-KING-GSPDP-EXP10-GY · Knocked-down kit (CKD)</span></div>
+          </div>
+          <div class="kv">
+            <div class="k">Status</div>
+            <div class="v"><span class="pill pill-amber">InWarehouseCKD</span> <span class="meta">Awaiting assembly or onward sale as CKD</span></div>
+          </div>
+        </div>
+
+        <!-- Right column -->
+        <div>
+          <div class="kv">
+            <div class="k">Received Date</div>
+            <div class="v">10 May 2026 <span class="meta">14:32 WAT</span></div>
+          </div>
+          <div class="kv">
+            <div class="k">Source Shipment</div>
+            <div class="v mono"><a href="#">SHP-2026-001</a> <span class="meta" style="font-family: var(--font-sans);">via PO-2026-001 · VSK Motors and Traders FZE</span></div>
+          </div>
+          <div class="kv">
+            <div class="k">Current Warehouse</div>
+            <div class="v">Lagos Main <span class="meta">Apapa, Lagos · HQ · Bay B-04, Rack 12</span></div>
+          </div>
+          <div class="kv">
+            <div class="k">Last Movement</div>
+            <div class="v">10 May 2026 · 14:32 <span class="meta">Receipt · into Lagos Main</span></div>
+          </div>
+
+          <!-- Role-gated landed cost field -->
+          <div class="kv role-gated" id="landedRow">
+            <div class="k">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="10" height="6" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>
+              Landed Cost
+              <span class="gate-tag">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="10" height="6" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>
+                Manager &amp; above
+              </span>
+            </div>
+            <div class="v amount">₦ 1,847,290.00 <span class="meta" style="font-family: var(--font-sans);">$ 1,422.00 ex-works + ₦ 844,236 allocated overhead (freight, duty, insurance, port, clearing, transport)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Role banner shows the gating in effect -->
+      <div class="role-banner">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.01"/></svg>
+        Viewing as <b>Kelechi Ekuru</b> · Warehouse Manager — landed cost is visible to your role. Sales Officers see the same summary with the Landed Cost row hidden.
+        <span class="toggle-tag" id="gateToggle">[ preview as Sales Officer ]</span>
+      </div>
+    </section>
+
+    <!-- ===== MOVEMENT HISTORY ===== -->
+    <section class="timeline-card">
+      <div class="timeline-head">
+        <h2 class="timeline-title">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2a6 6 0 11-4.5 2"/><path d="M3.5 1.5v3h3M8 5v3.5l2 1.5"/></svg>
+          Movement History
+          <span class="timeline-count">1 actual · 2 illustrative</span>
+        </h2>
+        <div class="timeline-filter">
+          <button class="filter-pill active">All events</button>
+          <button class="filter-pill">Receipts</button>
+          <button class="filter-pill">Movements</button>
+          <button class="filter-pill">Sales</button>
+        </div>
+      </div>
+
+      <div class="timeline-body">
+
+        <!-- Vertical rail (rendered behind entries) -->
+        <div class="timeline-rail">
+          <div class="solid-part"></div>
+          <div class="dashed-part"></div>
+        </div>
+
+        <!-- Entry 1: Receipt (real) -->
+        <div class="timeline-entry is-receipt">
+          <div class="timeline-dot">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l3.5 3.5L13 4"/></svg>
+          </div>
+          <div class="timeline-card-body">
+            <div class="tl-row-head">
+              <h3 class="tl-title">Received into warehouse</h3>
+              <span class="tl-type-tag receipt">Receipt</span>
+              <div class="tl-time">10 May 2026 · 14:32:14 WAT <span class="when-rel">9 days ago</span></div>
+            </div>
+            <div class="tl-state-transition">
+              <span class="from"><span style="opacity:0.6;">No prior state</span></span>
+              <svg class="arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+              <span class="to"><span class="pill pill-amber">InWarehouseCKD</span></span>
+            </div>
+            <div class="tl-meta-grid">
+              <div>
+                <span class="k">Movement Type</span>
+                <span class="v">Receipt · against shipment</span>
+              </div>
+              <div>
+                <span class="k">Warehouse</span>
+                <span class="v">Lagos Main <span style="color: var(--grey-500);">· Bay B-04, Rack 12</span></span>
+              </div>
+              <div>
+                <span class="k">Actor</span>
+                <span class="v"><span class="actor-pill"><span class="mini-avatar">KE</span>Kelechi Ekuru</span></span>
+              </div>
+              <div>
+                <span class="k">Reference</span>
+                <span class="v mono"><a href="#">SHP-2026-001</a></span>
+              </div>
+              <div>
+                <span class="k">Linked PO</span>
+                <span class="v mono"><a href="#">PO-2026-001</a></span>
+              </div>
+              <div>
+                <span class="k">Captured via</span>
+                <span class="v">Handheld barcode scan</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Entry 2: Assembly (placeholder) -->
+        <div class="timeline-entry is-assembly is-placeholder">
+          <div class="timeline-dot">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="6" width="11" height="7" rx="1"/><path d="M5 6V4a3 3 0 016 0v2M6 9h4M6 11h3"/></svg>
+          </div>
+          <div class="timeline-card-body">
+            <div class="tl-row-head">
+              <h3 class="tl-title">Assembly started</h3>
+              <span class="tl-type-tag assembly">Assembly</span>
+              <span class="placeholder-chip">
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.01"/></svg>
+                Illustrative · not yet recorded
+              </span>
+              <div class="tl-time" style="color: var(--grey-400);">— · —</div>
+            </div>
+            <div class="tl-state-transition">
+              <span class="from"><span class="pill pill-grey" style="opacity: 0.7;">InWarehouseCKD</span></span>
+              <svg class="arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+              <span class="to"><span class="pill pill-amber" style="opacity: 0.75;">InAssembly</span></span>
+            </div>
+            <div class="tl-meta-grid">
+              <div><span class="k">Movement Type</span><span class="v placeholder-val">Assembly start</span></div>
+              <div><span class="k">Warehouse</span><span class="v placeholder-val">Lagos Main · Assembly Bay</span></div>
+              <div><span class="k">Actor</span><span class="v"><span class="actor-pill is-placeholder"><span class="mini-avatar">—</span><span style="color: var(--grey-400); font-style: italic;">Assembly operator</span></span></span></div>
+              <div><span class="k">Job Reference</span><span class="v mono placeholder-val">AJ-2026-####</span></div>
+              <div><span class="k">Parts kit drawn</span><span class="v placeholder-val">Linked at job start</span></div>
+              <div><span class="k">Captured via</span><span class="v placeholder-val">Job sheet scan</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Entry 3: Sold (placeholder) -->
+        <div class="timeline-entry is-sale is-placeholder">
+          <div class="timeline-dot">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 5h12M3 5l1 8a1 1 0 001 1h6a1 1 0 001-1l1-8"/><path d="M6 8l2 2 3-3"/></svg>
+          </div>
+          <div class="timeline-card-body">
+            <div class="tl-row-head">
+              <h3 class="tl-title">Sold as CBU to ABC Tricycle Dealers Ltd</h3>
+              <span class="tl-type-tag sale">Sale</span>
+              <span class="placeholder-chip">
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.01"/></svg>
+                Illustrative · not yet recorded
+              </span>
+              <div class="tl-time" style="color: var(--grey-400);">— · —</div>
+            </div>
+            <div class="tl-state-transition">
+              <span class="from"><span class="pill pill-navy" style="opacity: 0.6;">InWarehouseCBU</span></span>
+              <svg class="arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+              <span class="to"><span class="pill pill-green" style="opacity: 0.75;">SoldAsCBU</span></span>
+            </div>
+            <div class="tl-meta-grid">
+              <div><span class="k">Movement Type</span><span class="v placeholder-val">Sale · CBU</span></div>
+              <div><span class="k">Customer</span><span class="v placeholder-val">ABC Tricycle Dealers Ltd</span></div>
+              <div><span class="k">Actor</span><span class="v"><span class="actor-pill is-placeholder"><span class="mini-avatar">—</span><span style="color: var(--grey-400); font-style: italic;">Sales Officer</span></span></span></div>
+              <div><span class="k">Sales Order</span><span class="v mono placeholder-val">SO-2026-####</span></div>
+              <div><span class="k">Sale Price</span><span class="v placeholder-val">₦ — / per price list</span></div>
+              <div><span class="k">Dispatched on</span><span class="v placeholder-val">— · — WAT</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="padding: 12px 20px; border-top: 1px solid var(--grey-200); background: #FBFBFB; font-size: 11.5px; color: var(--grey-500); display: flex; align-items: center; gap: 8px;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.01"/></svg>
+        Dashed entries are illustrative placeholders showing what this timeline will look like as the unit progresses through assembly and sale. Real events are filled in green.
+      </div>
+    </section>
+
+    <!-- ===== DOCUMENTS ===== -->
+    <section class="docs-card">
+      <div class="docs-head">
+        <h2 class="docs-title">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg>
+          Documents <span class="timeline-count">0 attached</span>
+        </h2>
+        <button class="btn btn-secondary btn-sm">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+          Upload document
+        </button>
+      </div>
+
+      <div class="docs-empty">
+        <div class="docs-empty-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 3H6a1 1 0 00-1 1v16a1 1 0 001 1h12a1 1 0 001-1V8l-5-5z"/><path d="M14 3v5h5"/></svg>
+        </div>
+        <h3 class="docs-empty-title">No unit-specific documents yet</h3>
+        <p class="docs-empty-desc">Documents attached directly to this unit (e.g. its individual quality certificate after assembly, or a damage report) will appear here. Shipment- and PO-level documents live on those records.</p>
+        <button class="btn btn-secondary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+          Upload first document
+        </button>
+        <div style="font-size: 11px; color: var(--grey-400); margin-top: 14px;">
+          Need shipment documents instead? See <a href="#" style="color: var(--navy-700); text-decoration: none; font-weight: 500;">SHP-2026-001 → Documents (8 files)</a>
+        </div>
+      </div>
+    </section>
+
+  </div>
+  </div>
+
+</main>
+
+<script>
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+  });
+
+  // Actions menu
+  const actionsBtn = document.getElementById('actionsBtn');
+  const actionsMenu = document.getElementById('actionsMenu');
+  actionsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    actionsBtn.classList.toggle('open');
+    actionsMenu.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!actionsMenu.contains(e.target)) {
+      actionsBtn.classList.remove('open');
+      actionsMenu.classList.remove('open');
+    }
+  });
+
+  // Timeline filter pills
+  document.querySelectorAll('.filter-pill').forEach(p => {
+    p.addEventListener('click', () => {
+      p.parentElement.querySelectorAll('.filter-pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+    });
+  });
+
+  // Role gate toggle — show/hide the Landed Cost row to demonstrate the gating
+  const gateToggle = document.getElementById('gateToggle');
+  const landedRow = document.getElementById('landedRow');
+  let salesView = false;
+  gateToggle.addEventListener('click', () => {
+    salesView = !salesView;
+    landedRow.style.display = salesView ? 'none' : '';
+    gateToggle.textContent = salesView
+      ? '[ back to Warehouse Manager view ]'
+      : '[ preview as Sales Officer ]';
+    const banner = gateToggle.closest('.role-banner');
+    banner.querySelector('b').textContent = salesView ? 'Sales Officer (preview)' : 'Kelechi Ekuru';
+    banner.childNodes[2].textContent = salesView
+      ? ' Previewing as Sales Officer — landed cost hidden. Toggle back to see the manager view.'
+      : ' · Warehouse Manager — landed cost is visible to your role. Sales Officers see the same summary with the Landed Cost row hidden.';
+  });
+</script>
+
+<script src="role-switcher.js"></script>
+</body>
+</html>

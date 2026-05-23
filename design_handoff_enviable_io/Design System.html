@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Design System — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  /* =========================================================
+     PAGE-LEVEL CHROME (real product chrome, reused on every screen)
+     ========================================================= */
+  body { display: flex; min-height: 100vh; }
+
+  /* Sidebar — real product nav, customized for this reference page
+     (the in-section "Sidebar Navigation" example shows the product version) */
+  .app-sidebar {
+    width: var(--sidebar-w);
+    background: var(--navy-800);
+    color: #cfdcec;
+    flex-shrink: 0;
+    position: sticky; top: 0; align-self: flex-start;
+    height: 100vh;
+    display: flex; flex-direction: column;
+    font-size: var(--fs-13);
+  }
+  .app-brand {
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .app-brand-mark {
+    width: 28px; height: 28px; border-radius: 4px;
+    background: linear-gradient(135deg, #2c5e8e, #5a82a8);
+    display: grid; place-items: center;
+    color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 13px; line-height: 1.15; }
+  .app-brand-sub  { color: #8aa6c4; font-size: 11px; }
+
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 12px 8px; }
+  .nav-section-label {
+    padding: 14px 12px 6px;
+    text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em;
+    color: #6f8aa6; font-weight: 600;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 12px;
+    border-radius: 3px;
+    color: #cfdcec; text-decoration: none;
+    line-height: 1.3;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .8; }
+
+  .app-user {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+  }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--navy-600); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 600; font-size: 11px; flex-shrink: 0;
+  }
+  .app-user-meta { line-height: 1.25; flex: 1; min-width: 0; }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; }
+  .app-user-action { color: #8aa6c4; padding: 4px; line-height: 0; }
+  .app-user-action:hover { color: #fff; }
+
+  /* Top bar */
+  .topbar {
+    height: var(--topbar-h);
+    border-bottom: 1px solid var(--grey-200);
+    background: #fff;
+    display: flex; align-items: center;
+    padding: 0 var(--pageframe-px);
+    gap: 16px;
+    position: sticky; top: 0; z-index: 30;
+  }
+  .crumbs { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 6px; }
+  .crumbs a { color: var(--grey-500); }
+  .crumbs .sep { color: var(--grey-300); }
+  .crumbs .current { color: var(--ink); font-weight: 500; }
+  .topbar-spacer { flex: 1; }
+  .topbar-search {
+    width: 320px; height: 30px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 10px;
+    background: var(--grey-100);
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--grey-500);
+    font-size: 13px;
+  }
+  .topbar-search:focus-within { background: #fff; border-color: var(--navy-700); }
+  .topbar-search input { all: unset; flex: 1; font-size: 13px; color: var(--ink); }
+  .topbar-icons { display: flex; align-items: center; gap: 4px; color: var(--grey-700); }
+  .topbar-icons .btn-icon { color: var(--grey-700); }
+  .topbar-icons .badge { position: relative; }
+  .topbar-icons .badge::after {
+    content: ''; position: absolute; top: 4px; right: 5px;
+    width: 6px; height: 6px; background: var(--red-700); border-radius: 50%; border: 1.5px solid #fff;
+  }
+
+  /* Page frame */
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .page {
+    padding: 24px var(--pageframe-px) 80px;
+    max-width: 1400px;
+  }
+  .page-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 28px; padding-bottom: 18px;
+    border-bottom: 1px solid var(--grey-200);
+    gap: 24px;
+  }
+  .page-title-block .page-title {
+    font-size: var(--fs-24); font-weight: 600; color: var(--ink);
+    margin: 6px 0 4px; letter-spacing: -0.01em;
+  }
+  .page-title-block .page-sub { color: var(--grey-500); font-size: 13px; max-width: 720px; }
+  .page-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+  /* Section blocks within design system page */
+  .ds-section { margin-bottom: 56px; scroll-margin-top: 72px; }
+  .ds-section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  .ds-section h2 {
+    font-size: 18px; font-weight: 600; margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .ds-section-num {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--grey-400); font-weight: 500;
+    padding-top: 2px;
+  }
+  .ds-section-desc { color: var(--grey-500); font-size: 13px; margin: 0 0 18px; max-width: 720px; }
+
+  .ds-block {
+    background: #fff; border: 1px solid var(--grey-200); border-radius: 4px;
+    overflow: hidden;
+  }
+  .ds-block-row {
+    display: grid; grid-template-columns: 160px 1fr;
+    border-bottom: 1px solid var(--grey-200);
+  }
+  .ds-block-row:last-child { border-bottom: none; }
+  .ds-block-label {
+    padding: 18px 16px;
+    background: var(--grey-100);
+    border-right: 1px solid var(--grey-200);
+    font-size: 12px; font-weight: 500; color: var(--grey-700);
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .ds-block-body {
+    padding: 18px 20px;
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  }
+  .ds-block-body.column { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .ds-block-body.grid {
+    display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    align-items: stretch;
+  }
+
+  .ds-note { font-size: 11px; color: var(--grey-500); font-family: var(--font-mono); }
+
+  /* —— Form input demo styling —— */
+  .input-group { display: flex; flex-direction: column; gap: 4px; min-width: 220px; }
+  .input-group.wide { flex: 1; min-width: 280px; }
+  .with-prefix, .with-suffix {
+    display: flex; align-items: stretch;
+    border: 1px solid var(--grey-300); border-radius: 3px;
+    background: #fff; overflow: hidden;
+    height: 32px;
+  }
+  .with-prefix:focus-within, .with-suffix:focus-within { border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+  .affix {
+    background: var(--grey-100); color: var(--grey-700);
+    display: grid; place-items: center;
+    padding: 0 10px; font-weight: 600; font-size: 12px;
+    border-right: 1px solid var(--grey-200);
+    font-variant-numeric: tabular-nums;
+  }
+  .with-suffix .affix { border-right: none; border-left: 1px solid var(--grey-200); }
+  .with-prefix input, .with-suffix input {
+    all: unset; flex: 1; padding: 0 10px; font-size: 13px; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .file-drop {
+    border: 1px dashed var(--grey-300); border-radius: 4px;
+    padding: 18px;
+    background: var(--canvas);
+    display: flex; align-items: center; gap: 12px;
+    color: var(--grey-700); font-size: 13px;
+    min-width: 360px;
+  }
+  .file-drop svg { color: var(--navy-700); }
+  .file-drop .file-link { color: var(--navy-700); font-weight: 500; }
+  .file-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 8px 6px 10px;
+    background: var(--grey-100); border: 1px solid var(--grey-200);
+    border-radius: 3px; font-size: 12px;
+    font-family: var(--font-mono);
+  }
+  .file-chip .x { color: var(--grey-500); cursor: pointer; }
+  .file-chip .x:hover { color: var(--red-700); }
+
+  .multi-tags { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; min-height: 32px; border: 1px solid var(--grey-300); border-radius: 3px; background: #fff; align-items: center; }
+  .multi-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--navy-100); color: var(--navy-800);
+    padding: 2px 4px 2px 8px;
+    border-radius: 3px; font-size: 12px; font-weight: 500;
+  }
+  .multi-tag .x { width: 14px; height: 14px; display: grid; place-items: center; cursor: pointer; color: var(--navy-700); border-radius: 2px; }
+  .multi-tag .x:hover { background: rgba(31,78,121,0.12); }
+  .multi-tags input { all: unset; flex: 1; min-width: 80px; padding: 0 4px; font-size: 13px; color: var(--ink); }
+
+  /* —— Status pills lifecycle layout —— */
+  .pill-lane { display: grid; grid-template-columns: 180px 1fr; gap: 16px; padding: 12px 4px; border-bottom: 1px dashed var(--grey-200); align-items: center; }
+  .pill-lane:last-child { border-bottom: none; }
+  .pill-lane-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey-500); font-weight: 600; }
+  .pill-lane-items { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  /* —— Data table specifics —— */
+  .toolbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--grey-200);
+    background: #fff;
+  }
+  .toolbar .search { width: 240px; }
+  .toolbar-spacer { flex: 1; }
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 28px; padding: 0 10px;
+    border: 1px solid var(--grey-300); border-radius: 3px;
+    background: #fff; font-size: 12px; color: var(--ink);
+  }
+  .filter-chip:hover { background: var(--grey-100); }
+  .filter-chip .chev { color: var(--grey-400); }
+  .filter-chip.active { background: var(--navy-50); border-color: var(--navy-700); color: var(--navy-800); }
+
+  .table-wrap { background: #fff; }
+  .table-wrap table { width: 100%; }
+  .table-wrap th .th-sort { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
+  .table-wrap th .th-sort svg { color: var(--grey-400); }
+  .table-wrap th.sorted .th-sort svg { color: var(--ink); }
+  .table-wrap tbody tr:nth-child(even) td { background: #FBFBFB; }
+  .table-wrap tbody tr:hover td { background: var(--navy-50); }
+  .table-wrap tbody tr.selected td { background: var(--navy-100); }
+  .th-checkbox, .td-checkbox { width: 36px; padding-left: 16px !important; padding-right: 0 !important; }
+  input[type="checkbox"].cb {
+    appearance: none; width: 14px; height: 14px;
+    border: 1px solid var(--grey-300); border-radius: 2px; background: #fff;
+    display: grid; place-items: center; cursor: pointer; position: relative; top: 1px;
+  }
+  input[type="checkbox"].cb:checked { background: var(--navy-700); border-color: var(--navy-700); }
+  input[type="checkbox"].cb:checked::after {
+    content: ''; width: 8px; height: 5px;
+    border-left: 1.5px solid #fff; border-bottom: 1.5px solid #fff;
+    transform: rotate(-45deg); margin-top: -2px;
+  }
+  .row-actions-btn {
+    width: 24px; height: 24px; padding: 0;
+    display: grid; place-items: center;
+    background: transparent; border: none; border-radius: 3px;
+    color: var(--grey-500); cursor: pointer;
+  }
+  .row-actions-btn:hover { background: var(--grey-100); color: var(--ink); }
+
+  /* overflow menu */
+  .pop-menu {
+    position: absolute; z-index: 60;
+    background: #fff; border: 1px solid var(--grey-200);
+    border-radius: 4px; box-shadow: var(--shadow-lg);
+    min-width: 180px; padding: 4px;
+    font-size: 13px;
+  }
+  .pop-menu .item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 3px; cursor: pointer; color: var(--ink); }
+  .pop-menu .item:hover { background: var(--grey-100); }
+  .pop-menu .item.danger { color: var(--red-700); }
+  .pop-menu .item.danger:hover { background: var(--red-50); }
+  .pop-menu .sep { height: 1px; background: var(--grey-200); margin: 4px -4px; }
+
+  /* pagination */
+  .pagination {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--grey-200);
+    background: #fff; font-size: 13px; color: var(--grey-700);
+  }
+  .pag-pages { display: flex; gap: 2px; }
+  .pag-btn {
+    min-width: 28px; height: 28px; padding: 0 8px;
+    display: grid; place-items: center;
+    border: 1px solid var(--grey-300); background: #fff;
+    border-radius: 3px; font-size: 12px; color: var(--ink); cursor: pointer;
+    font-variant-numeric: tabular-nums;
+  }
+  .pag-btn:hover { background: var(--grey-100); }
+  .pag-btn.active { background: var(--navy-700); color: #fff; border-color: var(--navy-700); }
+  .pag-btn[disabled] { opacity: .4; pointer-events: none; }
+
+  /* —— Page header demo —— */
+  .page-header-demo {
+    padding: 24px 28px; background: #fff;
+    border-bottom: 1px solid var(--grey-200);
+  }
+  .frame-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--grey-400); padding: 6px 14px;
+    border-bottom: 1px solid var(--grey-200); background: var(--grey-100);
+    font-weight: 600;
+  }
+
+  /* —— Sidebar demo —— */
+  .sidebar-demo {
+    display: flex; height: 540px; overflow: hidden;
+  }
+  .sidebar-demo .demo-sidebar {
+    width: var(--sidebar-w);
+    background: var(--navy-800);
+    color: #cfdcec;
+    flex-shrink: 0;
+    display: flex; flex-direction: column;
+    font-size: var(--fs-13);
+  }
+  .sidebar-demo .nav-scroll { padding-top: 8px; }
+  .sidebar-demo .nav-group {
+    margin-bottom: 4px;
+  }
+  .nav-group-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 12px; cursor: pointer;
+    color: #8aa6c4;
+    text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600;
+    user-select: none;
+  }
+  .nav-group-header:hover { color: #fff; }
+  .nav-group-header .chev { transition: transform .15s ease; }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .nav-group-body { display: none; }
+  .demo-stage { flex: 1; background: var(--canvas); padding: 32px; color: var(--grey-500); font-size: 13px; }
+
+  /* —— Modal —— */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 80;
+    background: rgba(15,42,68,0.40);
+    display: none; align-items: center; justify-content: center;
+    padding: 40px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 6px; box-shadow: var(--shadow-lg);
+    width: 100%; max-width: 520px;
+    overflow: hidden;
+    animation: modalIn .15s ease-out;
+  }
+  @keyframes modalIn { from { transform: translateY(8px); opacity: 0; } }
+  .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--grey-200); display: flex; align-items: center; justify-content: space-between; }
+  .modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+  .modal-close {
+    width: 28px; height: 28px; display: grid; place-items: center;
+    background: transparent; border: none; border-radius: 3px; color: var(--grey-500); cursor: pointer;
+  }
+  .modal-close:hover { background: var(--grey-100); color: var(--ink); }
+  .modal-body { padding: 20px; font-size: 13px; line-height: 1.55; color: var(--grey-700); }
+  .modal-body p { margin: 0 0 12px; }
+  .modal-body p:last-child { margin-bottom: 0; }
+  .modal-footer { padding: 12px 20px; border-top: 1px solid var(--grey-200); background: var(--grey-100); display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* Inline modal preview (always visible reference) */
+  .modal-static { position: relative; max-width: 520px; box-shadow: var(--shadow-md); }
+
+  /* —— Toasts —— */
+  .toast-stack {
+    position: fixed; bottom: 24px; right: 24px; z-index: 90;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    min-width: 320px; max-width: 420px;
+    background: #fff; border: 1px solid var(--grey-200); border-radius: 4px;
+    box-shadow: var(--shadow-md);
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 14px;
+    animation: toastIn .2s ease-out;
+    border-left: 3px solid var(--grey-400);
+  }
+  .toast.toast-success { border-left-color: var(--green-700); }
+  .toast.toast-error   { border-left-color: var(--red-700); }
+  .toast.toast-info    { border-left-color: var(--navy-700); }
+  @keyframes toastIn { from { transform: translateX(8px); opacity: 0; } }
+  .toast-icon { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+  .toast.toast-success .toast-icon { color: var(--green-700); }
+  .toast.toast-error   .toast-icon { color: var(--red-700); }
+  .toast.toast-info    .toast-icon { color: var(--navy-700); }
+  .toast-body { flex: 1; font-size: 13px; }
+  .toast-title { font-weight: 600; color: var(--ink); margin-bottom: 1px; }
+  .toast-msg   { color: var(--grey-700); line-height: 1.45; }
+  .toast-close { background: transparent; border: none; color: var(--grey-400); cursor: pointer; padding: 0; line-height: 0; }
+  .toast-close:hover { color: var(--ink); }
+
+  /* Inline reference (always visible row of static toasts) */
+  .toast-row { display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; background: var(--canvas); }
+  .toast-row .toast { position: static; box-shadow: none; }
+
+  /* —— Empty state —— */
+  .empty-state {
+    padding: 56px 24px;
+    text-align: center;
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 4px;
+  }
+  .empty-icon {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--grey-100);
+    color: var(--grey-500);
+    display: grid; place-items: center;
+    margin: 0 auto 14px;
+  }
+  .empty-title { font-size: 15px; font-weight: 600; color: var(--ink); margin: 0 0 4px; }
+  .empty-desc  { font-size: 13px; color: var(--grey-500); margin: 0 auto 18px; max-width: 360px; line-height: 1.5; }
+
+  /* —— Section card (coloured left border) —— */
+  .section-card {
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-left: 3px solid var(--navy-700);
+    border-radius: 3px;
+    padding: 16px 20px;
+  }
+  .section-card.is-green { border-left-color: var(--green-700); }
+  .section-card.is-amber { border-left-color: var(--amber-700); }
+  .section-card.is-red   { border-left-color: var(--red-700);   }
+  .section-card .sc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .section-card .sc-title { font-size: 14px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; margin: 0; }
+  .section-card .sc-sub   { font-size: 12px; color: var(--grey-500); margin-top: 2px; }
+  .sc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; font-size: 13px; }
+  .sc-grid .k { color: var(--grey-500); font-size: 12px; margin-bottom: 2px; }
+  .sc-grid .v { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* TOC in sidebar */
+  .toc { padding: 4px 0; }
+</style>
+</head>
+
+<body>
+
+<!-- ============= APP SIDEBAR (acts as in-page TOC for this reference) ============= -->
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div>
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+  <nav class="nav-scroll toc">
+    <div class="nav-section-label">Design System</div>
+    <a class="nav-item active" href="#sec-buttons">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="12" height="6" rx="1"/></svg>
+      1 — Buttons
+    </a>
+    <a class="nav-item" href="#sec-inputs">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="12" height="6" rx="1"/><path d="M4 8h2"/></svg>
+      2 — Form inputs
+    </a>
+    <a class="nav-item" href="#sec-pills">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="12" height="4" rx="2"/></svg>
+      3 — Status pills
+    </a>
+    <a class="nav-item" href="#sec-table">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 7h12M2 10h12M6 3v10"/></svg>
+      4 — Data table
+    </a>
+    <a class="nav-item" href="#sec-pageheader">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h6M2 12h12"/></svg>
+      5 — Page header
+    </a>
+    <a class="nav-item" href="#sec-sidebar">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M6 3v10"/></svg>
+      6 — Sidebar nav
+    </a>
+    <a class="nav-item" href="#sec-modal">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="10" height="8" rx="1"/></svg>
+      7 — Modal dialog
+    </a>
+    <a class="nav-item" href="#sec-toasts">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10h10v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2zM4 10V7a4 4 0 018 0v3"/></svg>
+      8 — Toasts
+    </a>
+    <a class="nav-item" href="#sec-empty">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M5 8h6"/></svg>
+      9 — Empty state
+    </a>
+    <a class="nav-item" href="#sec-card">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="1"/><path d="M3 3v10" stroke-width="3"/></svg>
+      10 — Section card
+    </a>
+  </nav>
+  <div class="app-user">
+    <div class="avatar">AO</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Adaeze Okeke</div>
+      <div class="app-user-role">Operations Director</div>
+    </div>
+    <button class="app-user-action" title="Account menu">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="3" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="8" cy="13" r="1"/></svg>
+    </button>
+  </div>
+</aside>
+
+<!-- ============= MAIN ============= -->
+<main class="app-main">
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="crumbs">
+      <a href="#">Home</a><span class="sep">/</span>
+      <span class="current">Design System</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+      <input placeholder="Search inventory, POs, customers… (⌘K)" />
+    </div>
+    <div class="topbar-icons">
+      <button class="btn-icon btn btn-ghost badge" title="Notifications">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.5 11h9l-1-2V6.5a3.5 3.5 0 10-7 0V9l-1 2zM6.5 13a1.5 1.5 0 003 0"/></svg>
+      </button>
+      <button class="btn-icon btn btn-ghost" title="Help">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M6.5 6a1.5 1.5 0 113 0c0 1-1.5 1.2-1.5 2.5M8 11v.1"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="page">
+
+    <!-- Page header (this page) -->
+    <div class="page-header">
+      <div class="page-title-block">
+        <div class="crumbs"><a href="#">Home</a><span class="sep">/</span><span class="current">Design System</span></div>
+        <h1 class="page-title">Design System</h1>
+        <div class="page-sub">Building blocks reused across every Enviable I&amp;O screen. Reference this page when designing new flows; never invent components outside this set without flagging it.</div>
+      </div>
+      <div class="page-actions">
+        <span class="pill pill-grey">v1.0 · 18 May 2026</span>
+      </div>
+    </div>
+
+    <!-- ============= 1 · BUTTONS ============= -->
+    <section class="ds-section" id="sec-buttons">
+      <div class="ds-section-head">
+        <span class="ds-section-num">01</span>
+        <h2>Buttons</h2>
+      </div>
+      <p class="ds-section-desc">Four variants × three sizes. <b>Primary</b> for the main action on a view (one per region). <b>Secondary</b> for non-primary actions. <b>Tertiary</b> for inline/dense placements. <b>Destructive</b> reads red and always lives behind a confirmation.</p>
+
+      <div class="ds-block">
+        <div class="ds-block-row">
+          <div class="ds-block-label">Primary</div>
+          <div class="ds-block-body">
+            <button class="btn btn-primary btn-sm">Approve PO</button>
+            <button class="btn btn-primary">Approve PO</button>
+            <button class="btn btn-primary btn-lg">Approve PO</button>
+            <span class="ds-note">.btn-sm · default · .btn-lg</span>
+          </div>
+        </div>
+        <div class="ds-block-row">
+          <div class="ds-block-label">Secondary</div>
+          <div class="ds-block-body">
+            <button class="btn btn-secondary btn-sm">Save draft</button>
+            <button class="btn btn-secondary">Save draft</button>
+            <button class="btn btn-secondary btn-lg">Save draft</button>
+          </div>
+        </div>
+        <div class="ds-block-row">
+          <div class="ds-block-label">Tertiary</div>
+          <div class="ds-block-body">
+            <button class="btn btn-ghost btn-sm">View details</button>
+            <button class="btn btn-ghost">View details</button>
+            <button class="btn btn-ghost btn-lg">View details</button>
+          </div>
+        </div>
+        <div class="ds-block-row">
+          <div class="ds-block-label">Destructive</div>
+          <div class="ds-block-body">
+            <button class="btn btn-danger btn-sm">Cancel PO</button>
+            <button class="btn btn-danger">Cancel PO</button>
+            <button class="btn btn-danger btn-lg">Cancel PO</button>
+          </div>
+        </div>
+        <div class="ds-block-row">
+          <div class="ds-block-label">With icon</div>
+          <div class="ds-block-body">
+            <button class="btn btn-primary">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+              New purchase order
+            </button>
+            <button class="btn btn-secondary">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+              Export CSV
+            </button>
+            <button class="btn btn-ghost"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8h10M8 3v10"/></svg>Add row</button>
+            <button class="btn btn-icon btn-secondary" title="Filter"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12l-4.5 5.5V14L6.5 12.5V9.5L2 4z"/></svg></button>
+          </div>
+        </div>
+        <div class="ds-block-row">
+          <div class="ds-block-label">Disabled</div>
+          <div class="ds-block-body">
+            <button class="btn btn-primary" disabled>Approve PO</button>
+            <button class="btn btn-secondary" disabled>Save draft</button>
+            <button class="btn btn-ghost" disabled>View details</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============= 2 · FORM INPUTS ============= -->
+    <section class="ds-section" id="sec-inputs">
+      <div class="ds-section-head"><span class="ds-section-num">02</span><h2>Form inputs</h2></div>
+      <p class="ds-section-desc">32px control height across the board. Focused field gets a 3px navy halo. Labels sit above; helper text sits below. Currency inputs always show the ISO code as a fixed prefix; dates use ISO short form (DD MMM YYYY).</p>
+
+      <div class="ds-block">
+        <div class="ds-block-row">
+          <div class="ds-block-label">Text input</div>
+          <div class="ds-block-body">
+            <div class="input-group">
+              <label class="label">Supplier name</label>
+              <input class="field" value="TVS Motor Company Ltd." />
+            </div>
+            <div class="input-group">
+              <label class="label">Contact email</label>
+              <input class="field" placeholder="name@example.com" />
+            </div>
+            <div class="input-group">
+              <label class="label">Reference (read-only)</label>
+              <input class="field" value="PO-2026-00482" readonly style="background: var(--grey-100); color: var(--grey-700);" />
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-block-row">
+          <div class="ds-block-label">Number</div>
+          <div class="ds-block-body">
+            <div class="input-group">
+              <label class="label">Quantity (units)</label>
+              <input class="field tabular" type="number" value="1200" />
+            </div>
+            <div class="input-group">
+              <label class="label">Weight (kg)</label>
+              <div class="with-suffix"><input type="number" value="18450" /><span class="affix">kg</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-block-row">
+          <div class="ds-block-label">Currency</div>
+          <div class="ds-block-body">
+            <div class="input-group">
+              <label class="label">Unit cost (NGN)</label>
+              <div class="with-prefix"><span class="affix">₦ NGN</span><input value="2,485,000.00" /></div>
+            </div>
+            <div class="input-group">
+              <label class="label">Unit cost (USD)</label>
+              <div class="with-prefix"><span class="affix">$ USD</span><input value="1,580.00" /></div>
+            </div>
+            <div class="input-group">
+              <label class="label">FX rate at booking</label>
+              <div class="with-suffix"><input value="1,572.40" /><span class="affix">NGN/USD</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-block-row">
+          <div class="ds-block-label">Date</div>
+          <div class="ds-block-body">
+            <div class="input-group">
+              <label class="label">ETA at Apapa Port</label>
+              <div class="with-suffix" style="cursor:pointer">
+                <input value="14 Jun 2026" readonly style="cursor:pointer" />
+                <span class="affix" style="background:#fff;color:var(--grey-500)">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3.5" width="12" height="10" rx="1"/><path d="M2 6h12M5 2v3M11 2v3"/></svg>
+                </span>
+              </div>
+            </div>
+            <div class="input-group">
+              <label class="label">Date range</label>
+              <div class="with-suffix" style="cursor:pointer">
+                <input value="01 May 2026 → 18 May 2026" readonly style="cursor:pointer; font-variant-numeric: tabular-nums;" />
+                <span class="affix" style="background:#fff;color:var(--grey-500)">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3.5" width="12" height="10" rx="1"/><path d="M2 6h12M5 2v3M11 2v3"/></svg>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-block-row">
+          <div class="ds-block-label">Single select</div>
+          <div class="ds-block-body">
+            <div class="input-group">
+              <label class="label">Warehouse</label>
+              <select class="field">
+                <option>Lagos · Apapa (HQ)</option>
+                <option>Lagos · Ikeja</option>
+                <option>Abuja · Idu</option>
+                <option>Port Harcourt · Trans-Amadi</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label class="label">Assigned to</label>
+              <select class="field">
+                <option>Chinonso Eze · Warehouse Mgr</option>
+                <option>Funmi Adebayo · Procurement Officer</option>
+                <option>Suraj Aliyu · Sales Supervisor</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-block-row">
+          <div class="ds-block-label">Multi-select</div>
+          <div class="ds-block-body">
+            <div class="input-group wide">
+              <label class="label">Apply to SKUs</label>
+              <div class="multi-tags">
+                <span class="multi-tag">TVS-KING-DLX-EFI <span class="x">×</span></span>
+                <span class="multi-tag">TVS-KING-STD-CAR <span class="x">×</span></span>
+                <span class="multi-tag">SP-BRK-PAD-FR <span class="x">×</span></span>
+                <input placeholder="Add SKU…" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-block-row">
+          <div class="ds-block-label">Search</div>
+          <div class="ds-block-body">
+            <div class="input-group wide">
+              <div class="with-prefix">
+                <span class="affix" style="background:#fff;color:var(--grey-400);">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+                </span>
+                <input placeholder="Search by PO #, supplier, SKU, VIN…" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-block-row">
+          <div class="ds-block-label">File upload</div>
+          <div class="ds-block-body column">
+            <div class="file-drop" style="width:100%; max-width: 640px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 4v12m0 0l-4-4m4 4l4-4M4 18h16"/></svg>
+              <div style="flex:1">
+                <div><span class="file-link">Click to upload</span> or drag and drop</div>
+                <div style="font-size:12px; color: var(--grey-500); margin-top:2px;">PDF, JPG or PNG · up to 10 MB · multiple files supported</div>
+              </div>
+              <button class="btn btn-secondary btn-sm">Browse</button>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <span class="file-chip">CommercialInvoice-2026-04.pdf · 248 KB <span class="x">×</span></span>
+              <span class="file-chip">BillOfLading-MAEU-748293.pdf · 196 KB <span class="x">×</span></span>
+              <span class="file-chip">FormM-A2-2026-04-0193.pdf · 312 KB <span class="x">×</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============= 3 · STATUS PILLS ============= -->
+    <section class="ds-section" id="sec-pills">
+      <div class="ds-section-head"><span class="ds-section-num">03</span><h2>Status pills</h2></div>
+      <p class="ds-section-desc">All operational state in the system reads through one of these four semantic colours. Pills are uppercase, 11px, with a leading colour dot. Never style entire table rows with these colours — use the pill only.</p>
+
+      <div class="ds-block" style="padding: 6px 16px;">
+        <div class="pill-lane">
+          <div class="pill-lane-label">Green · Complete</div>
+          <div class="pill-lane-items">
+            <span class="pill pill-green">Approved</span>
+            <span class="pill pill-green">Cleared</span>
+            <span class="pill pill-green">Received</span>
+            <span class="pill pill-green">SoldAsCKD</span>
+            <span class="pill pill-green">SoldAsCBU</span>
+            <span class="pill pill-green">PaymentReceived</span>
+            <span class="pill pill-green">Delivered</span>
+          </div>
+        </div>
+        <div class="pill-lane">
+          <div class="pill-lane-label">Amber · In progress</div>
+          <div class="pill-lane-items">
+            <span class="pill pill-amber">PendingApproval</span>
+            <span class="pill pill-amber">InTransit</span>
+            <span class="pill pill-amber">InAssembly</span>
+            <span class="pill pill-amber">Dispatched</span>
+          </div>
+        </div>
+        <div class="pill-lane">
+          <div class="pill-lane-label">Red · Problem</div>
+          <div class="pill-lane-items">
+            <span class="pill pill-red">Cancelled</span>
+            <span class="pill pill-red">Rejected</span>
+            <span class="pill pill-red">Overdue</span>
+            <span class="pill pill-red">Discrepancy</span>
+          </div>
+        </div>
+        <div class="pill-lane">
+          <div class="pill-lane-label">Navy · Informational state</div>
+          <div class="pill-lane-items">
+            <span class="pill pill-navy">InWarehouseCKD</span>
+            <span class="pill pill-navy">InWarehouseCBU</span>
+            <span class="pill pill-navy">Reserved</span>
+            <span class="pill pill-navy">Allocated</span>
+          </div>
+        </div>
+        <div class="pill-lane">
+          <div class="pill-lane-label">Grey · Inactive / neutral</div>
+          <div class="pill-lane-items">
+            <span class="pill pill-grey">Draft</span>
+            <span class="pill pill-grey">Closed</span>
+            <span class="pill pill-grey">Archived</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============= 4 · DATA TABLE ============= -->
+    <section class="ds-section" id="sec-table">
+      <div class="ds-section-head"><span class="ds-section-num">04</span><h2>Data table</h2></div>
+      <p class="ds-section-desc">The workhorse component. Sticky header, sortable column, zebra rows, row hover and selection, a filter toolbar above, an overflow-menu actions column, and pagination at the bottom. Numeric cells are right-aligned with tabular figures. IDs use the mono face.</p>
+
+      <div class="ds-block" style="padding:0;">
+        <!-- Toolbar -->
+        <div class="toolbar">
+          <div class="with-prefix search" style="height:30px;">
+            <span class="affix" style="background:#fff;color:var(--grey-400);">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+            </span>
+            <input placeholder="Search this table…" />
+          </div>
+          <button class="filter-chip active">Status: 3 selected <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></button>
+          <button class="filter-chip">Warehouse <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></button>
+          <button class="filter-chip">Date range <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></button>
+          <button class="filter-chip">+ Add filter</button>
+          <div class="toolbar-spacer"></div>
+          <span style="font-size:12px; color: var(--grey-500);"><b style="color:var(--ink)">3</b> of 247 selected</span>
+          <button class="btn btn-secondary btn-sm">Export</button>
+          <button class="btn btn-primary btn-sm">+ New PO</button>
+        </div>
+
+        <!-- Table -->
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th class="th-checkbox"><input type="checkbox" class="cb" /></th>
+                <th class="sorted"><span class="th-sort">PO #
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 1v8M2 6l3 3 3-3"/></svg>
+                </span></th>
+                <th><span class="th-sort">Supplier <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4l2-2 2 2M3 6l2 2 2-2"/></svg></span></th>
+                <th><span class="th-sort">Warehouse <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4l2-2 2 2M3 6l2 2 2-2"/></svg></span></th>
+                <th class="num"><span class="th-sort">Units <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4l2-2 2 2M3 6l2 2 2-2"/></svg></span></th>
+                <th class="num"><span class="th-sort">Value (NGN) <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4l2-2 2 2M3 6l2 2 2-2"/></svg></span></th>
+                <th><span class="th-sort">ETA <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4l2-2 2 2M3 6l2 2 2-2"/></svg></span></th>
+                <th>Status</th>
+                <th style="width:48px;"></th>
+              </tr>
+            </thead>
+            <tbody id="poTbody">
+              <!-- rows injected -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination">
+          <span>Showing <b class="tabular" style="color:var(--ink)">1–10</b> of <b class="tabular" style="color:var(--ink)">247</b></span>
+          <span style="margin-left:8px;">Rows per page:
+            <select class="field" style="display:inline-flex; height:26px; padding: 0 8px; width: 64px; margin-left:4px;">
+              <option>10</option><option>25</option><option>50</option><option>100</option>
+            </select>
+          </span>
+          <div style="flex:1"></div>
+          <div class="pag-pages">
+            <button class="pag-btn" disabled>‹</button>
+            <button class="pag-btn active">1</button>
+            <button class="pag-btn">2</button>
+            <button class="pag-btn">3</button>
+            <button class="pag-btn">4</button>
+            <span style="display:grid; place-items:center; padding:0 6px; color: var(--grey-400);">…</span>
+            <button class="pag-btn">25</button>
+            <button class="pag-btn">›</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============= 5 · PAGE HEADER ============= -->
+    <section class="ds-section" id="sec-pageheader">
+      <div class="ds-section-head"><span class="ds-section-num">05</span><h2>Page header</h2></div>
+      <p class="ds-section-desc">Breadcrumbs above the title, page title at 24px, optional one-line description below, and primary actions right-aligned. Used as the first block in the content area of every screen.</p>
+
+      <div class="ds-block" style="padding:0;">
+        <div class="frame-label">Example — Purchase Order detail</div>
+        <div class="page-header-demo">
+          <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;">
+            <div>
+              <div class="crumbs">
+                <a href="#">Procurement</a>
+                <span class="sep">/</span>
+                <a href="#">Purchase Orders</a>
+                <span class="sep">/</span>
+                <span class="current">PO-2026-00482</span>
+              </div>
+              <div style="display:flex; align-items:center; gap: 12px; margin-top: 6px;">
+                <h1 style="font-size: 24px; font-weight: 600; margin: 0; letter-spacing: -0.01em;">PO-2026-00482</h1>
+                <span class="pill pill-amber">PendingApproval</span>
+              </div>
+              <div style="color: var(--grey-500); font-size: 13px; margin-top: 4px;">TVS Motor Company Ltd. · 1,200 units · created 12 May 2026 by Funmi Adebayo</div>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-ghost btn-sm">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+                Export PDF
+              </button>
+              <button class="btn btn-secondary">Reject</button>
+              <button class="btn btn-primary">Approve PO</button>
+              <button class="btn btn-secondary btn-icon" title="More"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="3" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="13" cy="8" r="1"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============= 6 · SIDEBAR NAV ============= -->
+    <section class="ds-section" id="sec-sidebar">
+      <div class="ds-section-head"><span class="ds-section-num">06</span><h2>Sidebar navigation</h2></div>
+      <p class="ds-section-desc">Fixed-width left nav, deep navy background. Groups are collapsible (click a group label to expand/collapse). Active item is filled with the brand navy. The user identity block is pinned to the bottom.</p>
+
+      <div class="ds-block" style="padding:0;">
+        <div class="frame-label">Example — product navigation</div>
+        <div class="sidebar-demo">
+          <aside class="demo-sidebar">
+            <div class="app-brand">
+              <div class="app-brand-mark">EI</div>
+              <div>
+                <div class="app-brand-name">Enviable I&amp;O</div>
+                <div class="app-brand-sub">Inventory &amp; Operations</div>
+              </div>
+            </div>
+            <div class="nav-scroll">
+              <div class="nav-group">
+                <div class="nav-group-header">
+                  <span>Overview</span>
+                  <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+                </div>
+                <div class="nav-group-body">
+                  <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="6"/><rect x="9" y="2" width="5" height="4"/><rect x="2" y="10" width="5" height="4"/><rect x="9" y="8" width="5" height="6"/></svg>Dashboard</a>
+                  <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13l4-4 3 3 5-5"/><path d="M11 4h3v3"/></svg>Reports</a>
+                </div>
+              </div>
+
+              <div class="nav-group">
+                <div class="nav-group-header">
+                  <span>Procurement</span>
+                  <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+                </div>
+                <div class="nav-group-body">
+                  <a class="nav-item active" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="10" height="11" rx="1"/><path d="M5 6h6M5 9h6M5 12h4"/></svg>Purchase orders</a>
+                  <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>Pending approvals</a>
+                  <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5h12v8a1 1 0 01-1 1H3a1 1 0 01-1-1V5z"/><path d="M2 5l2-2h8l2 2"/></svg>Suppliers</a>
+                </div>
+              </div>
+
+              <div class="nav-group">
+                <div class="nav-group-header">
+                  <span>Warehouse</span>
+                  <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+                </div>
+                <div class="nav-group-body">
+                  <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 7l6-4 6 4v6H2V7z"/><path d="M6 13V9h4v4"/></svg>Inventory</a>
+                  <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12v3H2zM2 9h12v3H2z"/></svg>Receipts</a>
+                  <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 7h12M5 3v10"/></svg>Assembly orders</a>
+                  <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h12M9 4l5 4-5 4"/></svg>Stock movements</a>
+                </div>
+              </div>
+
+              <div class="nav-group collapsed">
+                <div class="nav-group-header">
+                  <span>Sales</span>
+                  <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+                </div>
+                <div class="nav-group-body">
+                  <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10v10H3z"/></svg>Sales orders</a>
+                  <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10v10H3z"/></svg>Customers</a>
+                  <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10v10H3z"/></svg>Dispatch</a>
+                </div>
+              </div>
+
+              <div class="nav-group collapsed">
+                <div class="nav-group-header">
+                  <span>Finance</span>
+                  <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+                </div>
+                <div class="nav-group-body">
+                  <a class="nav-item" href="#">Payments</a>
+                  <a class="nav-item" href="#">FX bookings</a>
+                </div>
+              </div>
+
+              <div class="nav-group collapsed">
+                <div class="nav-group-header">
+                  <span>Admin</span>
+                  <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+                </div>
+                <div class="nav-group-body">
+                  <a class="nav-item" href="#">Users &amp; roles</a>
+                  <a class="nav-item" href="#">Audit log</a>
+                  <a class="nav-item" href="#">Settings</a>
+                </div>
+              </div>
+            </div>
+            <div class="app-user">
+              <div class="avatar">FA</div>
+              <div class="app-user-meta">
+                <div class="app-user-name">Funmi Adebayo</div>
+                <div class="app-user-role">Procurement Officer</div>
+              </div>
+              <button class="app-user-action">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="3" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="8" cy="13" r="1"/></svg>
+              </button>
+            </div>
+          </aside>
+          <div class="demo-stage">
+            <div style="font-family: var(--font-mono); font-size: 11px; color: var(--grey-400);">↳ Click any group label to expand or collapse it.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============= 7 · MODAL ============= -->
+    <section class="ds-section" id="sec-modal">
+      <div class="ds-section-head"><span class="ds-section-num">07</span><h2>Modal dialog</h2></div>
+      <p class="ds-section-desc">Medium width (520px). Header with title and close button; body for the form/content; footer right-aligns the secondary "Cancel" and primary action. Reserve modals for destructive confirms, focused single-task forms, and "are you sure" checkpoints.</p>
+
+      <div class="ds-block" style="padding:0;">
+        <div class="frame-label">Example — static reference (also try the live trigger below)</div>
+        <div style="padding: 28px; background: rgba(15,42,68,0.06); display: grid; place-items: center;">
+          <div class="modal modal-static">
+            <div class="modal-header">
+              <h3>Approve Purchase Order PO-2026-00482?</h3>
+              <button class="modal-close"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+            </div>
+            <div class="modal-body">
+              <p>This will release the PO to TVS Motor Company Ltd. for fulfilment. Once approved, line items, quantities and pricing cannot be edited — only cancelled.</p>
+              <p><b style="color:var(--ink)">Total commitment:</b> <span class="tabular">₦ 2,982,000,000.00</span> · 1,200 units · expected delivery 14 Jun 2026.</p>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary">Cancel</button>
+              <button class="btn btn-primary">Approve PO</button>
+            </div>
+          </div>
+        </div>
+        <div style="padding: 14px 18px; display:flex; gap: 8px; border-top: 1px solid var(--grey-200);">
+          <button class="btn btn-secondary" onclick="document.getElementById('liveModal').classList.add('open')">Open live modal</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============= 8 · TOASTS ============= -->
+    <section class="ds-section" id="sec-toasts">
+      <div class="ds-section-head"><span class="ds-section-num">08</span><h2>Toast notifications</h2></div>
+      <p class="ds-section-desc">Bottom-right stack. Coloured left bar indicates type. Auto-dismiss after ~5 seconds (errors are sticky). Title + one-line message; never reflow the page to make room.</p>
+
+      <div class="ds-block" style="padding:0;">
+        <div class="frame-label">Reference — all three variants</div>
+        <div class="toast-row">
+          <div class="toast toast-success">
+            <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
+            <div class="toast-body">
+              <div class="toast-title">Receipt confirmed</div>
+              <div class="toast-msg">42 units of TVS-KING-DLX-EFI received into Lagos · Apapa.</div>
+            </div>
+            <button class="toast-close"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+          </div>
+          <div class="toast toast-error">
+            <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17v.01"/></svg>
+            <div class="toast-body">
+              <div class="toast-title">Couldn't save assembly order</div>
+              <div class="toast-msg">Component SP-BRK-PAD-FR is short by 14 units. Resolve stock before retrying.</div>
+            </div>
+            <button class="toast-close"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+          </div>
+          <div class="toast toast-info">
+            <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M12 11v6"/></svg>
+            <div class="toast-body">
+              <div class="toast-title">Shipment MAEU-748293 updated</div>
+              <div class="toast-msg">ETA at Apapa Port moved from 14 Jun to 17 Jun 2026.</div>
+            </div>
+            <button class="toast-close"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+          </div>
+        </div>
+        <div style="padding: 14px 18px; display: flex; gap: 8px; border-top: 1px solid var(--grey-200);">
+          <button class="btn btn-secondary btn-sm" onclick="fireToast('success')">Trigger success</button>
+          <button class="btn btn-secondary btn-sm" onclick="fireToast('error')">Trigger error</button>
+          <button class="btn btn-secondary btn-sm" onclick="fireToast('info')">Trigger info</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============= 9 · EMPTY STATE ============= -->
+    <section class="ds-section" id="sec-empty">
+      <div class="ds-section-head"><span class="ds-section-num">09</span><h2>Empty state</h2></div>
+      <p class="ds-section-desc">Plain panel — no decorative illustration. A subtle circular glyph, a heading, a one-line explanation, a primary action. Used inside any container that has zero rows / records / items.</p>
+
+      <div class="ds-block" style="padding: 0; background: var(--canvas);">
+        <div class="empty-state" style="border: none;">
+          <div class="empty-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="6" width="18" height="14" rx="1"/><path d="M3 10h18M8 6V4M16 6V4"/></svg>
+          </div>
+          <h3 class="empty-title">No purchase orders yet</h3>
+          <p class="empty-desc">When a procurement officer raises a PO, it'll show up here. Start by issuing one to a registered supplier.</p>
+          <button class="btn btn-primary">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+            New purchase order
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============= 10 · SECTION CARD ============= -->
+    <section class="ds-section" id="sec-card">
+      <div class="ds-section-head"><span class="ds-section-num">10</span><h2>Section card</h2></div>
+      <p class="ds-section-desc">White card with a 3px coloured left border. Use the colour to communicate the semantic stake of the group (navy = neutral / brand, green = confirmed, amber = needs attention, red = problem). Group related fields, totals, or summary blocks inside.</p>
+
+      <div class="ds-block" style="padding: 18px; background: var(--canvas); display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="section-card">
+          <div class="sc-head">
+            <div>
+              <h3 class="sc-title">Supplier &amp; commercial terms</h3>
+              <div class="sc-sub">Pulled from the supplier master record</div>
+            </div>
+            <button class="btn btn-ghost btn-sm">Edit</button>
+          </div>
+          <div class="sc-grid">
+            <div><div class="k">Supplier</div><div class="v">TVS Motor Company Ltd.</div></div>
+            <div><div class="k">Country of origin</div><div class="v">India · Hosur, TN</div></div>
+            <div><div class="k">Incoterm</div><div class="v">CIF Apapa</div></div>
+            <div><div class="k">Payment terms</div><div class="v">30% advance / 70% B/L</div></div>
+            <div><div class="k">Currency</div><div class="v">USD</div></div>
+            <div><div class="k">Lead time</div><div class="v">42 days ex-works</div></div>
+          </div>
+        </div>
+
+        <div class="section-card is-amber">
+          <div class="sc-head">
+            <div>
+              <h3 class="sc-title">Awaiting Form M approval <span class="pill pill-amber" style="margin-left: 6px;">PendingApproval</span></h3>
+              <div class="sc-sub">Submitted 12 May 2026 · usually clears in 3–5 business days</div>
+            </div>
+            <button class="btn btn-ghost btn-sm">View submission</button>
+          </div>
+          <div class="sc-grid">
+            <div><div class="k">Form M number</div><div class="v" style="font-family:var(--font-mono);">A2-2026-04-0193</div></div>
+            <div><div class="k">Submitted by</div><div class="v">Funmi Adebayo</div></div>
+            <div><div class="k">Authorised dealer bank</div><div class="v">Zenith Bank PLC</div></div>
+            <div><div class="k">Working days elapsed</div><div class="v">4 of ~5</div></div>
+          </div>
+        </div>
+
+        <div class="section-card is-green">
+          <div class="sc-head">
+            <div>
+              <h3 class="sc-title">Payment milestone met <span class="pill pill-green" style="margin-left: 6px;">PaymentReceived</span></h3>
+              <div class="sc-sub">Advance posted by Finance · reference TT-2026-04-1102</div>
+            </div>
+            <button class="btn btn-ghost btn-sm">Receipt</button>
+          </div>
+          <div class="sc-grid">
+            <div><div class="k">Amount (USD)</div><div class="v">$ 568,800.00</div></div>
+            <div><div class="k">Amount (NGN)</div><div class="v">₦ 894,343,200.00</div></div>
+            <div><div class="k">Booked FX</div><div class="v">1,572.40 NGN/USD</div></div>
+            <div><div class="k">Cleared on</div><div class="v">10 May 2026</div></div>
+          </div>
+        </div>
+
+        <div class="section-card is-red">
+          <div class="sc-head">
+            <div>
+              <h3 class="sc-title">Receipt discrepancy <span class="pill pill-red" style="margin-left: 6px;">Discrepancy</span></h3>
+              <div class="sc-sub">Counted vs. expected mismatch — requires Operations sign-off</div>
+            </div>
+            <button class="btn btn-danger btn-sm">Open dispute</button>
+          </div>
+          <div class="sc-grid">
+            <div><div class="k">Expected units</div><div class="v">1,200</div></div>
+            <div><div class="k">Counted units</div><div class="v" style="color:var(--red-700);">1,186</div></div>
+            <div><div class="k">Variance</div><div class="v" style="color:var(--red-700);">−14 units (−1.17%)</div></div>
+            <div><div class="k">Flagged by</div><div class="v">Chinonso Eze (Warehouse Mgr)</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- =================== LIVE MODAL =================== -->
+<div class="modal-backdrop" id="liveModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Cancel Purchase Order PO-2026-00482?</h3>
+      <button class="modal-close" onclick="document.getElementById('liveModal').classList.remove('open')">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p>Cancelling will notify TVS Motor Company Ltd. and reverse any in-flight Form M reservations. This action is <b style="color:var(--red-700)">not reversible</b>.</p>
+      <p>Type <span class="kbd">CANCEL</span> below to confirm.</p>
+      <input class="field" style="margin-top: 6px;" placeholder="CANCEL" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('liveModal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-danger" style="background: var(--red-700); color: #fff; border-color: var(--red-700);">Yes, cancel PO</button>
+    </div>
+  </div>
+</div>
+
+<!-- toast stack -->
+<div class="toast-stack" id="toastStack"></div>
+
+<!-- =================== SCRIPTS =================== -->
+<script>
+  /* ---- Populate the demo PO table ---- */
+  const PO_ROWS = [
+    { sel:true,  po:'PO-2026-00482', sup:'TVS Motor Company Ltd.',     wh:'Lagos · Apapa',  u:1200, v:'2,982,000,000', eta:'14 Jun 2026', s:'amber', sl:'PendingApproval' },
+    { sel:false, po:'PO-2026-00481', sup:'Bajaj Auto Limited',          wh:'Lagos · Apapa',  u:800,  v:'1,856,400,000', eta:'02 Jun 2026', s:'green', sl:'Approved' },
+    { sel:true,  po:'PO-2026-00480', sup:'TVS Motor Company Ltd.',     wh:'Lagos · Ikeja',  u:600,  v:'1,491,000,000', eta:'28 May 2026', s:'amber', sl:'InTransit' },
+    { sel:false, po:'PO-2026-00479', sup:'Mahindra &amp; Mahindra Ltd.',wh:'Abuja · Idu',    u:240,  v:'612,360,000',   eta:'22 May 2026', s:'green', sl:'Cleared' },
+    { sel:false, po:'PO-2026-00478', sup:'TVS Motor Company Ltd.',     wh:'PH · Trans-Amadi',u:400, v:'994,000,000',   eta:'18 May 2026', s:'green', sl:'Received' },
+    { sel:true,  po:'PO-2026-00477', sup:'Piaggio &amp; C. SpA',         wh:'Lagos · Apapa',  u:150,  v:'487,500,000',   eta:'24 May 2026', s:'amber', sl:'PendingApproval' },
+    { sel:false, po:'PO-2026-00476', sup:'Atul Auto Ltd.',              wh:'Lagos · Apapa',  u:300,  v:'696,000,000',   eta:'15 May 2026', s:'red',   sl:'Cancelled' },
+    { sel:false, po:'PO-2026-00475', sup:'Bajaj Auto Limited',          wh:'Lagos · Ikeja',  u:1000, v:'2,320,000,000', eta:'09 May 2026', s:'green', sl:'Received' },
+    { sel:false, po:'PO-2026-00474', sup:'TVS Motor Company Ltd.',     wh:'Lagos · Apapa',  u:1200, v:'2,964,000,000', eta:'02 May 2026', s:'navy',  sl:'InWarehouseCKD' },
+    { sel:false, po:'PO-2026-00473', sup:'Yamaha Motor Co., Ltd.',      wh:'Lagos · Ikeja',  u:120,  v:'448,800,000',   eta:'28 Apr 2026', s:'grey',  sl:'Closed' },
+  ];
+  const tbody = document.getElementById('poTbody');
+  tbody.innerHTML = PO_ROWS.map((r, i) => `
+    <tr class="${r.sel?'selected':''}">
+      <td class="td-checkbox"><input type="checkbox" class="cb" ${r.sel?'checked':''} /></td>
+      <td class="mono">${r.po}</td>
+      <td>${r.sup}</td>
+      <td>${r.wh}</td>
+      <td class="num">${r.u.toLocaleString('en-US')}</td>
+      <td class="num">₦ ${r.v}</td>
+      <td class="tabular">${r.eta}</td>
+      <td><span class="pill pill-${r.s}">${r.sl}</span></td>
+      <td style="text-align:right;">
+        <button class="row-actions-btn" data-row="${i}" aria-label="Row actions">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+
+  /* ---- Row overflow menu ---- */
+  let openMenu = null;
+  function closeMenu(){ if(openMenu){ openMenu.remove(); openMenu = null; } }
+  tbody.addEventListener('click', (e) => {
+    const btn = e.target.closest('.row-actions-btn');
+    if (!btn) return;
+    e.stopPropagation();
+    closeMenu();
+    const rect = btn.getBoundingClientRect();
+    const menu = document.createElement('div');
+    menu.className = 'pop-menu';
+    menu.innerHTML = `
+      <div class="item"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8s2.5-4.5 6-4.5S14 8 14 8s-2.5 4.5-6 4.5S2 8 2 8z"/><circle cx="8" cy="8" r="2"/></svg>View detail</div>
+      <div class="item"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13l3-1L13 5l-2-2-7 7-1 3z"/></svg>Edit</div>
+      <div class="item"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="1"/><path d="M6 6h4M6 9h4"/></svg>Duplicate</div>
+      <div class="item"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>Export PDF</div>
+      <div class="sep"></div>
+      <div class="item danger"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V2h4v2M5 4l1 10h4l1-10"/></svg>Cancel PO</div>
+    `;
+    document.body.appendChild(menu);
+    const top = window.scrollY + rect.bottom + 4;
+    const left = window.scrollX + rect.right - menu.offsetWidth;
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+    openMenu = menu;
+  });
+  document.addEventListener('click', closeMenu);
+
+  /* ---- Sortable header indicator (visual only) ---- */
+  document.querySelectorAll('.table-wrap thead .th-sort').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.table-wrap thead th').forEach(th => th.classList.remove('sorted'));
+      el.parentElement.classList.add('sorted');
+    });
+  });
+
+  /* ---- Sidebar collapsible groups ---- */
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+  });
+
+  /* ---- Toast demo ---- */
+  const TOAST_PRESETS = {
+    success: {
+      title: 'Receipt confirmed',
+      msg: '42 units of TVS-KING-DLX-EFI received into Lagos · Apapa.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>'
+    },
+    error: {
+      title: "Couldn't save assembly order",
+      msg: 'Component SP-BRK-PAD-FR is short by 14 units.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17v.01"/></svg>'
+    },
+    info: {
+      title: 'Shipment updated',
+      msg: 'ETA at Apapa Port moved to 17 Jun 2026.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M12 11v6"/></svg>'
+    }
+  };
+  function fireToast(kind){
+    const p = TOAST_PRESETS[kind];
+    const stack = document.getElementById('toastStack');
+    const el = document.createElement('div');
+    el.className = `toast toast-${kind}`;
+    el.innerHTML = `
+      <span class="toast-icon">${p.icon}</span>
+      <div class="toast-body">
+        <div class="toast-title">${p.title}</div>
+        <div class="toast-msg">${p.msg}</div>
+      </div>
+      <button class="toast-close" onclick="this.closest('.toast').remove()">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
+      </button>`;
+    stack.appendChild(el);
+    if (kind !== 'error') setTimeout(()=>el.remove(), 5000);
+  }
+
+  /* ---- Active section highlighting in TOC ---- */
+  const sections = document.querySelectorAll('.ds-section');
+  const tocLinks = document.querySelectorAll('.toc .nav-item');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = e.target.id;
+        tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+
+<script src="role-switcher.js"></script>
+</body>
+</html>

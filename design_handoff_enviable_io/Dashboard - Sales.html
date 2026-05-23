@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Dashboard — Sales</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  /* ===== APP SHELL (inlined) ===== */
+  body { display: flex; min-height: 100vh; }
+  .app-sidebar { width: var(--sidebar-w); background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; font-size: var(--fs-13); }
+  .app-brand { height: var(--topbar-h); padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .app-brand-mark { width: 30px; height: 30px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 13.5px; line-height: 1.15; }
+  .app-brand-sub  { color: #8aa6c4; font-size: 10.5px; }
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 8px 8px 12px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
+  .nav-scroll::-webkit-scrollbar { width: 6px; }
+  .nav-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; color: #6f8aa6; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600; cursor: pointer; user-select: none; }
+  .nav-group-header:hover { color: #b6cae0; }
+  .nav-group-header .chev { color: #6f8aa6; transition: transform .15s ease; }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .nav-group-body { display: none; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 7px 12px; border-radius: 3px; color: #cfdcec; text-decoration: none; line-height: 1.3; position: relative; white-space: nowrap; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -8px; top: 4px; bottom: 4px; width: 3px; border-radius: 0 2px 2px 0; background: #5a9fe8; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .85; }
+  .nav-item.active svg { opacity: 1; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
+  .app-user-meta { line-height: 1.25; flex: 1; min-width: 0; overflow: hidden; }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; }
+  .app-user-sign { color: #8aa6c4; font-size: 11px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; }
+  .app-user-sign:hover { color: #fff; }
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: var(--topbar-h); border-bottom: 1px solid var(--grey-200); background: #fff; display: flex; align-items: center; padding: 0 20px; gap: 16px; position: sticky; top: 0; z-index: 30; }
+  .topbar-company { font-size: 14px; font-weight: 600; color: var(--ink); padding-right: 18px; border-right: 1px solid var(--grey-200); height: 28px; display: flex; align-items: center; }
+  .topbar-company .accent { color: var(--navy-700); }
+  .topbar-search { flex: 1; max-width: 560px; margin: 0 auto; height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--grey-100); border: 1px solid transparent; border-radius: 4px; color: var(--grey-500); font-size: 13px; }
+  .topbar-search:focus-within { background: #fff; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.10); }
+  .topbar-search input { all: unset; flex: 1; font-size: 13px; color: var(--ink); }
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .topbar-icon-btn { width: 32px; height: 32px; display: grid; place-items: center; background: transparent; border: none; border-radius: 4px; color: var(--grey-700); cursor: pointer; position: relative; }
+  .topbar-icon-btn:hover { background: var(--grey-100); color: var(--ink); }
+  .topbar-icon-btn.has-unread::after { content: ''; position: absolute; top: 7px; right: 8px; width: 8px; height: 8px; background: var(--red-700); border-radius: 50%; border: 1.5px solid #fff; }
+  .topbar-divider { width: 1px; height: 22px; background: var(--grey-200); margin: 0 6px; }
+  .topbar-user { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 999px; cursor: pointer; }
+  .topbar-user:hover { background: var(--grey-100); }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 11px; border: none; }
+  .topbar-user-text { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-user-name { font-size: 13px; color: var(--ink); font-weight: 500; line-height: 1.1; white-space: nowrap; }
+  .topbar-user-role { font-size: 11px; color: var(--grey-500); line-height: 1.1; }
+
+  /* ===== PAGE ===== */
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; }
+  .page { padding: 24px 28px 60px; max-width: 1480px; }
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; gap: 24px; }
+  .page-crumbs { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .page-crumbs .sep { color: var(--grey-300); }
+  .page-crumbs .current { color: var(--ink); font-weight: 500; }
+  .page-title { font-size: 24px; font-weight: 600; color: var(--ink); margin: 0 0 4px; letter-spacing: -0.01em; }
+  .page-sub { color: var(--grey-500); font-size: 13px; }
+  .page-sub b { color: var(--ink); font-weight: 500; }
+  .role-tag { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; background: var(--navy-50); border-radius: 3px; font-size: 11px; color: var(--navy-800); font-weight: 500; margin-left: 8px; vertical-align: 1px; }
+  .role-tag svg { color: var(--navy-700); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .as-of { font-size: 11px; color: var(--grey-500); font-family: var(--font-mono); padding: 5px 10px; border: 1px solid var(--grey-200); border-radius: 3px; background: #fff; display: inline-flex; align-items: center; gap: 6px; }
+  .as-of::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green-700); }
+
+  /* ===== KPI ===== */
+  .kpi-row { display: grid; gap: 14px; grid-template-columns: repeat(4, 1fr); margin-bottom: 18px; }
+  .kpi { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; padding: 16px 18px; }
+  .kpi-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--grey-500); font-weight: 600; }
+  .kpi-icon { width: 28px; height: 28px; border-radius: 4px; display: grid; place-items: center; color: var(--navy-700); background: var(--navy-50); }
+  .kpi.is-empty .kpi-icon { background: var(--grey-100); color: var(--grey-400); }
+  .kpi-value { font-size: 32px; font-weight: 600; color: var(--ink); line-height: 1.05; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin-bottom: 8px; }
+  .kpi.is-empty .kpi-value { color: var(--grey-400); font-weight: 500; }
+  .kpi-unit { font-size: 14px; font-weight: 500; color: var(--grey-500); margin-left: 4px; }
+  .kpi-foot { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .kpi-empty-note { font-size: 12px; color: var(--grey-500); display: inline-flex; align-items: center; gap: 6px; }
+  .kpi-empty-note::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--grey-300); }
+  .kpi-split { display: inline-flex; align-items: center; gap: 6px; }
+  .kpi-split .dot { width: 8px; height: 8px; border-radius: 2px; }
+  .kpi-split .dot.ckd { background: var(--navy-700); }
+  .kpi-split .dot.cbu { background: var(--green-700); }
+  .kpi-split .num { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+  /* CKD/CBU emphasis variants */
+  .kpi.is-ckd .kpi-icon { background: var(--navy-50); color: var(--navy-700); }
+  .kpi.is-cbu .kpi-icon { background: var(--green-50); color: var(--green-700); }
+
+  /* ===== Card chrome ===== */
+  .card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; margin-bottom: 18px; }
+  .card-header { padding: 14px 18px; border-bottom: 1px solid var(--grey-200); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .card-title-block { display: flex; align-items: center; gap: 10px; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0; }
+  .card-count { font-size: 11px; color: var(--grey-500); font-weight: 500; background: var(--grey-100); padding: 2px 7px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+  .card-type-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; padding: 3px 7px; border-radius: 3px; }
+  .card-type-tag.ckd { background: var(--navy-100); color: var(--navy-800); }
+  .card-type-tag.cbu { background: var(--green-50); color: var(--green-700); }
+  .lnk { color: var(--navy-700); text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+  .lnk:hover { text-decoration: underline; }
+
+  /* ===== Empty state — sales orders ===== */
+  .empty-state {
+    padding: 60px 24px;
+    text-align: center;
+    background: #fff;
+  }
+  .empty-icon { width: 52px; height: 52px; border-radius: 50%; background: var(--grey-100); color: var(--grey-500); display: grid; place-items: center; margin: 0 auto 14px; }
+  .empty-title { font-size: 15px; font-weight: 600; color: var(--ink); margin: 0 0 6px; }
+  .empty-desc { font-size: 13px; color: var(--grey-500); margin: 0 auto 18px; max-width: 420px; line-height: 1.55; }
+
+  /* ===== Stock tables ===== */
+  .stock-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .data-table { width: 100%; font-size: 13px; }
+  .data-table th { text-align: left; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey-500); padding: 10px 14px; border-bottom: 1px solid var(--grey-200); background: var(--grey-100); white-space: nowrap; }
+  .data-table td { padding: 12px 14px; border-bottom: 1px solid var(--grey-200); color: var(--ink); vertical-align: middle; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--navy-50); }
+  .data-table tr.is-zero td { background: #FBFBFC; color: var(--grey-500); }
+  .data-table tr.is-zero:hover td { background: var(--grey-100); }
+
+  .variant-cell { line-height: 1.35; }
+  .variant-name { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .data-table tr.is-zero .variant-name { color: var(--grey-700); }
+  .variant-note { font-size: 11px; color: var(--amber-700); margin-top: 2px; display: inline-flex; align-items: center; gap: 5px; }
+  .variant-note::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--amber-700); }
+  .qty-num { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink); }
+  .qty-num.zero { color: var(--grey-400); font-weight: 500; }
+  .qty-unit { font-size: 11px; color: var(--grey-500); margin-left: 4px; font-weight: 400; }
+  .price-num { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--ink); }
+  .price-list { font-size: 11px; color: var(--grey-500); }
+  .num-col { text-align: right; }
+
+  /* tiny disclosure that price field exists / labels */
+  .col-help {
+    font-size: 10px;
+    color: var(--grey-400);
+    font-style: normal;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* row action: add to order */
+  .add-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 28px; padding: 0 10px;
+    border-radius: 3px; border: 1px solid var(--navy-700);
+    background: #fff; color: var(--navy-700);
+    font-size: 12px; font-weight: 500;
+    cursor: pointer;
+  }
+  .add-btn:hover { background: var(--navy-700); color: #fff; }
+  .add-btn[disabled] { opacity: .45; cursor: not-allowed; border-color: var(--grey-300); color: var(--grey-500); }
+  .add-btn[disabled]:hover { background: #fff; color: var(--grey-500); }
+
+  /* totals strip */
+  .table-foot {
+    padding: 10px 14px;
+    border-top: 1px solid var(--grey-200);
+    background: #FBFBFB;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: var(--grey-500);
+  }
+  .table-foot b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* small note about price source */
+  .price-list-note {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 8px;
+    background: var(--grey-100);
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--grey-700);
+  }
+  .price-list-note .label { color: var(--grey-500); }
+  .price-list-note .val { color: var(--ink); font-weight: 500; }
+
+</style>
+</head>
+<body>
+
+<!-- ====================== SIDEBAR ====================== -->
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div>
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+  <nav class="nav-scroll">
+    <div class="nav-group">
+      <div class="nav-group-header"><span>Overview</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item active" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="6" rx="0.5"/><rect x="9" y="2" width="5" height="4" rx="0.5"/><rect x="2" y="10" width="5" height="4" rx="0.5"/><rect x="9" y="8" width="5" height="6" rx="0.5"/></svg>Dashboard</a>
+      </div>
+    </div>
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Procurement</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Purchase Orders</a>
+        <a class="nav-item" href="#">Proforma Invoices</a>
+        <a class="nav-item" href="#">Suppliers &amp; Counterparties</a>
+        <a class="nav-item" href="#">Shipments</a>
+        <a class="nav-item" href="#">Letters of Credit</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-header"><span>Inventory</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 11h2l1-3.5h6L12 11h2.5"/><path d="M2 11v1.5M14 11v1.5"/><circle cx="5" cy="12.5" r="1.3"/><circle cx="11" cy="12.5" r="1.3"/></svg>Units (kekes)</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="1.8"/><path d="M8 2.5v2M8 11.5v2M2.5 8h2M11.5 8h2M4 4l1.4 1.4M10.6 10.6L12 12M4 12l1.4-1.4M10.6 5.4L12 4"/></svg>Spare Parts</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5h9M8 2.5L11 5 8 7.5M14 11H5M8 8.5L5 11l3 2.5"/></svg>Stock Movements</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="6" width="11" height="7" rx="1"/><path d="M5 6V4a3 3 0 016 0v2M6 9h4M6 11h3"/></svg>Assembly Jobs</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-header"><span>Sales</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="10" height="11.5" rx="1"/><path d="M5.5 6h5M5.5 8.5h5M5.5 11h3"/></svg>Sales Orders</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5"/></svg>Customers</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8.5 2.5l5 5-6 6-5-5V2.5h6z"/><circle cx="6" cy="6" r="0.8" fill="currentColor"/></svg>Price Lists</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h10v11l-2-1-1.5 1L8 12.5l-1.5 1L5 12.5l-2 1v-11z"/><path d="M5.5 5.5h5M5.5 8h5"/></svg>Invoices &amp; Payments</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h7v6H2zM9 7h3.5l2 2v1.5H9z"/><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>Deliveries</a>
+      </div>
+    </div>
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Reports</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Revenue &amp; Sales</a>
+        <a class="nav-item" href="#">Stocks</a>
+        <a class="nav-item" href="#">Customers</a>
+      </div>
+    </div>
+  </nav>
+  <div class="app-user">
+    <div class="avatar">CN</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Chioma Nwankwo</div>
+      <div class="app-user-role">Sales Officer · Warehouse</div>
+      <a class="app-user-sign" href="#">
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4V3a1 1 0 00-1-1H3.5a1 1 0 00-1 1v10a1 1 0 001 1H9a1 1 0 001-1v-1"/><path d="M7 8h7m0 0l-2.5-2.5M14 8l-2.5 2.5"/></svg>
+        Sign out
+      </a>
+    </div>
+  </div>
+</aside>
+
+<!-- ====================== MAIN ====================== -->
+<main class="app-main">
+
+  <header class="topbar">
+    <div class="topbar-company">Enviable <span class="accent">Tricycle</span></div>
+    <div class="topbar-search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+      <input placeholder="Search sales orders, customers, units…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-icon-btn" title="Help">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M6.5 6a1.5 1.5 0 113 0c0 1-1.5 1.2-1.5 2.5M8 11v.01"/></svg>
+      </button>
+      <button class="topbar-icon-btn" title="Notifications">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.5 11h9l-1-2V6.5a3.5 3.5 0 10-7 0V9l-1 2zM6.5 13a1.5 1.5 0 003 0"/></svg>
+      </button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="avatar">CN</div>
+        <div class="topbar-user-text">
+          <div class="topbar-user-name">Chioma Nwankwo</div>
+          <div class="topbar-user-role">Sales Officer · Warehouse</div>
+        </div>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--grey-400);"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-content">
+  <div class="page">
+
+    <!-- Page header -->
+    <div class="page-header">
+      <div>
+        <div class="page-crumbs">
+          <span>Overview</span><span class="sep">/</span><span class="current">Dashboard</span>
+        </div>
+        <h1 class="page-title">
+          Sales Dashboard
+          <span class="role-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 6l6-3.5L14 6v7H2V6z"/><path d="M6 13V9h4v4"/></svg>
+            Warehouse view
+          </span>
+        </h1>
+        <div class="page-sub">Stock available to sell at <b>Lagos · HQ</b> &nbsp;·&nbsp; Monday, 18 May 2026 &nbsp;·&nbsp; <span style="color: var(--grey-700);">Pricing from <b>Reseller Standard</b> list</span></div>
+      </div>
+      <div class="header-actions">
+        <span class="as-of">Updated 2 min ago</span>
+        <button class="btn btn-secondary">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5"/></svg>
+          New customer
+        </button>
+        <button class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+          New Sales Order
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== KPI ROW ===== -->
+    <div class="kpi-row">
+
+      <!-- 1 · Sales This Month -->
+      <div class="kpi is-empty">
+        <div class="kpi-head">
+          <span class="kpi-label">Sales This Month</span>
+          <span class="kpi-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13l4-4 3 3 5-6"/><path d="M11 6h3v3"/></svg>
+          </span>
+        </div>
+        <div class="kpi-value">₦0.00</div>
+        <div class="kpi-foot">
+          <span class="kpi-empty-note">0 units sold · 0 orders raised</span>
+        </div>
+      </div>
+
+      <!-- 2 · Available CKD -->
+      <div class="kpi is-ckd">
+        <div class="kpi-head">
+          <span class="kpi-label">Available CKD</span>
+          <span class="kpi-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6l5-3 5 3v6H3V6z"/><path d="M3 6l5 3 5-3M8 9v6"/></svg>
+          </span>
+        </div>
+        <div class="kpi-value">1,955<span class="kpi-unit">units</span></div>
+        <div class="kpi-foot">
+          <span class="kpi-split"><span class="dot ckd"></span>4 variants in stock</span>
+          <span style="color: var(--grey-400);">·</span>
+          <span class="kpi-split" style="color: var(--amber-700);">1 variant awaiting assembly</span>
+        </div>
+      </div>
+
+      <!-- 3 · Available CBU -->
+      <div class="kpi is-cbu">
+        <div class="kpi-head">
+          <span class="kpi-label">Available CBU</span>
+          <span class="kpi-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 11h2l1-3.5h6L12 11h2.5"/><path d="M2 11v1.5M14 11v1.5"/><circle cx="5" cy="12.5" r="1.3"/><circle cx="11" cy="12.5" r="1.3"/></svg>
+          </span>
+        </div>
+        <div class="kpi-value">115<span class="kpi-unit">units</span></div>
+        <div class="kpi-foot">
+          <span class="kpi-split"><span class="dot cbu"></span>1 variant in stock</span>
+          <span style="color: var(--grey-400);">·</span>
+          <span>Ready for direct sale</span>
+        </div>
+      </div>
+
+      <!-- 4 · Active Customers -->
+      <div class="kpi is-empty">
+        <div class="kpi-head">
+          <span class="kpi-label">Active Customers</span>
+          <span class="kpi-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2"/><circle cx="11" cy="7" r="1.5"/><path d="M2 13c0-2 1.8-3.5 4-3.5S10 11 10 13M10 13c0-1.5 1-2.5 2-2.5s2 1 2 2.5"/></svg>
+          </span>
+        </div>
+        <div class="kpi-value">0<span class="kpi-unit">customers</span></div>
+        <div class="kpi-foot">
+          <span class="kpi-empty-note">No buyers on the books yet</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== MY RECENT SALES ORDERS — empty ===== -->
+    <section class="card">
+      <div class="card-header">
+        <div class="card-title-block">
+          <h2 class="card-title">My Recent Sales Orders</h2>
+          <span class="card-count">0</span>
+        </div>
+        <a href="#" class="lnk">View all sales orders
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l3 3-3 3"/></svg>
+        </a>
+      </div>
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="17" rx="1"/><path d="M8 9h8M8 13h8M8 17h5"/><path d="M4 8h16" stroke-width="1.5"/></svg>
+        </div>
+        <h3 class="empty-title">No sales orders yet</h3>
+        <p class="empty-desc">Create your first sales order to start selling units to customers.</p>
+        <button class="btn btn-primary btn-lg">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+          New Sales Order
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== STOCK AVAILABLE FOR SALE ===== -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 0 2px;">
+      <div>
+        <h2 style="font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 2px;">Stock Available for Sale</h2>
+        <div style="font-size: 12px; color: var(--grey-500);">2,070 units on hand · current sale prices shown</div>
+      </div>
+      <span class="price-list-note">
+        <span class="label">Price list</span>
+        <span class="val">Reseller Standard · v3 · effective 01 May 2026</span>
+      </span>
+    </div>
+
+    <div class="stock-row">
+
+      <!-- ============ CKD AVAILABLE ============ -->
+      <section class="card" style="margin-bottom: 0;">
+        <div class="card-header">
+          <div class="card-title-block">
+            <span class="card-type-tag ckd">CKD</span>
+            <h2 class="card-title">CKD Available</h2>
+            <span class="card-count">5 variants · 1,955 units</span>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Variant</th>
+              <th class="num-col">Quantity<span class="col-help">Available now</span></th>
+              <th class="num-col">Price<span class="col-help">Reseller Standard</span></th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="variant-cell">
+                  <div class="variant-name">TVS King GS+ DP CKD EXP10 G Yellow</div>
+                </div>
+              </td>
+              <td class="num-col"><span class="qty-num">1,472</span><span class="qty-unit">units</span></td>
+              <td class="num-col"><span class="price-num">₦ 2,800,000</span><div class="price-list">per unit</div></td>
+              <td style="text-align: right;">
+                <button class="add-btn">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                  Add to order
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="variant-cell">
+                  <div class="variant-name">TVS King GS+ DP CKD EXP10 NEP Blue</div>
+                </div>
+              </td>
+              <td class="num-col"><span class="qty-num">368</span><span class="qty-unit">units</span></td>
+              <td class="num-col"><span class="price-num">₦ 2,800,000</span><div class="price-list">per unit</div></td>
+              <td style="text-align: right;">
+                <button class="add-btn">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                  Add to order
+                </button>
+              </td>
+            </tr>
+            <tr class="is-zero">
+              <td>
+                <div class="variant-cell">
+                  <div class="variant-name">TVS King ZS+ EXP CKD G Yellow</div>
+                  <div class="variant-note">ZS+ kits awaiting assembly</div>
+                </div>
+              </td>
+              <td class="num-col"><span class="qty-num zero">0</span><span class="qty-unit">units</span></td>
+              <td class="num-col"><span class="price-num">₦ 3,200,000</span><div class="price-list">per unit</div></td>
+              <td style="text-align: right;">
+                <button class="add-btn" disabled title="No stock available">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                  Add to order
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="variant-cell">
+                  <div class="variant-name">TVS King GS+ DP CKD EXP10 NF Wine Red</div>
+                </div>
+              </td>
+              <td class="num-col"><span class="qty-num">69</span><span class="qty-unit">units</span></td>
+              <td class="num-col"><span class="price-num">₦ 2,800,000</span><div class="price-list">per unit</div></td>
+              <td style="text-align: right;">
+                <button class="add-btn">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                  Add to order
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="variant-cell">
+                  <div class="variant-name">TVS King GS+ DP CKD EXP10 Eco Green</div>
+                </div>
+              </td>
+              <td class="num-col"><span class="qty-num">46</span><span class="qty-unit">units</span></td>
+              <td class="num-col"><span class="price-num">₦ 2,800,000</span><div class="price-list">per unit</div></td>
+              <td style="text-align: right;">
+                <button class="add-btn">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                  Add to order
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="table-foot">
+          <span><b>4</b> sellable variants · <b>1,955</b> units</span>
+          <span>1 variant out of stock</span>
+        </div>
+      </section>
+
+      <!-- ============ CBU AVAILABLE ============ -->
+      <section class="card" style="margin-bottom: 0;">
+        <div class="card-header">
+          <div class="card-title-block">
+            <span class="card-type-tag cbu">CBU</span>
+            <h2 class="card-title">CBU Available</h2>
+            <span class="card-count">5 variants · 115 units</span>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Variant</th>
+              <th class="num-col">Quantity<span class="col-help">Available now</span></th>
+              <th class="num-col">Price<span class="col-help">Reseller Standard</span></th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="is-zero">
+              <td>
+                <div class="variant-cell">
+                  <div class="variant-name">TVS King GS+ DP EXP10 G Yellow</div>
+                </div>
+              </td>
+              <td class="num-col"><span class="qty-num zero">0</span><span class="qty-unit">units</span></td>
+              <td class="num-col"><span class="price-num">₦ 3,100,000</span><div class="price-list">per unit</div></td>
+              <td style="text-align: right;">
+                <button class="add-btn" disabled title="No stock available">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                  Add to order
+                </button>
+              </td>
+            </tr>
+            <tr class="is-zero">
+              <td>
+                <div class="variant-cell">
+                  <div class="variant-name">TVS King GS+ DP EXP10 NEP Blue</div>
+                </div>
+              </td>
+              <td class="num-col"><span class="qty-num zero">0</span><span class="qty-unit">units</span></td>
+              <td class="num-col"><span class="price-num">₦ 3,100,000</span><div class="price-list">per unit</div></td>
+              <td style="text-align: right;">
+                <button class="add-btn" disabled title="No stock available">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                  Add to order
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="variant-cell">
+                  <div class="variant-name">TVS King ZS+ EXP G Yellow</div>
+                </div>
+              </td>
+              <td class="num-col"><span class="qty-num">115</span><span class="qty-unit">units</span></td>
+              <td class="num-col"><span class="price-num">₦ 3,500,000</span><div class="price-list">per unit</div></td>
+              <td style="text-align: right;">
+                <button class="add-btn">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                  Add to order
+                </button>
+              </td>
+            </tr>
+            <tr class="is-zero">
+              <td>
+                <div class="variant-cell">
+                  <div class="variant-name">TVS King GS+ DP EXP10 NF Wine Red</div>
+                </div>
+              </td>
+              <td class="num-col"><span class="qty-num zero">0</span><span class="qty-unit">units</span></td>
+              <td class="num-col"><span class="price-num">₦ 3,100,000</span><div class="price-list">per unit</div></td>
+              <td style="text-align: right;">
+                <button class="add-btn" disabled title="No stock available">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                  Add to order
+                </button>
+              </td>
+            </tr>
+            <tr class="is-zero">
+              <td>
+                <div class="variant-cell">
+                  <div class="variant-name">TVS King GS+ DP EXP10 Eco Green</div>
+                </div>
+              </td>
+              <td class="num-col"><span class="qty-num zero">0</span><span class="qty-unit">units</span></td>
+              <td class="num-col"><span class="price-num">₦ 3,100,000</span><div class="price-list">per unit</div></td>
+              <td style="text-align: right;">
+                <button class="add-btn" disabled title="No stock available">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                  Add to order
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="table-foot">
+          <span><b>1</b> sellable variant · <b>115</b> units</span>
+          <span>4 variants out of stock</span>
+        </div>
+      </section>
+
+    </div>
+
+  </div>
+  </div>
+
+</main>
+
+<script>
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+  });
+</script>
+
+<script src="empty-system.js"></script>
+<script src="role-switcher.js"></script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1024, initial-scale=1" />
+<title>New Sales Order · Tablet</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  body { display: flex; min-height: 100vh; width: 1024px; }
+  .app-sidebar { width: 64px; background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; }
+  .app-brand { height: 44px; padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; }
+  .app-brand-mark { width: 26px; height: 26px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 11px; }
+  .nav-scroll { flex: 1; padding: 8px 6px; display: flex; flex-direction: column; gap: 2px; }
+  .nav-item { display: flex; align-items: center; justify-content: center; height: 36px; border-radius: 4px; color: #cfdcec; text-decoration: none; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+  .nav-item.active { background: var(--navy-700); color: #fff; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 10px; display: flex; justify-content: center; }
+  .app-user .av { width: 30px; height: 30px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 600; }
+
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: 44px; background: #fff; border-bottom: 1px solid var(--grey-200); display: flex; align-items: center; padding: 0 16px; gap: 12px; }
+  .topbar .title { font-size: 13px; font-weight: 600; }
+  .topbar .accent { color: var(--navy-700); }
+  .topbar-user { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .topbar-user .av { width: 26px; height: 26px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-size: 10px; font-weight: 600; }
+  .topbar-user .name { font-size: 12px; font-weight: 500; }
+  .topbar-user .role { font-size: 10px; color: var(--grey-500); }
+
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; padding: 16px 18px 80px; }
+
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--grey-200); margin-bottom: 14px; gap: 14px; }
+  .page-crumbs { font-size: 11px; color: var(--grey-500); display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+  .page-crumbs .sep { color: var(--grey-300); }
+  .page-crumbs .current { color: var(--ink); font-weight: 500; }
+  .page-title { font-size: 18px; font-weight: 600; margin: 0; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
+  .so-tag { font-family: var(--font-mono); font-size: 11px; color: var(--navy-700); background: var(--navy-50); padding: 3px 8px; border-radius: 3px; font-weight: 600; }
+  .draft-tag { font-size: 9.5px; padding: 2px 7px; background: var(--grey-100); color: var(--grey-700); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 2px; }
+  .header-actions { display: flex; gap: 6px; }
+
+  .card { background: #fff; border: 1px solid var(--grey-200); border-radius: 3px; margin-bottom: 12px; }
+  .card-header { padding: 8px 12px; border-bottom: 1px solid var(--grey-200); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 12.5px; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 8px; }
+  .card-step { font-family: var(--font-mono); font-size: 10px; color: var(--grey-500); background: var(--grey-100); padding: 1px 6px; border-radius: 2px; }
+  .card-body { padding: 12px; }
+
+  .field-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 16px; }
+  .field-group { display: flex; flex-direction: column; gap: 4px; }
+  .field-label { font-size: 11px; color: var(--grey-700); font-weight: 500; }
+  .field { height: 30px; padding: 0 10px; background: #fff; border: 1px solid var(--grey-300); border-radius: 3px; font-size: 12px; }
+  .auto-row { display: flex; align-items: center; height: 30px; border: 1px solid var(--grey-200); background: var(--grey-100); border-radius: 3px; padding: 0 10px; font-size: 12px; font-weight: 500; }
+  .auto-row.mono { font-family: var(--font-mono); }
+
+  .lines-totals { display: grid; grid-template-columns: 1fr 280px; gap: 12px; }
+  table { width: 100%; font-size: 11.5px; }
+  th { background: var(--grey-100); padding: 6px 8px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey-700); font-weight: 600; text-align: left; border-bottom: 1px solid var(--grey-200); white-space: nowrap; }
+  th.r { text-align: right; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--grey-200); }
+  td.r { text-align: right; font-variant-numeric: tabular-nums; }
+  td.mono { font-family: var(--font-mono); font-size: 11px; }
+  .form-pill { font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 3px; }
+  .form-pill.ckd { background: var(--navy-100); color: var(--navy-800); }
+  .form-pill.cbu { background: var(--green-50); color: var(--green-700); }
+
+  .totals-card { padding: 12px; }
+  .tr { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
+  .tr .k { color: var(--grey-700); }
+  .tr .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tr .v.discount { color: var(--red-700); }
+  .tr.grand { border-top: 2px solid var(--ink); margin-top: 6px; padding-top: 8px; }
+  .tr.grand .v { font-size: 18px; color: var(--navy-800); font-weight: 700; }
+
+  /* Flow */
+  .flow-strip { display: flex; align-items: center; padding: 4px 12px 12px; }
+  .flow-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; position: relative; min-width: 0; }
+  .flow-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--grey-100); border: 2px solid var(--grey-300); color: var(--grey-500); display: grid; place-items: center; font-size: 11px; font-weight: 700; z-index: 2; }
+  .flow-step.current .flow-dot { background: var(--navy-700); border-color: var(--navy-700); color: #fff; box-shadow: 0 0 0 3px rgba(31,78,121,0.15); }
+  .flow-label { font-size: 9.5px; color: var(--grey-500); text-align: center; line-height: 1.2; }
+  .flow-step.current .flow-label { color: var(--navy-700); font-weight: 600; }
+  .flow-step:not(:last-child)::after { content: ''; position: absolute; top: 13px; left: calc(50% + 13px); right: calc(-50% + 13px); height: 2px; background: var(--grey-200); z-index: 1; }
+
+  .sticky-footer { position: sticky; bottom: 0; padding: 10px 12px; background: #fff; border: 1px solid var(--grey-200); border-radius: 3px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 -2px 8px rgba(15,42,68,0.05); }
+  .sticky-footer .total-info { font-size: 11px; color: var(--grey-500); }
+  .sticky-footer .total-info b { color: var(--navy-800); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; margin-left: 6px; }
+  .sticky-footer .acts { display: flex; gap: 6px; }
+</style>
+</head>
+<body>
+
+<aside class="app-sidebar">
+  <div class="app-brand"><div class="app-brand-mark">EI</div></div>
+  <nav class="nav-scroll">
+    <a class="nav-item" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="6" rx="0.5"/><rect x="9" y="2" width="5" height="4" rx="0.5"/></svg></a>
+    <a class="nav-item active" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="10" height="11.5" rx="1"/><path d="M5.5 6h5M5.5 8.5h5"/></svg></a>
+    <a class="nav-item" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5"/></svg></a>
+  </nav>
+  <div class="app-user"><div class="av">AE</div></div>
+</aside>
+
+<main class="app-main">
+  <header class="topbar">
+    <div class="title">Enviable <span class="accent">Tricycle</span></div>
+    <div class="topbar-user">
+      <div class="av">AE</div>
+      <div><div class="name">Adaobi Eze</div><div class="role">Sales Officer</div></div>
+    </div>
+  </header>
+
+  <div class="app-content">
+
+    <div class="page-header">
+      <div>
+        <div class="page-crumbs"><span>Sales</span><span class="sep">/</span><span>Sales Orders</span><span class="sep">/</span><span class="current">New</span></div>
+        <h1 class="page-title">New Sales Order<span class="so-tag">SO-2026-001</span><span class="draft-tag">Draft</span></h1>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary">Save Draft</button>
+        <button class="btn btn-primary">Submit Order</button>
+      </div>
+    </div>
+
+    <!-- ORDER DETAILS -->
+    <section class="card">
+      <div class="card-header"><h2 class="card-title"><span class="card-step">01</span>Order Details</h2></div>
+      <div class="card-body">
+        <div class="field-grid-3">
+          <div class="field-group"><label class="field-label">SO Number</label><div class="auto-row mono">SO-2026-001</div></div>
+          <div class="field-group"><label class="field-label">Customer *</label><div class="auto-row" style="background: #fff; border-color: var(--grey-300);"><strong style="margin-right: 8px;">ABC Tricycle Dealers Ltd.</strong> <span class="form-pill ckd" style="margin-left:auto;">Reseller</span></div></div>
+          <div class="field-group"><label class="field-label">Channel</label><div class="auto-row">Warehouse · Lagos HQ</div></div>
+          <div class="field-group"><label class="field-label">Created By</label><div class="auto-row">Adaobi Eze · Sales</div></div>
+          <div class="field-group"><label class="field-label">Order Date</label><div class="auto-row">19 May 2026</div></div>
+          <div class="field-group"><label class="field-label">Customer PO Ref</label><input class="field" placeholder="ABC-PO-2026-042" /></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LINES + TOTALS -->
+    <div class="lines-totals">
+      <section class="card" style="margin-bottom: 0;">
+        <div class="card-header"><h2 class="card-title"><span class="card-step">02</span>Lines · 3 units</h2></div>
+        <table>
+          <thead><tr><th>Variant</th><th>Form</th><th>Unit (engine)</th><th class="r">Price</th><th class="r">Disc.</th><th class="r">Total</th></tr></thead>
+          <tbody>
+            <tr><td>TVS King GS+ DP CKD G Yellow</td><td><span class="form-pill ckd">CKD</span></td><td class="mono">TVSKGS25E0001234</td><td class="r">₦2,800,000</td><td class="r" style="color:var(--grey-400);">—</td><td class="r" style="font-weight:600;">₦2,800,000</td></tr>
+            <tr><td>TVS King GS+ DP CKD G Yellow</td><td><span class="form-pill ckd">CKD</span></td><td class="mono">TVSKGS25E0001235</td><td class="r">₦2,800,000</td><td class="r" style="color:var(--grey-400);">—</td><td class="r" style="font-weight:600;">₦2,800,000</td></tr>
+            <tr><td>TVS King ZS+ G Yellow (CBU)</td><td><span class="form-pill cbu">CBU</span></td><td class="mono">TVSKZS25E0000017</td><td class="r">₦3,500,000</td><td class="r" style="color:var(--red-700);">−₦100,000</td><td class="r" style="font-weight:600;">₦3,400,000</td></tr>
+          </tbody>
+        </table>
+        <div style="padding: 8px 12px; border-top: 1px solid var(--grey-200); background: var(--canvas);">
+          <button class="btn btn-secondary btn-sm">+ Add line</button>
+        </div>
+      </section>
+
+      <section class="card totals-card">
+        <h3 style="font-size:11px;color:var(--grey-500);font-weight:700;letter-spacing:0.05em;text-transform:uppercase;margin:0 0 8px;">Totals</h3>
+        <div class="tr"><span class="k">Subtotal · 3 lines</span><span class="v">₦9,000,000</span></div>
+        <div class="tr"><span class="k">Discount</span><span class="v discount">− ₦100,000</span></div>
+        <div class="tr" style="border-top:1px solid var(--grey-200);margin-top:4px;padding-top:8px;"><span class="k">Net before VAT</span><span class="v">₦8,900,000</span></div>
+        <div class="tr"><span class="k">VAT 7.5%</span><span class="v">₦667,500</span></div>
+        <div class="tr grand"><span class="k">Total · NGN</span><span class="v">₦9,567,500</span></div>
+      </section>
+    </div>
+
+    <!-- LIFECYCLE -->
+    <section class="card" style="margin-top: 12px;">
+      <div class="card-header"><h2 class="card-title">Order Lifecycle · Stage 1 of 9</h2></div>
+      <div class="flow-strip">
+        <div class="flow-step current"><div class="flow-dot">1</div><div class="flow-label">Draft</div></div>
+        <div class="flow-step"><div class="flow-dot">2</div><div class="flow-label">Awaiting<br/>Payment</div></div>
+        <div class="flow-step"><div class="flow-dot">3</div><div class="flow-label">Payment<br/>Received</div></div>
+        <div class="flow-step"><div class="flow-dot">4</div><div class="flow-label">Release<br/>Authorised</div></div>
+        <div class="flow-step"><div class="flow-dot">5</div><div class="flow-label">Picking</div></div>
+        <div class="flow-step"><div class="flow-dot">6</div><div class="flow-label">Ready for<br/>Dispatch</div></div>
+        <div class="flow-step"><div class="flow-dot">7</div><div class="flow-label">Dispatched</div></div>
+        <div class="flow-step"><div class="flow-dot">8</div><div class="flow-label">Delivered</div></div>
+        <div class="flow-step"><div class="flow-dot">9</div><div class="flow-label">Closed</div></div>
+      </div>
+    </section>
+
+    <div class="sticky-footer">
+      <div class="total-info">3 units · Order total<b>₦9,567,500</b></div>
+      <div class="acts">
+        <button class="btn btn-ghost">Cancel</button>
+        <button class="btn btn-secondary">Save Draft</button>
+        <button class="btn btn-primary">Submit Order</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+</body>
+</html>

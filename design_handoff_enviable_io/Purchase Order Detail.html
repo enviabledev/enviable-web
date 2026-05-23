@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>PO-2026-001 — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  body { display: flex; min-height: 100vh; }
+  .app-sidebar { width: 212px; background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; font-size: 12.5px; }
+  .app-brand { height: 44px; padding: 0 10px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 9px; }
+  .app-brand-mark { width: 24px; height: 24px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 11px; }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 12px; }
+  .app-brand-sub { color: #8aa6c4; font-size: 9.5px; }
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 4px 6px; }
+  .nav-section { padding: 8px 10px 4px; color: #6f8aa6; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.06em; font-weight: 700; }
+  .nav-item { display: flex; align-items: center; gap: 9px; padding: 4px 10px; color: #cfdcec; text-decoration: none; font-size: 12px; border-radius: 3px; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; font-weight: 500; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 8px 10px; display: flex; align-items: center; gap: 8px; }
+  .app-user .av { width: 26px; height: 26px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 10px; }
+  .app-user .name { font-size: 12px; color: #fff; font-weight: 500; }
+  .app-user .role { font-size: 10px; color: #8aa6c4; }
+
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: 44px; background: #fff; border-bottom: 1px solid var(--grey-200); display: flex; align-items: center; padding: 0 14px; gap: 12px; position: sticky; top: 0; z-index: 30; }
+  .topbar .brand { font-size: 12.5px; font-weight: 600; padding-right: 14px; border-right: 1px solid var(--grey-200); height: 24px; display: flex; align-items: center; }
+  .topbar .brand .accent { color: var(--navy-700); }
+  .topbar-search { flex: 1; max-width: 420px; margin: 0 auto; height: 26px; background: var(--grey-100); border-radius: 3px; display: flex; align-items: center; padding: 0 9px; gap: 7px; font-size: 12px; color: var(--grey-500); }
+  .topbar-user { display: flex; align-items: center; gap: 8px; }
+  .topbar-user .av { width: 24px; height: 24px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-size: 10px; font-weight: 600; }
+  .topbar-user .name { font-size: 12px; font-weight: 500; }
+  .topbar-user .role { font-size: 10px; color: var(--grey-500); }
+
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; padding: 14px 18px 50px; }
+
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--grey-200); margin-bottom: 12px; gap: 14px; }
+  .page-crumbs { font-size: 11px; color: var(--grey-500); display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+  .page-crumbs a { color: var(--grey-500); text-decoration: none; }
+  .page-crumbs .sep { color: var(--grey-300); }
+  .page-crumbs .current { color: var(--ink); font-weight: 500; font-family: var(--font-mono); }
+  .page-title { font-size: 18px; font-weight: 600; margin: 0 0 3px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+  .page-title .mono { font-family: var(--font-mono); font-weight: 600; }
+  .page-sub { font-size: 11.5px; color: var(--grey-500); }
+  .page-sub b { color: var(--ink); font-weight: 500; }
+  .header-actions { display: flex; gap: 6px; }
+
+  /* Summary */
+  .summary-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 3px; margin-bottom: 12px; }
+  .summary-head { padding: 8px 12px; border-bottom: 1px solid var(--grey-200); display: flex; align-items: center; justify-content: space-between; }
+  .summary-title { margin: 0; font-size: 12.5px; font-weight: 600; }
+  .summary-body { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .summary-kv { padding: 10px 14px; border-right: 1px solid var(--grey-200); border-bottom: 1px solid var(--grey-200); }
+  .summary-kv:nth-child(4n) { border-right: none; }
+  .summary-kv:nth-last-child(-n+4) { border-bottom: none; }
+  .summary-kv .k { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey-500); font-weight: 600; margin-bottom: 3px; }
+  .summary-kv .v { font-size: 12px; font-weight: 500; }
+  .summary-kv .v.mono { font-family: var(--font-mono); font-size: 11.5px; }
+  .summary-kv .v.amount { font-variant-numeric: tabular-nums; color: var(--navy-800); font-weight: 700; font-size: 13.5px; }
+  .summary-kv .v .meta { display: block; font-size: 10px; color: var(--grey-500); font-weight: 400; margin-top: 1px; }
+
+  /* Approval section card */
+  .card { background: #fff; border: 1px solid var(--grey-200); border-radius: 3px; margin-bottom: 12px; }
+  .card-head { padding: 8px 12px; border-bottom: 1px solid var(--grey-200); display: flex; align-items: center; justify-content: space-between; }
+  .card-head h2 { margin: 0; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .card-head .meta { font-size: 11px; color: var(--grey-500); }
+  .card-head .meta b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  .approval-foot { padding: 10px 14px; background: #FBFBFB; border-top: 1px solid var(--grey-200); font-size: 11.5px; color: var(--grey-700); display: flex; align-items: center; gap: 10px; }
+  .approval-foot svg { color: var(--navy-700); flex-shrink: 0; }
+  .approval-foot b { color: var(--ink); }
+  .approval-foot .spacer { flex: 1; }
+  .approval-foot .btn { white-space: nowrap; }
+
+  /* Line items */
+  table { width: 100%; font-size: 11.5px; }
+  th { background: var(--grey-100); padding: 6px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey-700); font-weight: 600; text-align: left; border-bottom: 1px solid var(--grey-200); white-space: nowrap; }
+  th.r { text-align: right; }
+  td { padding: 6px 10px; border-bottom: 1px solid var(--grey-200); }
+  td.r { text-align: right; font-variant-numeric: tabular-nums; }
+  td.mono { font-family: var(--font-mono); font-size: 11px; }
+  tfoot td { border-top: 2px solid var(--ink); background: #FBFBFB; font-weight: 700; padding-top: 8px; padding-bottom: 8px; }
+
+  /* Activity */
+  .activity-row { padding: 8px 12px; border-bottom: 1px solid var(--grey-200); display: grid; grid-template-columns: 24px 1fr auto; gap: 10px; align-items: center; }
+  .activity-row:last-child { border-bottom: none; }
+  .activity-row .av { width: 22px; height: 22px; border-radius: 50%; background: var(--navy-100); color: var(--navy-800); display: grid; place-items: center; font-size: 9px; font-weight: 700; }
+  .activity-row .av.exec { background: var(--navy-700); color: #fff; }
+  .activity-row .av.gm { background: #DDE7F0; color: var(--navy-800); }
+  .activity-row .av.proc-mgr { background: #FCF3E5; color: #8A4B05; }
+  .activity-row .av.proc { background: var(--amber-50); color: var(--amber-700); }
+  .activity-row .body { font-size: 12px; line-height: 1.4; }
+  .activity-row .body .verb { font-family: var(--font-mono); font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 600; margin-right: 4px; }
+  .activity-row .body .verb.approve { background: var(--green-50); color: var(--green-700); }
+  .activity-row .body .verb.submit  { background: var(--navy-50); color: var(--navy-700); }
+  .activity-row .body .verb.create  { background: var(--green-50); color: var(--green-700); }
+  .activity-row .time { font-size: 10.5px; color: var(--grey-500); font-variant-numeric: tabular-nums; }
+
+  .approval-status-banner {
+    margin: 0 14px 12px;
+    padding: 8px 12px;
+    background: var(--amber-50);
+    border-left: 3px solid var(--amber-700);
+    border-radius: 3px;
+    font-size: 11.5px; color: var(--amber-700);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .approval-status-banner svg { color: var(--amber-700); flex-shrink: 0; }
+  .approval-status-banner b { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div><div class="app-brand-name">Enviable I&amp;O</div><div class="app-brand-sub">Inventory &amp; Operations</div></div>
+  </div>
+  <nav class="nav-scroll">
+    <div class="nav-section">Procurement</div>
+    <a class="nav-item active" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="10" height="11.5" rx="1"/><path d="M5.5 5.5h5M5.5 8h5"/></svg>Purchase Orders</a>
+    <a class="nav-item" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/></svg>Proforma Invoices</a>
+    <a class="nav-item" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h7v6H2zM9 7h3.5l2 2v1.5H9z"/><circle cx="5" cy="12" r="1.2"/></svg>Shipments</a>
+  </nav>
+  <div class="app-user">
+    <div class="av">TB</div>
+    <div><div class="name">Tunde Bakare</div><div class="role">Procurement Manager</div></div>
+  </div>
+</aside>
+
+<main class="app-main">
+
+  <header class="topbar">
+    <div class="brand">Enviable <span class="accent">Tricycle</span></div>
+    <div class="topbar-search">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+      <span>Search POs, suppliers…</span>
+    </div>
+    <div class="topbar-user">
+      <div class="av">TB</div>
+      <div><div class="name">Tunde Bakare</div><div class="role">Procurement Manager</div></div>
+    </div>
+  </header>
+
+  <div class="app-content">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div>
+        <div class="page-crumbs"><a href="#">Procurement</a><span class="sep">/</span><a href="#">Purchase Orders</a><span class="sep">/</span><span class="current">PO-2026-001</span></div>
+        <h1 class="page-title">Purchase Order <span class="mono">PO-2026-001</span> <span class="pill pill-amber">PendingApproval</span></h1>
+        <div class="page-sub">VSK Motors and Traders FZE · 2,070 units · raised by <b>Funmi Adebayo</b> on <b>14 Feb 2026</b> · awaiting GM approval</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+          Export PDF
+        </button>
+        <button class="btn btn-secondary">Edit</button>
+        <button class="btn btn-secondary">Reject</button>
+        <button class="btn btn-primary">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 8l3.5 3.5L14 3"/></svg>
+          Approve at my stage
+        </button>
+      </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <section class="summary-card">
+      <div class="summary-head">
+        <h2 class="summary-title">PO Summary</h2>
+        <span style="font-size: 11px; color: var(--grey-500);">commitment <b style="color: var(--ink); font-variant-numeric: tabular-nums;">$3,196,140.00</b> · requires multi-stage approval</span>
+      </div>
+      <div class="summary-body">
+        <div class="summary-kv"><div class="k">Supplier</div><div class="v">VSK Motors and Traders FZE<div class="meta">Sharjah, UAE · USD</div></div></div>
+        <div class="summary-kv"><div class="k">Manufacturer</div><div class="v">TVS Motor Company Limited<div class="meta">Hosur, India</div></div></div>
+        <div class="summary-kv"><div class="k">Issued Date</div><div class="v">14 Feb 2026<div class="meta">by Funmi Adebayo</div></div></div>
+        <div class="summary-kv"><div class="k">Expected Ship</div><div class="v">14 Jun 2026<div class="meta">~4 weeks lead time</div></div></div>
+        <div class="summary-kv"><div class="k">Units</div><div class="v">2,070<div class="meta">5 variants · 1,955 CKD / 115 CBU</div></div></div>
+        <div class="summary-kv"><div class="k">Currency</div><div class="v">USD<div class="meta">LC at sight · CFR Apapa</div></div></div>
+        <div class="summary-kv"><div class="k">Linked PI</div><div class="v mono"><a href="#" style="color: var(--navy-700);">ORD0000023649</a> <span class="meta" style="font-family: var(--font-sans);">Rev 1</span></div></div>
+        <div class="summary-kv"><div class="k">Total · USD</div><div class="v amount">$3,196,140.00</div></div>
+      </div>
+    </section>
+
+    <!-- ====== APPROVAL LADDER ====== -->
+    <section class="card">
+      <div class="card-head">
+        <h2>
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.5 5-5 6-2.5-1-5-3-5-6V4l5-2z"/><path d="M6 8l1.5 1.5L10.5 6.5"/></svg>
+          Approval Ladder
+        </h2>
+        <span class="meta">Stage <b>3</b> of <b>4</b> · <b>2</b> approved · <b>1</b> pending · <b>1</b> upcoming</span>
+      </div>
+
+      <div class="approval-status-banner">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.01"/></svg>
+        <div><b>Awaiting Ikenna Okoye</b> (General Manager) · this is the next required approval before the PO can be sent to the supplier.</div>
+        <span style="margin-left: auto; font-size: 11px; color: var(--grey-500); font-variant-numeric: tabular-nums;">SLA · 24h remaining</span>
+      </div>
+
+      <!-- THE COMPONENT -->
+      <div class="approval-ladder" style="margin: 0 14px 14px;">
+
+        <!-- Stage 1: Submitted by originator -->
+        <div class="al-step done">
+          <div class="al-top">
+            <span class="al-dot"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3 3 7-7"/></svg></span>
+            <span class="al-stage">Stage 1 · Submitted</span>
+          </div>
+          <div class="al-name">Funmi Adebayo</div>
+          <div class="al-role">Procurement Officer · originator</div>
+          <span class="al-status-pill approved">Submitted</span>
+          <div class="al-meta">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>
+            14 Feb 2026 · 10:42 WAT
+          </div>
+        </div>
+
+        <!-- Stage 2: Procurement Manager — approved -->
+        <div class="al-step done">
+          <div class="al-top">
+            <span class="al-dot"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3 3 7-7"/></svg></span>
+            <span class="al-stage">Stage 2 · Procurement</span>
+          </div>
+          <div class="al-name">Tunde Bakare</div>
+          <div class="al-role">Procurement Manager</div>
+          <span class="al-status-pill approved">Approved</span>
+          <div class="al-meta">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>
+            14 Feb 2026 · 14:18 WAT
+          </div>
+        </div>
+
+        <!-- Stage 3: General Manager — current/pending -->
+        <div class="al-step current">
+          <div class="al-top">
+            <span class="al-dot">3</span>
+            <span class="al-stage">Stage 3 · Operations</span>
+          </div>
+          <div class="al-name">Ikenna Okoye</div>
+          <div class="al-role">General Manager</div>
+          <span class="al-status-pill pending">Pending</span>
+          <div class="al-meta">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>
+            Notified 18 May, 11:08 · 24h SLA
+          </div>
+        </div>
+
+        <!-- Stage 4: Executive Director — required for >$500M USD commitment -->
+        <div class="al-step unassigned">
+          <div class="al-top">
+            <span class="al-dot">4</span>
+            <span class="al-stage">Stage 4 · Executive</span>
+          </div>
+          <div class="al-name">Executive Director</div>
+          <div class="al-role">Required for commitments &gt; $2M · auto-assigns Theresa Nwaubani</div>
+          <span class="al-status-pill upcoming">Upcoming</span>
+          <div class="al-meta" style="color: var(--grey-500); font-style: italic;">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/></svg>
+            Triggered after stage 3 approves
+          </div>
+        </div>
+
+      </div>
+
+      <div class="approval-foot">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 1112 0 6 6 0 01-12 0z"/><path d="M5 8l2 2 4-4"/></svg>
+        <span>You are signed in as <b>Tunde Bakare</b> · your stage 2 approval is recorded. The next required action is on <b>Ikenna Okoye</b>.</span>
+        <span class="spacer"></span>
+        <button class="btn btn-secondary btn-sm">Send reminder</button>
+        <button class="btn btn-secondary btn-sm">Delegate</button>
+      </div>
+    </section>
+
+    <!-- LINE ITEMS -->
+    <section class="card">
+      <div class="card-head">
+        <h2>Line Items</h2>
+        <span class="meta">5 lines · 2,070 units · <b>$3,196,140.00</b> total</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:38px;">#</th>
+            <th>Variant</th>
+            <th class="r">Qty</th>
+            <th class="r">Unit · USD</th>
+            <th class="r">Line Total · USD</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>TVS King GS+ DP CKD EXP10 G Yellow</td><td class="r">1,472</td><td class="r">1,422.00</td><td class="r">2,093,184.00</td></tr>
+          <tr><td>2</td><td>TVS King GS+ DP CKD EXP10 NEP Blue</td><td class="r">368</td><td class="r">1,422.00</td><td class="r">523,296.00</td></tr>
+          <tr><td>3</td><td>TVS King GS+ DP CKD EXP10 NF Wine Red</td><td class="r">69</td><td class="r">1,422.00</td><td class="r">98,118.00</td></tr>
+          <tr><td>4</td><td>TVS King GS+ DP CKD EXP10 Eco Green</td><td class="r">46</td><td class="r">1,422.00</td><td class="r">65,412.00</td></tr>
+          <tr><td>5</td><td>TVS King ZS+ EXP CKD G Yellow</td><td class="r">115</td><td class="r">1,662.00</td><td class="r">191,130.00</td></tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2">Subtotal · 5 lines</td>
+            <td class="r">2,070</td>
+            <td class="r"></td>
+            <td class="r">2,971,140.00</td>
+          </tr>
+          <tr>
+            <td colspan="4" style="background: #FBFBFB; border-top: none;">Freight · 90 × 20ft @ $2,500</td>
+            <td class="r" style="background: #FBFBFB; border-top: none;">225,000.00</td>
+          </tr>
+          <tr>
+            <td colspan="4" style="background: #FBFBFB; border-top: none; font-size: 13px; color: var(--navy-800);"><strong>Total · USD</strong></td>
+            <td class="r" style="background: #FBFBFB; border-top: none; font-size: 14px; color: var(--navy-800);"><strong>3,196,140.00</strong></td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+
+    <!-- ACTIVITY -->
+    <section class="card">
+      <div class="card-head">
+        <h2>Activity · last 6 events</h2>
+        <a href="#" style="font-size: 11px; color: var(--navy-700);">Open full audit log →</a>
+      </div>
+
+      <div class="activity-row">
+        <div class="av proc-mgr">TB</div>
+        <div class="body"><span class="verb approve">APPROVE</span><b>Tunde Bakare</b> approved at stage 2 (Procurement Manager).</div>
+        <div class="time">14 Feb, 14:18</div>
+      </div>
+      <div class="activity-row">
+        <div class="av proc">FA</div>
+        <div class="body"><span class="verb submit">SUBMIT</span><b>Funmi Adebayo</b> submitted PO-2026-001 for approval.</div>
+        <div class="time">14 Feb, 10:42</div>
+      </div>
+      <div class="activity-row">
+        <div class="av proc">FA</div>
+        <div class="body"><span class="verb create">CREATE</span><b>Funmi Adebayo</b> drafted line items and commercial terms.</div>
+        <div class="time">14 Feb, 09:18</div>
+      </div>
+      <div class="activity-row">
+        <div class="av proc">FA</div>
+        <div class="body"><span class="verb create">CREATE</span><b>Funmi Adebayo</b> created PO-2026-001 against VSK Motors and Traders FZE.</div>
+        <div class="time">14 Feb, 09:02</div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+</body>
+</html>

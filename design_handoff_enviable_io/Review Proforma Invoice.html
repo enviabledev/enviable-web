@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Review Proforma Invoice — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  /* ===== APP SHELL ===== */
+  body { display: flex; min-height: 100vh; }
+  .app-sidebar { width: var(--sidebar-w); background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; font-size: var(--fs-13); }
+  .app-brand { height: var(--topbar-h); padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .app-brand-mark { width: 30px; height: 30px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 13.5px; line-height: 1.15; }
+  .app-brand-sub  { color: #8aa6c4; font-size: 10.5px; }
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 8px 8px 12px; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; color: #6f8aa6; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600; cursor: pointer; user-select: none; }
+  .nav-group-header:hover { color: #b6cae0; }
+  .nav-group-header .chev { color: #6f8aa6; transition: transform .15s ease; }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .nav-group-body { display: none; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 7px 12px; border-radius: 3px; color: #cfdcec; text-decoration: none; line-height: 1.3; position: relative; white-space: nowrap; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -8px; top: 4px; bottom: 4px; width: 3px; border-radius: 0 2px 2px 0; background: #5a9fe8; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .85; }
+  .nav-item.active svg { opacity: 1; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
+  .app-user-meta { line-height: 1.25; flex: 1; min-width: 0; overflow: hidden; }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; }
+  .app-user-sign { color: #8aa6c4; font-size: 11px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; }
+  .app-user-sign:hover { color: #fff; }
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: var(--topbar-h); border-bottom: 1px solid var(--grey-200); background: #fff; display: flex; align-items: center; padding: 0 20px; gap: 16px; position: sticky; top: 0; z-index: 30; }
+  .topbar-company { font-size: 14px; font-weight: 600; color: var(--ink); padding-right: 18px; border-right: 1px solid var(--grey-200); height: 28px; display: flex; align-items: center; }
+  .topbar-company .accent { color: var(--navy-700); }
+  .topbar-search { flex: 1; max-width: 560px; margin: 0 auto; height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--grey-100); border: 1px solid transparent; border-radius: 4px; color: var(--grey-500); font-size: 13px; }
+  .topbar-search:focus-within { background: #fff; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.10); }
+  .topbar-search input { all: unset; flex: 1; font-size: 13px; color: var(--ink); }
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .topbar-icon-btn { width: 32px; height: 32px; display: grid; place-items: center; background: transparent; border: none; border-radius: 4px; color: var(--grey-700); cursor: pointer; position: relative; }
+  .topbar-icon-btn:hover { background: var(--grey-100); color: var(--ink); }
+  .topbar-icon-btn.has-unread::after { content: ''; position: absolute; top: 7px; right: 8px; width: 8px; height: 8px; background: var(--red-700); border-radius: 50%; border: 1.5px solid #fff; }
+  .topbar-divider { width: 1px; height: 22px; background: var(--grey-200); margin: 0 6px; }
+  .topbar-user { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 999px; cursor: pointer; }
+  .topbar-user:hover { background: var(--grey-100); }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 11px; border: none; }
+  .topbar-user-text { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-user-name { font-size: 13px; color: var(--ink); font-weight: 500; line-height: 1.1; white-space: nowrap; }
+  .topbar-user-role { font-size: 11px; color: var(--grey-500); line-height: 1.1; }
+
+  /* ===== PAGE ===== */
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; }
+  .page { padding: 24px 28px 60px; max-width: 1240px; }
+
+  /* ===== HEADER ===== */
+  .page-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 22px; padding-bottom: 18px;
+    border-bottom: 1px solid var(--grey-200); gap: 24px;
+  }
+  .page-crumbs { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .page-crumbs a { color: var(--grey-500); text-decoration: none; }
+  .page-crumbs a:hover { color: var(--navy-700); }
+  .page-crumbs .sep { color: var(--grey-300); }
+  .page-crumbs .current { color: var(--ink); font-weight: 500; font-family: var(--font-mono); }
+  .page-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .page-title { font-size: 24px; font-weight: 600; color: var(--ink); margin: 0; letter-spacing: -0.01em; }
+  .page-title .mono { font-family: var(--font-mono); font-weight: 600; }
+  .rev-tag { font-family: var(--font-mono); font-size: 12px; background: var(--navy-50); color: var(--navy-700); padding: 4px 10px; border-radius: 3px; font-weight: 500; }
+  .page-sub { color: var(--grey-500); font-size: 13px; }
+  .page-sub b { color: var(--ink); font-weight: 500; }
+  .page-sub a { color: var(--navy-700); font-weight: 500; }
+  .header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .btn-danger-solid {
+    background: #fff; color: var(--red-700);
+    border: 1px solid var(--grey-300); height: 32px; padding: 0 12px;
+    border-radius: 3px; font-size: 13px; font-weight: 500;
+    display: inline-flex; align-items: center; gap: 6px;
+    cursor: pointer; font-family: inherit;
+  }
+  .btn-danger-solid:hover { background: var(--red-50); border-color: var(--red-700); }
+
+  /* ===== SUMMARY CARD ===== */
+  .summary-card {
+    background: #fff; border: 1px solid var(--grey-200); border-radius: 4px;
+    margin-bottom: 22px;
+  }
+  .summary-head {
+    padding: 14px 20px; border-bottom: 1px solid var(--grey-200);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .summary-title-block { display: flex; align-items: center; gap: 10px; }
+  .summary-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); }
+  .summary-body {
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 56px;
+  }
+  .kv-row {
+    display: grid; grid-template-columns: 160px 1fr;
+    gap: 16px;
+    padding: 9px 0;
+    border-bottom: 1px dashed var(--grey-200);
+    align-items: baseline;
+    font-size: 13px;
+  }
+  .kv-row:last-child { border-bottom: none; }
+  .kv-row .k {
+    color: var(--grey-500);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  .kv-row .v {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .kv-row .v.mono { font-family: var(--font-mono); }
+  .kv-row .v .meta {
+    font-size: 11px; color: var(--grey-500);
+    font-weight: 400;
+    display: block; margin-top: 2px;
+  }
+  .kv-row .v .meta.warn { color: var(--amber-700); }
+  .kv-row .v.amount {
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    color: var(--navy-800);
+    font-weight: 700;
+  }
+
+  /* ===== TABS ===== */
+  .tabs-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; }
+  .tab-strip {
+    display: flex; align-items: stretch;
+    border-bottom: 1px solid var(--grey-200);
+    padding: 0 8px;
+    background: #fff;
+    overflow-x: auto;
+  }
+  .tab-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    color: var(--grey-700);
+    font-family: inherit; font-size: 13px; font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    position: relative;
+  }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn.active {
+    color: var(--navy-700);
+    border-bottom-color: var(--navy-700);
+  }
+  .tab-btn .count {
+    font-size: 11px;
+    background: var(--grey-100);
+    color: var(--grey-700);
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .tab-btn.active .count { background: var(--navy-50); color: var(--navy-700); }
+  .tab-btn .diff-badge {
+    font-size: 10px;
+    background: var(--amber-50);
+    color: var(--amber-700);
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .tab-spacer { flex: 1; }
+  .tab-strip-meta {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 12px;
+    font-size: 11.5px; color: var(--grey-500);
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ===== LINE ITEMS TABLE ===== */
+  .line-table { width: 100%; font-size: 13px; }
+  .line-table th {
+    text-align: left; font-weight: 500; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--grey-500);
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--grey-200);
+    background: var(--grey-100);
+    white-space: nowrap;
+  }
+  .line-table th.num-col { text-align: right; }
+  .line-table th.col-line { width: 60px; text-align: center; }
+  .line-table th.col-qty { width: 110px; }
+  .line-table th.col-price { width: 150px; }
+  .line-table th.col-total { width: 180px; }
+
+  .line-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--grey-200);
+    color: var(--ink);
+    vertical-align: middle;
+  }
+  .line-table td.num-col { text-align: right; font-variant-numeric: tabular-nums; }
+  .line-table td.col-line {
+    text-align: center;
+    color: var(--grey-400);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--grey-100);
+    border-right: 1px solid var(--grey-200);
+    font-weight: 500;
+  }
+  .line-table tr:hover td { background: var(--navy-50); }
+  .line-table tr:hover td.col-line { background: var(--navy-100); color: var(--navy-700); }
+  .line-table tr:last-child td { border-bottom: none; }
+
+  .variant-cell .variant-name { font-weight: 500; color: var(--ink); }
+  .variant-cell .variant-sku { font-family: var(--font-mono); font-size: 11px; color: var(--grey-500); margin-top: 2px; }
+
+  /* totals strip */
+  .totals-strip {
+    padding: 16px 24px;
+    border-top: 1px solid var(--grey-200);
+    display: flex; justify-content: flex-end;
+    background: #FBFBFB;
+  }
+  .totals-block { display: grid; grid-template-columns: auto auto; gap: 4px 32px; min-width: 360px; }
+  .totals-block .key { font-size: 12px; color: var(--grey-500); text-align: right; align-self: center; }
+  .totals-block .val { font-size: 13px; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; align-self: center; }
+  .totals-block .key.note { font-size: 11px; color: var(--grey-500); font-style: italic; }
+  .totals-block .key.grand { font-size: 13px; color: var(--ink); font-weight: 600; padding-top: 8px; border-top: 1px solid var(--grey-200); }
+  .totals-block .val.grand { font-size: 18px; color: var(--navy-800); font-weight: 700; padding-top: 8px; border-top: 1px solid var(--grey-200); }
+
+  /* ===== DIFF TAB ===== */
+  .diff-summary {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--grey-200);
+    background: var(--amber-50);
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px; color: var(--amber-700);
+  }
+  .diff-summary svg { flex-shrink: 0; }
+  .diff-summary b { color: var(--ink); font-weight: 600; }
+  .diff-summary .diff-meta { color: var(--grey-700); font-size: 12px; margin-left: auto; }
+
+  .diff-wrap { padding: 0; }
+  .diff-cols-header {
+    display: grid; grid-template-columns: 1fr 1fr;
+    background: var(--grey-100);
+    border-bottom: 1px solid var(--grey-200);
+  }
+  .diff-col-head {
+    padding: 12px 20px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; color: var(--grey-700);
+  }
+  .diff-col-head + .diff-col-head { border-left: 1px solid var(--grey-200); }
+  .diff-col-head .rev-num { font-family: var(--font-mono); font-weight: 600; color: var(--ink); }
+  .diff-col-head .when { color: var(--grey-500); }
+
+  .diff-change-card {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--grey-200);
+  }
+  .diff-change-head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px;
+    font-size: 13px; color: var(--ink); font-weight: 500;
+  }
+  .diff-change-head .change-chip {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 2px 8px; border-radius: 3px; font-weight: 600;
+    background: var(--amber-50); color: var(--amber-700);
+  }
+  .diff-cols {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border: 1px solid var(--grey-200);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .diff-col { padding: 12px 16px; background: #fff; }
+  .diff-col.before {
+    background: #FCF0F0;
+    border-right: 1px solid var(--grey-200);
+  }
+  .diff-col.after { background: #F0F7F1; }
+  .diff-kv {
+    display: grid; grid-template-columns: 130px 1fr;
+    gap: 12px; align-items: baseline;
+    padding: 4px 0;
+    font-size: 13px;
+  }
+  .diff-kv .k { color: var(--grey-500); font-size: 12px; }
+  .diff-kv .v { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 500; }
+  .diff-kv .v.changed-before {
+    color: var(--red-700);
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+  }
+  .diff-kv .v.changed-after {
+    color: var(--green-700);
+    font-weight: 600;
+  }
+  .diff-kv .delta {
+    display: inline-block; margin-left: 8px;
+    font-size: 11px; color: var(--green-700); font-weight: 600;
+    background: var(--green-50); padding: 1px 6px; border-radius: 2px;
+  }
+  .diff-kv .delta.neg { color: var(--red-700); background: var(--red-50); }
+
+  .diff-foot {
+    padding: 14px 20px;
+    background: #FBFBFB;
+    border-top: 1px solid var(--grey-200);
+    font-size: 12px; color: var(--grey-500);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .diff-foot b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* unchanged section toggle */
+  .unchanged-toggle {
+    padding: 12px 20px;
+    background: #FBFBFB;
+    border-bottom: 1px solid var(--grey-200);
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--grey-500);
+    cursor: pointer;
+  }
+  .unchanged-toggle:hover { background: var(--grey-100); }
+  .unchanged-toggle svg { color: var(--grey-400); transition: transform .15s; }
+  .unchanged-toggle.open svg { transform: rotate(90deg); }
+  .unchanged-list {
+    padding: 0 20px 12px;
+    display: none;
+    font-size: 12px;
+    color: var(--grey-700);
+  }
+  .unchanged-list.open { display: block; }
+  .unchanged-list .item { padding: 4px 0; display: flex; align-items: center; gap: 8px; }
+  .unchanged-list .item::before { content: '='; color: var(--grey-400); font-family: var(--font-mono); }
+
+  /* ===== SOURCE DOCUMENT TAB ===== */
+  .pdf-viewer-toolbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--grey-200);
+    background: #FBFBFB;
+  }
+  .pdf-toolbar-mono { font-family: var(--font-mono); font-size: 12px; color: var(--grey-700); }
+  .pdf-toolbar-spacer { flex: 1; }
+  .zoom-controls { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--grey-300); border-radius: 3px; background: #fff; overflow: hidden; }
+  .zoom-controls button { background: transparent; border: none; padding: 4px 10px; cursor: pointer; color: var(--grey-700); font-size: 13px; font-family: inherit; height: 26px; }
+  .zoom-controls button:hover { background: var(--grey-100); color: var(--ink); }
+  .zoom-controls .zoom-level { padding: 0 10px; font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; border-left: 1px solid var(--grey-200); border-right: 1px solid var(--grey-200); display: flex; align-items: center; }
+
+  .pdf-stage {
+    background: var(--grey-200);
+    padding: 28px;
+    min-height: 720px;
+  }
+  .pdf-doc {
+    background: #fff;
+    width: 100%;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 56px 64px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.05), 0 8px 24px rgba(15,42,68,0.10);
+    font-family: 'Times New Roman', serif;
+    color: #111;
+    font-size: 12.5px;
+    line-height: 1.5;
+    position: relative;
+  }
+  .pdf-letterhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 18px; border-bottom: 2px solid #111; margin-bottom: 22px; }
+  .pdf-logo {
+    width: 70px; height: 70px;
+    background: #062b4a; color: #fff;
+    display: grid; place-items: center;
+    font-family: 'Inter', sans-serif;
+    font-weight: 800; letter-spacing: 0.06em;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .pdf-letterhead-text { flex: 1; }
+  .pdf-letterhead-text .org { font-size: 18px; font-weight: 700; letter-spacing: 0.01em; margin-bottom: 4px; }
+  .pdf-letterhead-text .org-sub { font-size: 11px; color: #444; line-height: 1.5; }
+  .pdf-doc-id {
+    text-align: right; font-size: 11px; color: #444; line-height: 1.6;
+  }
+  .pdf-doc-id .id-num { font-family: 'Courier New', monospace; font-size: 13px; color: #111; font-weight: 700; letter-spacing: 0.04em; }
+
+  .pdf-title {
+    text-align: center;
+    font-size: 18px; font-weight: 700; letter-spacing: 0.18em;
+    margin: 12px 0 22px;
+    padding: 6px 0;
+    border-top: 1px solid #888;
+    border-bottom: 1px solid #888;
+  }
+
+  .pdf-meta-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 18px 36px;
+    margin-bottom: 22px;
+  }
+  .pdf-meta-block .pdf-meta-head { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #666; font-weight: 700; margin-bottom: 4px; }
+  .pdf-meta-block .pdf-meta-body { font-size: 12px; line-height: 1.6; }
+  .pdf-meta-block .pdf-meta-body b { font-weight: 700; }
+
+  .pdf-terms-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 8px 20px;
+    margin-bottom: 18px;
+    padding: 10px 12px;
+    background: #fafafa;
+    border: 1px solid #ddd;
+  }
+  .pdf-terms-row { font-size: 11.5px; }
+  .pdf-terms-row .k { color: #666; text-transform: uppercase; letter-spacing: 0.06em; font-size: 9.5px; font-weight: 700; display: block; }
+  .pdf-terms-row .v { font-weight: 600; }
+
+  .pdf-line-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  .pdf-line-table th, .pdf-line-table td { border: 1px solid #888; padding: 7px 8px; font-size: 11.5px; text-align: left; }
+  .pdf-line-table th { background: #efefef; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+  .pdf-line-table td.r, .pdf-line-table th.r { text-align: right; font-family: 'Courier New', monospace; }
+  .pdf-totals { margin-left: auto; width: 320px; font-size: 12px; }
+  .pdf-totals .r { padding: 4px 8px; }
+  .pdf-totals .tr { display: flex; justify-content: space-between; }
+  .pdf-totals .tr.grand { border-top: 2px solid #111; padding-top: 6px; font-weight: 700; font-size: 13px; margin-top: 4px; }
+
+  .pdf-foot { margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding-top: 18px; border-top: 1px solid #ccc; }
+  .pdf-bank-block { font-size: 10.5px; line-height: 1.6; }
+  .pdf-bank-block .h { font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; color: #444; }
+  .pdf-sig-block { text-align: right; font-size: 10.5px; line-height: 1.6; }
+  .pdf-stamp {
+    display: inline-block;
+    border: 1.5px solid #0a4575;
+    color: #0a4575;
+    padding: 8px 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transform: rotate(-6deg);
+    margin: 4px 0 10px;
+    opacity: 0.78;
+  }
+  .pdf-watermark {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) rotate(-22deg);
+    font-family: 'Inter', sans-serif;
+    font-size: 96px; font-weight: 800;
+    color: rgba(180, 95, 6, 0.10);
+    pointer-events: none;
+    letter-spacing: 0.08em;
+  }
+
+  /* ===== STICKY FOOTER ===== */
+  .form-footer {
+    margin-top: 22px;
+    padding: 14px 20px;
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+    position: sticky; bottom: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .form-footer-left { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 12px; }
+  .form-footer-left b { color: var(--ink); font-weight: 500; }
+  .form-footer-actions { display: flex; gap: 8px; align-items: center; }
+
+</style>
+</head>
+<body>
+
+<!-- ====================== SIDEBAR ====================== -->
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div>
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+  <nav class="nav-scroll">
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Overview</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Dashboard</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-header"><span>Procurement</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="10" height="11.5" rx="1"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>Purchase Orders</a>
+        <a class="nav-item active" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3M5.5 8.5h5M5.5 11h3.5"/></svg>Proforma Invoices</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5.5" cy="6" r="2"/><circle cx="11" cy="7" r="1.5"/><path d="M2 13c0-2 1.5-3.5 3.5-3.5S9 11 9 13M9 13c0-1.5 1-2.5 2-2.5s2 1 2 2.5"/></svg>Suppliers &amp; Counterparties</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h7v6H2zM9 7h3.5l2 2v1.5H9z"/><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>Shipments</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3.5" width="11" height="9" rx="1"/><path d="M2.5 6l5.5 3.5L13.5 6"/></svg>Letters of Credit</a>
+      </div>
+    </div>
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Inventory</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Units (kekes)</a>
+        <a class="nav-item" href="#">Spare Parts</a>
+        <a class="nav-item" href="#">Stock Movements</a>
+        <a class="nav-item" href="#">Assembly Jobs</a>
+      </div>
+    </div>
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Sales</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Sales Orders</a>
+        <a class="nav-item" href="#">Customers</a>
+      </div>
+    </div>
+  </nav>
+  <div class="app-user">
+    <div class="avatar">FA</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Funmi Adebayo</div>
+      <div class="app-user-role">Procurement Officer</div>
+      <a class="app-user-sign" href="#">
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4V3a1 1 0 00-1-1H3.5a1 1 0 00-1 1v10a1 1 0 001 1H9a1 1 0 001-1v-1"/><path d="M7 8h7m0 0l-2.5-2.5M14 8l-2.5 2.5"/></svg>
+        Sign out
+      </a>
+    </div>
+  </div>
+</aside>
+
+<!-- ====================== MAIN ====================== -->
+<main class="app-main">
+
+  <header class="topbar">
+    <div class="topbar-company">Enviable <span class="accent">Tricycle</span></div>
+    <div class="topbar-search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+      <input placeholder="Search purchase orders, units, SKUs, customers, invoices…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-icon-btn" title="Help">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M6.5 6a1.5 1.5 0 113 0c0 1-1.5 1.2-1.5 2.5M8 11v.01"/></svg>
+      </button>
+      <button class="topbar-icon-btn has-unread" title="Notifications">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.5 11h9l-1-2V6.5a3.5 3.5 0 10-7 0V9l-1 2zM6.5 13a1.5 1.5 0 003 0"/></svg>
+      </button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="avatar">FA</div>
+        <div class="topbar-user-text">
+          <div class="topbar-user-name">Funmi Adebayo</div>
+          <div class="topbar-user-role">Procurement Officer</div>
+        </div>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--grey-400);"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-content">
+  <div class="page">
+
+    <!-- ===== PAGE HEADER ===== -->
+    <div class="page-header">
+      <div>
+        <div class="page-crumbs">
+          <a href="#">Procurement</a>
+          <span class="sep">/</span>
+          <a href="#">Proforma Invoices</a>
+          <span class="sep">/</span>
+          <span class="current">ORD0000023649 Rev 1</span>
+        </div>
+        <div class="page-title-row">
+          <h1 class="page-title">Proforma Invoice <span class="mono">ORD0000023649</span></h1>
+          <span class="rev-tag">Revision 1</span>
+          <span class="pill pill-amber">Pending Review</span>
+        </div>
+        <div class="page-sub">
+          From <b>VSK Motors and Traders FZE</b> · linked to <b>PO-2026-001</b> · received 20 Feb 2026 ·
+          <a href="#" style="text-decoration: none;">
+            Revision History
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align: -1px; margin-left: 2px;"><path d="M8 2a6 6 0 11-4.5 2"/><path d="M3.5 1.5v3h3M8 5v3.5l2 1.5"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+          Export PDF
+        </button>
+        <button class="btn-danger-solid">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M4 4l8 8"/></svg>
+          Reject
+        </button>
+        <button class="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 8l3.5 3.5L14 3"/></svg>
+          Approve Revision
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== SUMMARY CARD ===== -->
+    <section class="summary-card">
+      <div class="summary-head">
+        <div class="summary-title-block">
+          <h2 class="summary-title">PI Summary</h2>
+          <span class="pill pill-amber">Pending Review</span>
+        </div>
+        <div style="font-size: 12px; color: var(--grey-500); display: flex; gap: 12px; align-items: center;">
+          <span>Received from <b style="color: var(--ink);">VSK Procurement Desk</b> · 20 Feb 2026, 14:32 WAT</span>
+        </div>
+      </div>
+
+      <div class="summary-body">
+
+        <!-- Left column -->
+        <div>
+          <div class="kv-row">
+            <div class="k">PI Number</div>
+            <div class="v mono">ORD0000023649</div>
+          </div>
+          <div class="kv-row">
+            <div class="k">Revision</div>
+            <div class="v">1 <span class="meta">2 prior revisions · supersedes Rev 0 of 07 Feb 2026</span></div>
+          </div>
+          <div class="kv-row">
+            <div class="k">Supplier</div>
+            <div class="v">VSK Motors and Traders FZE <span class="meta">Sharjah, UAE</span></div>
+          </div>
+          <div class="kv-row">
+            <div class="k">Linked PO</div>
+            <div class="v mono"><a href="#" style="color: var(--navy-700);">PO-2026-001</a></div>
+          </div>
+          <div class="kv-row">
+            <div class="k">Issue Date</div>
+            <div class="v">20 Feb 2026</div>
+          </div>
+          <div class="kv-row">
+            <div class="k">Validity Until</div>
+            <div class="v">31 Mar 2026 <span class="meta warn">⚠ Expired 49 days ago — request fresh confirmation before payment</span></div>
+          </div>
+          <div class="kv-row">
+            <div class="k">Currency</div>
+            <div class="v">USD <span class="meta">US Dollar</span></div>
+          </div>
+          <div class="kv-row">
+            <div class="k">Status</div>
+            <div class="v"><span class="pill pill-amber">Pending Review</span></div>
+          </div>
+        </div>
+
+        <!-- Right column -->
+        <div>
+          <div class="kv-row">
+            <div class="k">Port of Loading</div>
+            <div class="v">Any Seaport in India</div>
+          </div>
+          <div class="kv-row">
+            <div class="k">Port of Discharge</div>
+            <div class="v">Apapa <span class="meta">Lagos, Nigeria</span></div>
+          </div>
+          <div class="kv-row">
+            <div class="k">Country of Origin</div>
+            <div class="v">India</div>
+          </div>
+          <div class="kv-row">
+            <div class="k">Country of Destination</div>
+            <div class="v">Nigeria</div>
+          </div>
+          <div class="kv-row">
+            <div class="k">Payment Terms</div>
+            <div class="v">CFR, Apapa &amp; Letter of Credit at sight <span class="meta">Cost &amp; Freight included in unit price; LC drawn on Zenith Bank PLC</span></div>
+          </div>
+          <div class="kv-row">
+            <div class="k">Total Value</div>
+            <div class="v amount">$ 3,196,140.00</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== TABS ===== -->
+    <section class="tabs-card">
+
+      <div class="tab-strip">
+        <button class="tab-btn active" data-tab="lines">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 7h12M2 10h12M6 3v10"/></svg>
+          Line Items
+          <span class="count">5</span>
+        </button>
+        <button class="tab-btn" data-tab="diff">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 2v12M11 2v12M5 5h6M5 11h6"/></svg>
+          Compare to Revision 0
+          <span class="diff-badge">2 changes</span>
+        </button>
+        <button class="tab-btn" data-tab="source">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg>
+          Source Document
+        </button>
+        <div class="tab-spacer"></div>
+        <div class="tab-strip-meta">
+          <span>Currency · <b style="color: var(--ink);">USD</b></span>
+        </div>
+      </div>
+
+      <!-- ============ TAB · LINE ITEMS ============ -->
+      <div class="tab-panel active" id="tab-lines">
+        <table class="line-table">
+          <thead>
+            <tr>
+              <th class="col-line">#</th>
+              <th>Product Variant</th>
+              <th class="col-qty num-col">Quantity</th>
+              <th class="col-price num-col">Unit Price · USD</th>
+              <th class="col-total num-col">Line Total · USD</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-line">1</td>
+              <td class="variant-cell">
+                <div class="variant-name">TVS King GS+ DP CKD EXP10 Eco Green</div>
+                <div class="variant-sku">SKU · TVS-KING-GSPDP-EXP10-EG · CKD</div>
+              </td>
+              <td class="num-col">46</td>
+              <td class="num-col">$ 1,422.00</td>
+              <td class="num-col">$ 65,412.00</td>
+            </tr>
+            <tr>
+              <td class="col-line">2</td>
+              <td class="variant-cell">
+                <div class="variant-name">TVS King GS+ DP CKD EXP10 NEP Blue</div>
+                <div class="variant-sku">SKU · TVS-KING-GSPDP-EXP10-NB · CKD</div>
+              </td>
+              <td class="num-col">368</td>
+              <td class="num-col">$ 1,422.00</td>
+              <td class="num-col">$ 523,296.00</td>
+            </tr>
+            <tr>
+              <td class="col-line">3</td>
+              <td class="variant-cell">
+                <div class="variant-name">TVS King GS+ DP CKD EXP10 NF Wine Red</div>
+                <div class="variant-sku">SKU · TVS-KING-GSPDP-EXP10-WR · CKD</div>
+              </td>
+              <td class="num-col">69</td>
+              <td class="num-col">$ 1,422.00</td>
+              <td class="num-col">$ 98,118.00</td>
+            </tr>
+            <tr>
+              <td class="col-line">4</td>
+              <td class="variant-cell">
+                <div class="variant-name">TVS King GS+ DP CKD EXP10 G Yellow</div>
+                <div class="variant-sku">SKU · TVS-KING-GSPDP-EXP10-GY · CKD</div>
+              </td>
+              <td class="num-col">1,472</td>
+              <td class="num-col">$ 1,422.00</td>
+              <td class="num-col">$ 2,093,184.00</td>
+            </tr>
+            <tr>
+              <td class="col-line">5</td>
+              <td class="variant-cell">
+                <div class="variant-name">TVS King ZS+ EXP CKD G Yellow</div>
+                <div class="variant-sku">SKU · TVS-KING-ZSPEXP-CKD-GY · CKD · assembles to CBU</div>
+              </td>
+              <td class="num-col">115</td>
+              <td class="num-col">$ 1,662.00</td>
+              <td class="num-col">$ 191,130.00</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="totals-strip">
+          <div class="totals-block">
+            <div class="key">Net Amount · 5 lines · 2,070 units</div>
+            <div class="val">$ 2,971,140.00</div>
+            <div class="key">Freight</div>
+            <div class="val">$ 225,000.00</div>
+            <div class="key note">└ 90 containers × $ 2,500.00</div>
+            <div class="val"></div>
+            <div class="key">Insurance</div>
+            <div class="val" style="color: var(--grey-500);">$ 0.00</div>
+            <div class="key grand">Total · USD</div>
+            <div class="val grand">$ 3,196,140.00</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ TAB · DIFF ============ -->
+      <div class="tab-panel" id="tab-diff">
+        <div class="diff-summary">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11v.01"/></svg>
+          <span><b>2 changes</b> from Revision 0 to Revision 1. <b style="color: var(--green-700);">+$25,000.00 net effect</b> on total value.</span>
+          <span class="diff-meta">Rev 0 issued 07 Feb 2026 · Rev 1 issued 20 Feb 2026 · 13 days between revisions</span>
+        </div>
+
+        <div class="diff-cols-header">
+          <div class="diff-col-head">
+            <span class="rev-num">Rev 0</span>
+            <span>·</span>
+            <span class="when">Issued 07 Feb 2026 · superseded</span>
+          </div>
+          <div class="diff-col-head">
+            <span class="rev-num">Rev 1</span>
+            <span>·</span>
+            <span class="when">Issued 20 Feb 2026 · this revision</span>
+          </div>
+        </div>
+
+        <!-- Change 1: quantity on line 4 -->
+        <div class="diff-change-card">
+          <div class="diff-change-head">
+            <span class="change-chip">Line 4 · Quantity</span>
+            <span>TVS King GS+ DP CKD EXP10 G Yellow</span>
+            <span style="color: var(--grey-500); font-size: 12px;">· quantity increased by 72 units</span>
+          </div>
+          <div class="diff-cols">
+            <div class="diff-col before">
+              <div class="diff-kv"><div class="k">Quantity</div><div class="v changed-before">1,400</div></div>
+              <div class="diff-kv"><div class="k">Unit Price</div><div class="v">$ 1,422.00</div></div>
+              <div class="diff-kv"><div class="k">Line Total</div><div class="v changed-before">$ 1,990,800.00</div></div>
+            </div>
+            <div class="diff-col after">
+              <div class="diff-kv"><div class="k">Quantity</div><div class="v changed-after">1,472 <span class="delta">+72</span></div></div>
+              <div class="diff-kv"><div class="k">Unit Price</div><div class="v">$ 1,422.00</div></div>
+              <div class="diff-kv"><div class="k">Line Total</div><div class="v changed-after">$ 2,093,184.00 <span class="delta">+$102,384.00</span></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Change 2: freight -->
+        <div class="diff-change-card">
+          <div class="diff-change-head">
+            <span class="change-chip">Freight</span>
+            <span>Shipping &amp; insurance line</span>
+            <span style="color: var(--grey-500); font-size: 12px;">· 10 additional 20ft containers added</span>
+          </div>
+          <div class="diff-cols">
+            <div class="diff-col before">
+              <div class="diff-kv"><div class="k">Containers</div><div class="v changed-before">80 × $ 2,500.00</div></div>
+              <div class="diff-kv"><div class="k">Freight Subtotal</div><div class="v changed-before">$ 200,000.00</div></div>
+            </div>
+            <div class="diff-col after">
+              <div class="diff-kv"><div class="k">Containers</div><div class="v changed-after">90 × $ 2,500.00 <span class="delta">+10 containers</span></div></div>
+              <div class="diff-kv"><div class="k">Freight Subtotal</div><div class="v changed-after">$ 225,000.00 <span class="delta">+$25,000.00</span></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- net effect -->
+        <div class="diff-change-card" style="background: #FBFBFB;">
+          <div class="diff-change-head">
+            <span class="change-chip" style="background: var(--green-50); color: var(--green-700);">Net total impact</span>
+            <span>Revised PI total</span>
+          </div>
+          <div class="diff-cols">
+            <div class="diff-col before">
+              <div class="diff-kv"><div class="k">Net amount</div><div class="v changed-before">$ 2,868,756.00</div></div>
+              <div class="diff-kv"><div class="k">Freight</div><div class="v changed-before">$ 200,000.00</div></div>
+              <div class="diff-kv"><div class="k">Insurance</div><div class="v">$ 0.00</div></div>
+              <div class="diff-kv"><div class="k" style="font-weight:600; color: var(--ink);">Total</div><div class="v changed-before" style="font-size: 14px;">$ 3,068,756.00</div></div>
+            </div>
+            <div class="diff-col after">
+              <div class="diff-kv"><div class="k">Net amount</div><div class="v changed-after">$ 2,971,140.00 <span class="delta">+$102,384.00</span></div></div>
+              <div class="diff-kv"><div class="k">Freight</div><div class="v changed-after">$ 225,000.00 <span class="delta">+$25,000.00</span></div></div>
+              <div class="diff-kv"><div class="k">Insurance</div><div class="v">$ 0.00</div></div>
+              <div class="diff-kv"><div class="k" style="font-weight:600; color: var(--ink);">Total</div><div class="v changed-after" style="font-size: 14px;">$ 3,196,140.00 <span class="delta">+$127,384.00</span></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Unchanged items collapsed -->
+        <div class="unchanged-toggle" id="uncToggle">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l3 3-3 3"/></svg>
+          <span><b style="color: var(--ink);">11</b> unchanged fields hidden · Lines 1–3 &amp; 5, supplier, payment terms, ports of loading/discharge, country of origin/destination, currency, validity</span>
+        </div>
+        <div class="unchanged-list" id="uncList">
+          <div class="item">Line 1 — TVS King GS+ DP CKD EXP10 Eco Green · 46 units @ $1,422.00</div>
+          <div class="item">Line 2 — TVS King GS+ DP CKD EXP10 NEP Blue · 368 units @ $1,422.00</div>
+          <div class="item">Line 3 — TVS King GS+ DP CKD EXP10 NF Wine Red · 69 units @ $1,422.00</div>
+          <div class="item">Line 5 — TVS King ZS+ EXP CKD G Yellow · 115 units @ $1,662.00</div>
+          <div class="item">Supplier · VSK Motors and Traders FZE</div>
+          <div class="item">Payment Terms · CFR, Apapa &amp; Letter of Credit at sight</div>
+          <div class="item">Port of Loading · Any Seaport in India</div>
+          <div class="item">Port of Discharge · Apapa</div>
+          <div class="item">Country of Origin · India</div>
+          <div class="item">Country of Destination · Nigeria</div>
+          <div class="item">Currency · USD</div>
+        </div>
+
+        <div class="diff-foot">
+          <span>Diff computed against <b>Revision 0</b>. Comparing the same field across all 3 revisions on request.</span>
+          <a href="#" style="color: var(--navy-700); font-size: 12px; font-weight: 500; text-decoration: none;">Open full revision history →</a>
+        </div>
+      </div>
+
+      <!-- ============ TAB · SOURCE DOC ============ -->
+      <div class="tab-panel" id="tab-source">
+        <div class="pdf-viewer-toolbar">
+          <span style="font-size: 13px; color: var(--ink); font-weight: 500;">ORD0000023649-Rev1.pdf</span>
+          <span class="pdf-toolbar-mono">·  1.4 MB  ·  2 pages</span>
+          <span style="font-size: 11px; color: var(--grey-500);">·  uploaded by VSK Procurement Desk on 20 Feb 2026, 14:32 WAT</span>
+          <div class="pdf-toolbar-spacer"></div>
+          <div class="zoom-controls">
+            <button title="Zoom out">−</button>
+            <span class="zoom-level">100%</span>
+            <button title="Zoom in">+</button>
+          </div>
+          <button class="btn btn-secondary btn-sm">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11v2h10v-2M8 3v8m0 0l-3-3m3 3l3-3"/></svg>
+            Download PDF
+          </button>
+          <button class="btn btn-secondary btn-sm">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M3 8V3h5M13 8v5h-5"/></svg>
+            Open in new tab
+          </button>
+        </div>
+
+        <div class="pdf-stage">
+          <div class="pdf-doc">
+            <div class="pdf-watermark">REV 1</div>
+
+            <div class="pdf-letterhead">
+              <div class="pdf-logo">VSK</div>
+              <div class="pdf-letterhead-text">
+                <div class="org">VSK Motors and Traders FZE</div>
+                <div class="org-sub">
+                  Office No. 41-B, Hamriyah Free Zone Phase II<br/>
+                  P.O. Box 50532, Sharjah, United Arab Emirates<br/>
+                  Tel: +971 6 526 8112 · Email: ops@vsk-motors.ae · TRN: 100482739100003
+                </div>
+              </div>
+              <div class="pdf-doc-id">
+                <div style="font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: #777; font-weight: 700; margin-bottom: 2px;">Proforma Invoice</div>
+                <div class="id-num">ORD0000023649</div>
+                <div style="margin-top: 6px;">Rev. 1 · 20 Feb 2026<br/>Valid until 31 Mar 2026</div>
+              </div>
+            </div>
+
+            <div class="pdf-title">PROFORMA INVOICE</div>
+
+            <div class="pdf-meta-grid">
+              <div class="pdf-meta-block">
+                <div class="pdf-meta-head">Beneficiary / Buyer</div>
+                <div class="pdf-meta-body">
+                  <b>Enviable Tricycle Auto Parts Ltd.</b><br/>
+                  Plot 14B, Apapa-Oshodi Expressway<br/>
+                  Apapa, Lagos State, Nigeria<br/>
+                  RC No: 1748392 · TIN: 21845-0001
+                </div>
+              </div>
+              <div class="pdf-meta-block">
+                <div class="pdf-meta-head">Consignee / Notify</div>
+                <div class="pdf-meta-body">
+                  <b>Same as buyer</b><br/>
+                  Plot 14B, Apapa-Oshodi Expressway<br/>
+                  Apapa, Lagos State, Nigeria<br/>
+                  Contact: F. Adebayo · +234 802 414 8821
+                </div>
+              </div>
+              <div class="pdf-meta-block">
+                <div class="pdf-meta-head">Reference</div>
+                <div class="pdf-meta-body">
+                  Buyer PO No.: <b>PO-2026-001</b><br/>
+                  Manufacturer: TVS Motor Company Limited (Hosur, India)<br/>
+                  Beneficiary Bank Reference: ZB-LC-2026-04812
+                </div>
+              </div>
+              <div class="pdf-meta-block">
+                <div class="pdf-meta-head">Shipment</div>
+                <div class="pdf-meta-body">
+                  Expected Ship Date: <b>14 Jun 2026 (approx.)</b><br/>
+                  Partial Shipment: Not allowed · Transhipment: Allowed<br/>
+                  Latest Date of Shipment: 30 Jun 2026
+                </div>
+              </div>
+            </div>
+
+            <div class="pdf-terms-grid">
+              <div class="pdf-terms-row"><span class="k">Port of Loading</span><span class="v">Any Seaport in India</span></div>
+              <div class="pdf-terms-row"><span class="k">Port of Discharge</span><span class="v">Apapa, Lagos, Nigeria</span></div>
+              <div class="pdf-terms-row"><span class="k">Country of Origin</span><span class="v">India</span></div>
+              <div class="pdf-terms-row"><span class="k">Country of Destination</span><span class="v">Nigeria</span></div>
+              <div class="pdf-terms-row"><span class="k">Currency</span><span class="v">USD</span></div>
+              <div class="pdf-terms-row"><span class="k">Incoterms 2020</span><span class="v">CFR Apapa</span></div>
+              <div class="pdf-terms-row" style="grid-column: span 3;"><span class="k">Payment Terms</span><span class="v">CFR, Apapa &amp; Letter of Credit at sight, drawn on Zenith Bank PLC, in favour of the seller.</span></div>
+            </div>
+
+            <table class="pdf-line-table">
+              <thead>
+                <tr>
+                  <th style="width: 30px;">#</th>
+                  <th>Description of Goods (CKD)</th>
+                  <th style="width: 70px;" class="r">Qty</th>
+                  <th style="width: 90px;" class="r">Unit · USD</th>
+                  <th style="width: 110px;" class="r">Amount · USD</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>1</td><td>TVS King GS+ DP CKD EXP10 — Eco Green</td><td class="r">46</td><td class="r">1,422.00</td><td class="r">65,412.00</td></tr>
+                <tr><td>2</td><td>TVS King GS+ DP CKD EXP10 — NEP Blue</td><td class="r">368</td><td class="r">1,422.00</td><td class="r">523,296.00</td></tr>
+                <tr><td>3</td><td>TVS King GS+ DP CKD EXP10 — NF Wine Red</td><td class="r">69</td><td class="r">1,422.00</td><td class="r">98,118.00</td></tr>
+                <tr><td>4</td><td>TVS King GS+ DP CKD EXP10 — G Yellow</td><td class="r">1,472</td><td class="r">1,422.00</td><td class="r">2,093,184.00</td></tr>
+                <tr><td>5</td><td>TVS King ZS+ EXP CKD — G Yellow</td><td class="r">115</td><td class="r">1,662.00</td><td class="r">191,130.00</td></tr>
+              </tbody>
+            </table>
+
+            <div class="pdf-totals">
+              <div class="tr"><span>Net Amount (FOB India)</span><span>USD 2,971,140.00</span></div>
+              <div class="tr"><span>Freight · 90 × 20ft @ USD 2,500.00</span><span>USD 225,000.00</span></div>
+              <div class="tr"><span>Insurance</span><span>USD 0.00</span></div>
+              <div class="tr grand"><span>Total · CFR Apapa</span><span>USD 3,196,140.00</span></div>
+            </div>
+
+            <div class="pdf-foot">
+              <div class="pdf-bank-block">
+                <div class="h">Beneficiary Bank Details</div>
+                Beneficiary: VSK Motors and Traders FZE<br/>
+                Bank: Mashreq Bank PSC, Sharjah Main Branch<br/>
+                Account No: 019100789246001<br/>
+                IBAN: AE73 0330 0000 1910 0789 2460 01<br/>
+                SWIFT/BIC: BOMLAEAD<br/>
+                Correspondent (USD): Bank of New York Mellon · IRVTUS3N
+              </div>
+              <div class="pdf-sig-block">
+                <div style="margin-bottom: 8px;">Signed for and on behalf of<br/><b>VSK Motors and Traders FZE</b></div>
+                <div class="pdf-stamp">VSK · Authorised · 20 Feb 2026</div>
+                <div style="font-family: 'Brush Script MT', cursive; font-size: 22px; color: #1a3a64; margin: -4px 0 4px;">V. S. Krishnan</div>
+                <div style="font-size: 10px; color: #444;">V. S. Krishnan · Authorised Signatory · Director, Exports</div>
+              </div>
+            </div>
+
+            <div style="margin-top: 28px; padding-top: 12px; border-top: 1px solid #ccc; font-size: 9.5px; color: #777; line-height: 1.5; text-align: center;">
+              Page 1 of 2 · Goods to be supplied under the Terms &amp; Conditions of Sale annexed to this proforma invoice. <br/>
+              Subject to Sharjah jurisdiction · This is a computer-generated document; no signature is required when issued electronically with company stamp.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ===== STICKY FOOTER ===== -->
+    <div class="form-footer">
+      <div class="form-footer-left">
+        <span>Reviewing as <b>Funmi Adebayo</b> · Procurement Officer</span>
+        <span style="color: var(--grey-300);">·</span>
+        <span>Last action: Rev 1 received <b>20 Feb 2026, 14:32 WAT</b></span>
+      </div>
+      <div class="form-footer-actions">
+        <button class="btn btn-ghost">Save comment</button>
+        <button class="btn-danger-solid">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M4 4l8 8"/></svg>
+          Reject
+        </button>
+        <button class="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 8l3.5 3.5L14 3"/></svg>
+          Approve Revision
+        </button>
+      </div>
+    </div>
+
+  </div>
+  </div>
+
+</main>
+
+<script>
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+  });
+
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${target}`));
+    });
+  });
+
+  // Unchanged-list collapse
+  const tg = document.getElementById('uncToggle');
+  const list = document.getElementById('uncList');
+  tg.addEventListener('click', () => {
+    tg.classList.toggle('open');
+    list.classList.toggle('open');
+  });
+</script>
+
+<script src="role-switcher.js"></script>
+</body>
+</html>

@@ -1,111 +1,120 @@
 @import "tailwindcss";
 
 /*
-  Enviable design tokens. Source of truth for utility classes and CSS variables.
-  Anchored to the design handoff: NetSuite/Odoo enterprise density, navy primary
-  #1F4E79, dense type, 4px spacing, narrow radii, small controls.
+  Enviable design tokens. Values come from design_handoff_enviable_io/tokens.css
+  (the design source of truth, per CLAUDE.md section 4). NetSuite/Odoo enterprise
+  density, navy primary #1F4E79, dense type, 4px spacing, narrow radii, small
+  controls. The scaffold names (ink-X, success-X, etc.) stay; only the values
+  are reconciled to the handoff. Keep src/styles/tokens.ts aligned with this file.
 */
 
 @theme {
   /* Spacing base: 4px. p-1 = 4px, p-2 = 8px, p-7 = 28px, p-11 = 44px, p-53 = 212px. */
   --spacing: 0.25rem;
 
-  /* Brand: navy */
-  --color-navy-50: #F0F6FB;
-  --color-navy-100: #DCE9F4;
+  /* Brand: navy. Sidebar background is navy-800. */
+  --color-navy-50: #F2F6FA;
+  --color-navy-100: #E6EEF6;
   --color-navy-200: #B6CFE3;
   --color-navy-300: #87AED0;
   --color-navy-400: #5689BC;
-  --color-navy-500: #3A70A6;
-  --color-navy-600: #2A5D8F;
+  --color-navy-500: #5A82A8;
+  --color-navy-600: #2C5E8E;
   --color-navy-700: #1F4E79;
-  --color-navy-800: #17395B;
-  --color-navy-900: #102845;
+  --color-navy-800: #163C61;
+  --color-navy-900: #0F2A44;
 
-  /* Neutrals */
+  /* Neutrals. Mid scale (100-700) matches the handoff's grey-100..grey-700;
+     ink-900 matches the handoff's --ink. 50, 600, 800 keep the scaffold's
+     interpolation since the handoff doesn't specify them. */
   --color-ink-50: #F7F8FA;
-  --color-ink-100: #EEF0F3;
-  --color-ink-200: #DDE1E6;
-  --color-ink-300: #C5CCD3;
-  --color-ink-400: #9AA3AD;
-  --color-ink-500: #6B7480;
+  --color-ink-100: #F2F3F5;
+  --color-ink-200: #E6E8EC;
+  --color-ink-300: #D2D5DB;
+  --color-ink-400: #AEB1B8;
+  --color-ink-500: #7B7F87;
   --color-ink-600: #4A525C;
-  --color-ink-700: #333A42;
+  --color-ink-700: #43474F;
   --color-ink-800: #1F242A;
-  --color-ink-900: #11151A;
+  --color-ink-900: #1A1A1A;
 
-  /* Semantic */
-  --color-success-50: #E8F4ED;
+  /* Semantic. 700 is the canonical accent, 50 is the soft background. */
+  --color-success-50: #E8F2E9;
   --color-success-100: #C9E4D3;
   --color-success-600: #1F8A4D;
-  --color-success-700: #1F7544;
+  --color-success-700: #2E7D32;
   --color-success-800: #155E36;
 
-  --color-warning-50: #FBF1DD;
+  --color-warning-50: #FBEFE0;
   --color-warning-100: #F5E0B0;
   --color-warning-600: #B97A0B;
-  --color-warning-700: #A06700;
+  --color-warning-700: #B45F06;
   --color-warning-800: #835300;
 
-  --color-danger-50: #FBE9E6;
+  --color-danger-50: #FAE3E3;
   --color-danger-100: #F4CCC5;
   --color-danger-600: #C5392D;
-  --color-danger-700: #A92E23;
+  --color-danger-700: #C00000;
   --color-danger-800: #8A241B;
 
-  /* Surfaces */
+  /* Surfaces. canvas = page background, surface = card/table background. */
   --color-surface: #FFFFFF;
-  --color-surface-muted: #F7F8FA;
-  --color-surface-sunken: #EEF0F3;
-  --color-border-subtle: #EEF0F3;
-  --color-border-default: #DDE1E6;
-  --color-border-strong: #C5CCD3;
+  --color-surface-muted: #F6F7F9;
+  --color-surface-sunken: #F2F3F5;
+  --color-border-subtle: #F2F3F5;
+  --color-border-default: #E6E8EC;
+  --color-border-strong: #D2D5DB;
 
-  /* Aliases (semantic to brand) */
   --color-background: var(--color-surface);
-  --color-foreground: var(--color-ink-800);
+  --color-foreground: var(--color-ink-900);
 
-  /* Fonts: distinctive enough for ERP density without consumer-SaaS gloss. */
+  /* Sidebar-specific tints (the handoff's --navy-800 sidebar uses warm desaturated
+     blues for nav text/labels that are not in the brand scale; expose them so the
+     shell does not need arbitrary-value Tailwind utilities everywhere). */
+  --color-sidebar-bg: var(--color-navy-800);
+  --color-sidebar-fg: #CFDCEC;
+  --color-sidebar-muted: #8AA6C4;
+  --color-sidebar-label: #6F8AA6;
+  --color-sidebar-hover: #B6CAE0;
+  --color-sidebar-active-bar: #5A9FE8;
+
+  /* Fonts. */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular,
     "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
-  /* Type scale (densities pulled from the handoff). */
-  --text-micro: 0.625rem;          /* 10px small chips */
+  /* Type scale (handoff densities). */
+  --text-micro: 0.625rem;          /* 10px */
   --text-micro--line-height: 1.3;
   --text-thead: 0.65625rem;        /* 10.5px uppercase table headers */
   --text-thead--line-height: 1.2;
-  --text-small: 0.6875rem;         /* 11px secondary */
+  --text-small: 0.6875rem;         /* 11px */
   --text-small--line-height: 1.35;
   --text-body: 0.78125rem;         /* 12.5px body baseline */
   --text-body--line-height: 1.4;
-  --text-label: 0.8125rem;         /* 13px form labels */
+  --text-label: 0.8125rem;         /* 13px */
   --text-label--line-height: 1.35;
-  --text-section: 0.875rem;        /* 14px section headers */
+  --text-section: 0.875rem;        /* 14px */
   --text-section--line-height: 1.35;
   --text-page: 1.125rem;           /* 18px page titles */
   --text-page--line-height: 1.3;
   --text-kpi: 1.375rem;            /* 22px KPI numbers */
   --text-kpi--line-height: 1.15;
 
-  /* Border radii: 2-3px max for controls, 4px ceiling for cards. */
+  /* Border radii. 2-3px for controls, 4px max for cards. */
   --radius-xs: 1px;
   --radius-sm: 2px;
   --radius-md: 3px;
   --radius-lg: 4px;
 
-  /* Control + chrome sizing tokens (referenced via h-control etc. utilities below). */
+  /* Chrome sizing. */
   --size-control: 1.75rem;         /* 28px buttons/inputs */
   --size-row: 1.875rem;            /* 30px table row */
   --size-topbar: 2.75rem;          /* 44px */
   --size-sidebar: 13.25rem;        /* 212px */
 }
 
-/*
-  Custom utility classes for the chrome dimensions. Tailwind v4 generates the
-  spacing-derived ones (h-7 = 28px) but the named tokens keep semantic intent.
-*/
 @utility h-control { height: var(--size-control); }
 @utility h-row { height: var(--size-row); }
 @utility h-topbar { height: var(--size-topbar); }

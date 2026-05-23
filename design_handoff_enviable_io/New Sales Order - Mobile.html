@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=390, initial-scale=1" />
+<title>New Sales Order · Mobile</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  body { margin: 0; background: var(--canvas); width: 390px; min-height: 100vh; padding-bottom: 120px; }
+  .mob-topbar { height: 50px; background: var(--navy-800); color: #fff; display: flex; align-items: center; padding: 0 12px; gap: 10px; position: sticky; top: 0; z-index: 30; }
+  .mob-topbar .back { width: 32px; height: 32px; display: grid; place-items: center; background: transparent; border: none; color: #fff; cursor: pointer; border-radius: 4px; }
+  .mob-topbar .title { font-size: 14px; font-weight: 600; flex: 1; line-height: 1.15; }
+  .mob-topbar .title .sub { font-size: 10.5px; color: #8aa6c4; font-weight: 400; }
+  .mob-topbar .menu-btn { width: 32px; height: 32px; display: grid; place-items: center; background: transparent; border: none; color: #fff; cursor: pointer; border-radius: 4px; }
+
+  .crumbs { padding: 10px 14px 0; font-size: 11px; color: var(--grey-500); display: flex; align-items: center; gap: 5px; }
+  .crumbs .sep { color: var(--grey-300); }
+  .crumbs .current { color: var(--ink); font-weight: 500; }
+
+  .page-head { padding: 8px 14px 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--grey-200); }
+  .page-head h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  .so-tag { font-family: var(--font-mono); font-size: 11px; color: var(--navy-700); background: var(--navy-50); padding: 3px 7px; border-radius: 3px; font-weight: 600; }
+  .draft-tag { font-size: 9.5px; padding: 2px 6px; background: var(--grey-100); color: var(--grey-700); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; border-radius: 2px; }
+
+  .section { padding: 12px 14px; border-bottom: 1px solid var(--grey-200); background: #fff; }
+  .section-title { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--grey-500); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .section-title .step { font-family: var(--font-mono); background: var(--grey-100); padding: 1px 5px; border-radius: 2px; }
+
+  .field-stack { display: flex; flex-direction: column; gap: 12px; }
+  .field-group { display: flex; flex-direction: column; gap: 4px; }
+  .field-label { font-size: 11px; color: var(--grey-700); font-weight: 500; }
+  .field { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--grey-300); border-radius: 3px; font-size: 13px; color: var(--ink); font-family: inherit; background: #fff; }
+  .field:focus { outline: none; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.12); }
+  .auto-row { display: flex; align-items: center; height: 36px; border: 1px solid var(--grey-200); background: var(--grey-100); border-radius: 3px; padding: 0 12px; font-size: 12px; font-weight: 500; }
+  .auto-row.mono { font-family: var(--font-mono); color: var(--navy-700); font-weight: 600; }
+
+  .customer-card { border: 1px solid var(--grey-300); border-radius: 3px; background: #fff; padding: 10px 12px; display: flex; gap: 10px; align-items: center; }
+  .customer-card .av { width: 32px; height: 32px; border-radius: 4px; background: var(--navy-50); color: var(--navy-700); display: grid; place-items: center; flex-shrink: 0; }
+  .customer-card .body { flex: 1; min-width: 0; line-height: 1.3; }
+  .customer-card .name { font-size: 13px; font-weight: 600; }
+  .customer-card .meta { font-size: 11px; color: var(--grey-500); }
+  .tier-tag { font-size: 9.5px; padding: 1px 5px; background: var(--navy-50); color: var(--navy-700); font-weight: 700; letter-spacing: 0.04em; border-radius: 2px; }
+
+  /* Line item card */
+  .line-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; margin-bottom: 10px; overflow: hidden; }
+  .line-card .lc-head { padding: 8px 12px; background: var(--grey-100); display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--grey-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--grey-200); }
+  .line-card .lc-head .idx { font-family: var(--font-mono); }
+  .line-card .lc-head .form-pill { margin-left: auto; padding: 2px 7px; border-radius: 3px; font-size: 10px; font-weight: 700; }
+  .line-card .lc-head .form-pill.ckd { background: var(--navy-100); color: var(--navy-800); }
+  .line-card .lc-head .form-pill.cbu { background: var(--green-50); color: var(--green-700); }
+  .line-card .lc-body { padding: 10px 12px; }
+  .line-card .variant { font-size: 13px; font-weight: 500; line-height: 1.35; margin-bottom: 4px; }
+  .line-card .unit { font-family: var(--font-mono); font-size: 11px; color: var(--grey-500); margin-bottom: 8px; }
+  .line-card .nums { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; font-size: 12px; }
+  .line-card .nums .k { font-size: 9.5px; color: var(--grey-500); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; margin-bottom: 1px; }
+  .line-card .nums .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .line-card .nums .v.discount { color: var(--red-700); }
+  .line-card .nums .v.total { color: var(--navy-800); font-size: 13.5px; }
+  .line-card .lc-actions { padding: 0 12px 10px; display: flex; gap: 6px; }
+  .line-card .lc-actions a { font-size: 11px; color: var(--navy-700); font-weight: 500; cursor: pointer; }
+  .line-card .lc-actions a.danger { color: var(--red-700); margin-left: auto; }
+  .add-line-btn { width: 100%; height: 38px; border: 1px dashed var(--grey-400); background: #fff; color: var(--navy-700); border-radius: 3px; font-family: inherit; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+  .add-line-btn:hover { border-color: var(--navy-700); background: var(--navy-50); }
+
+  /* Totals */
+  .totals-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; padding: 12px 14px; }
+  .totals-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12.5px; }
+  .totals-row .k { color: var(--grey-700); }
+  .totals-row .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .totals-row .v.discount { color: var(--red-700); }
+  .totals-row.grand { border-top: 2px solid var(--ink); margin-top: 6px; padding-top: 10px; }
+  .totals-row.grand .k { font-weight: 600; font-size: 13px; }
+  .totals-row.grand .v { font-size: 19px; color: var(--navy-800); font-weight: 700; }
+  .price-list-note { margin-top: 10px; padding: 8px 10px; background: var(--navy-50); border-radius: 3px; font-size: 11px; color: var(--navy-800); line-height: 1.45; }
+
+  /* Lifecycle strip */
+  .flow-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; padding: 12px 14px; }
+  .flow-head { font-size: 11px; color: var(--grey-500); margin-bottom: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .flow-scroll { overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .flow-scroll::-webkit-scrollbar { height: 4px; }
+  .flow-scroll::-webkit-scrollbar-thumb { background: var(--grey-300); border-radius: 2px; }
+  .flow-strip { display: flex; align-items: center; gap: 0; padding: 0 4px 6px; }
+  .flow-step { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; min-width: 78px; position: relative; }
+  .flow-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--grey-100); border: 2px solid var(--grey-300); color: var(--grey-500); display: grid; place-items: center; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; position: relative; z-index: 2; }
+  .flow-step.current .flow-dot { background: var(--navy-700); border-color: var(--navy-700); color: #fff; box-shadow: 0 0 0 3px rgba(31,78,121,0.15); }
+  .flow-label { font-size: 9.5px; color: var(--grey-500); text-align: center; line-height: 1.2; white-space: nowrap; padding: 0 4px; }
+  .flow-step.current .flow-label { color: var(--navy-700); font-weight: 600; }
+  .flow-step:not(:last-child)::after { content: ''; position: absolute; top: 12px; left: calc(50% + 14px); right: calc(-50% + 14px); height: 2px; background: var(--grey-200); z-index: 1; }
+
+  /* Footer */
+  .fab-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--grey-200); padding: 10px 14px 12px; box-shadow: 0 -2px 8px rgba(15,42,68,0.08); display: flex; flex-direction: column; gap: 8px; }
+  .fab-bar .total-line { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: var(--grey-500); }
+  .fab-bar .total-line b { color: var(--navy-800); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .fab-bar .btn-row { display: flex; gap: 8px; }
+  .fab-bar .btn { flex: 1; height: 40px; font-size: 13px; justify-content: center; }
+  .fab-bar .btn-primary { flex: 1.4; }
+</style>
+</head>
+<body>
+
+<header class="mob-topbar">
+  <button class="back"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4l-4 4 4 4"/></svg></button>
+  <div class="title">
+    New Sales Order
+    <div class="sub">SO-2026-001 · Draft</div>
+  </div>
+  <button class="menu-btn"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.6"/><circle cx="8" cy="8" r="1.6"/><circle cx="13" cy="8" r="1.6"/></svg></button>
+</header>
+
+<div class="crumbs">
+  <span>Sales</span><span class="sep">/</span><span>Orders</span><span class="sep">/</span><span class="current">New</span>
+</div>
+
+<div class="page-head">
+  <h1>New Sales Order</h1>
+  <span class="so-tag">SO-2026-001</span>
+  <span class="draft-tag">Draft</span>
+</div>
+
+<!-- ORDER DETAILS -->
+<section class="section">
+  <div class="section-title"><span class="step">01</span><span>Order Details</span></div>
+  <div class="field-stack">
+    <div class="field-group">
+      <label class="field-label">SO Number</label>
+      <div class="auto-row mono">SO-2026-001</div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Customer *</label>
+      <div class="customer-card">
+        <div class="av"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="12" height="9" rx="1"/><path d="M5 5V3a3 3 0 016 0v2"/></svg></div>
+        <div class="body">
+          <div class="name">ABC Tricycle Dealers Ltd.</div>
+          <div class="meta">Ikeja, Lagos · <span class="tier-tag">Reseller Standard</span></div>
+        </div>
+        <svg width="11" height="11" viewBox="0 0 10 10" fill="none" stroke="var(--grey-500)" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Channel</label>
+      <div class="auto-row">Warehouse · Lagos HQ</div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Order Date</label>
+      <div class="auto-row">19 May 2026 · 14:08 WAT</div>
+    </div>
+  </div>
+</section>
+
+<!-- LINES -->
+<section class="section">
+  <div class="section-title"><span class="step">02</span><span>Lines · 3 units</span></div>
+
+  <div class="line-card">
+    <div class="lc-head"><span class="idx">#01</span><span>CKD unit</span><span class="form-pill ckd">CKD</span></div>
+    <div class="lc-body">
+      <div class="variant">TVS King GS+ DP CKD EXP10 G Yellow</div>
+      <div class="unit">TVSKGS25E0001234 · Bay B-04</div>
+      <div class="nums">
+        <div><div class="k">Price</div><div class="v">₦2,800,000</div></div>
+        <div><div class="k">Disc.</div><div class="v" style="color:var(--grey-400);">—</div></div>
+        <div><div class="k">Total</div><div class="v total">₦2,800,000</div></div>
+      </div>
+    </div>
+    <div class="lc-actions"><a>Edit</a><a class="danger">Remove</a></div>
+  </div>
+
+  <div class="line-card">
+    <div class="lc-head"><span class="idx">#02</span><span>CKD unit</span><span class="form-pill ckd">CKD</span></div>
+    <div class="lc-body">
+      <div class="variant">TVS King GS+ DP CKD EXP10 G Yellow</div>
+      <div class="unit">TVSKGS25E0001235 · Bay B-04</div>
+      <div class="nums">
+        <div><div class="k">Price</div><div class="v">₦2,800,000</div></div>
+        <div><div class="k">Disc.</div><div class="v" style="color:var(--grey-400);">—</div></div>
+        <div><div class="k">Total</div><div class="v total">₦2,800,000</div></div>
+      </div>
+    </div>
+    <div class="lc-actions"><a>Edit</a><a class="danger">Remove</a></div>
+  </div>
+
+  <div class="line-card">
+    <div class="lc-head"><span class="idx">#03</span><span>CBU unit</span><span class="form-pill cbu">CBU</span></div>
+    <div class="lc-body">
+      <div class="variant">TVS King ZS+ EXP CBU G Yellow</div>
+      <div class="unit">TVSKZS25E0000017 · CBU Yard A</div>
+      <div class="nums">
+        <div><div class="k">Price</div><div class="v">₦3,500,000</div></div>
+        <div><div class="k">Disc.</div><div class="v discount">−₦100,000</div></div>
+        <div><div class="k">Total</div><div class="v total">₦3,400,000</div></div>
+      </div>
+    </div>
+    <div class="lc-actions"><a>Edit</a><a class="danger">Remove</a></div>
+  </div>
+
+  <button class="add-line-btn">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+    Add line
+  </button>
+</section>
+
+<!-- TOTALS -->
+<section class="section">
+  <div class="section-title"><span>Totals</span></div>
+  <div class="totals-card">
+    <div class="totals-row"><span class="k">Subtotal · 3 lines</span><span class="v">₦9,000,000</span></div>
+    <div class="totals-row"><span class="k">Discount</span><span class="v discount">− ₦100,000</span></div>
+    <div class="totals-row"><span class="k">Net before VAT</span><span class="v">₦8,900,000</span></div>
+    <div class="totals-row"><span class="k">VAT (7.5%)</span><span class="v">₦667,500</span></div>
+    <div class="totals-row grand"><span class="k">Total · NGN</span><span class="v">₦9,567,500</span></div>
+    <div class="price-list-note">Priced from <b>Reseller Standard · v3</b> (effective 01 May 2026), applied automatically based on customer tier.</div>
+  </div>
+</section>
+
+<!-- DELIVERY -->
+<section class="section">
+  <div class="section-title"><span class="step">03</span><span>Delivery</span></div>
+  <div class="field-stack">
+    <div class="field-group">
+      <label class="field-label">Delivery Address</label>
+      <div class="auto-row" style="height: auto; padding: 8px 12px; line-height: 1.5; white-space: pre-line;">Plot 24, Ikeja Industrial Estate
+Off Acme Road, Ogba
+Ikeja, Lagos</div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Delivery Date</label>
+      <input class="field" value="22 May 2026" readonly />
+    </div>
+  </div>
+</section>
+
+<!-- LIFECYCLE -->
+<section class="section" style="border-bottom: none;">
+  <div class="flow-card">
+    <div class="flow-head">Order Lifecycle · Stage 1 of 9</div>
+    <div class="flow-scroll">
+      <div class="flow-strip">
+        <div class="flow-step current"><div class="flow-dot">1</div><div class="flow-label">Draft</div></div>
+        <div class="flow-step"><div class="flow-dot">2</div><div class="flow-label">Awaiting<br/>Payment</div></div>
+        <div class="flow-step"><div class="flow-dot">3</div><div class="flow-label">Payment<br/>Received</div></div>
+        <div class="flow-step"><div class="flow-dot">4</div><div class="flow-label">Release<br/>Authorised</div></div>
+        <div class="flow-step"><div class="flow-dot">5</div><div class="flow-label">Picking</div></div>
+        <div class="flow-step"><div class="flow-dot">6</div><div class="flow-label">Ready for<br/>Dispatch</div></div>
+        <div class="flow-step"><div class="flow-dot">7</div><div class="flow-label">Dispatched</div></div>
+        <div class="flow-step"><div class="flow-dot">8</div><div class="flow-label">Delivered</div></div>
+        <div class="flow-step"><div class="flow-dot">9</div><div class="flow-label">Closed</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STICKY FOOTER -->
+<div class="fab-bar">
+  <div class="total-line">
+    <span>Order total · 3 units</span>
+    <b>₦9,567,500</b>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-secondary">Save Draft</button>
+    <button class="btn btn-primary">Submit Order</button>
+  </div>
+</div>
+
+</body>
+</html>

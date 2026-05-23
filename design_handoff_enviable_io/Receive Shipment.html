@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Receive Shipment — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  /* ===== APP SHELL ===== */
+  body { display: flex; min-height: 100vh; }
+  .app-sidebar { width: var(--sidebar-w); background: var(--navy-800); color: #cfdcec; flex-shrink: 0; position: sticky; top: 0; align-self: flex-start; height: 100vh; display: flex; flex-direction: column; font-size: var(--fs-13); }
+  .app-brand { height: var(--topbar-h); padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .app-brand-mark { width: 30px; height: 30px; border-radius: 4px; background: linear-gradient(135deg, #2c5e8e, #5a82a8); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+  .app-brand-name { color: #fff; font-weight: 600; font-size: 13.5px; line-height: 1.15; }
+  .app-brand-sub  { color: #8aa6c4; font-size: 10.5px; }
+  .nav-scroll { flex: 1; overflow-y: auto; padding: 8px 8px 12px; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; color: #6f8aa6; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600; cursor: pointer; user-select: none; }
+  .nav-group-header .chev { color: #6f8aa6; transition: transform .15s ease; }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .nav-group-body { display: none; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 7px 12px; border-radius: 3px; color: #cfdcec; text-decoration: none; line-height: 1.3; position: relative; white-space: nowrap; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active { background: var(--navy-700); color: #fff; font-weight: 500; }
+  .nav-item.active::before { content: ''; position: absolute; left: -8px; top: 4px; bottom: 4px; width: 3px; border-radius: 0 2px 2px 0; background: #5a9fe8; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .85; }
+  .app-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--navy-600); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
+  .app-user-meta { line-height: 1.25; flex: 1; min-width: 0; overflow: hidden; }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; }
+  .app-user-sign { color: #8aa6c4; font-size: 11px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; }
+  .app-user-sign:hover { color: #fff; }
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: var(--topbar-h); border-bottom: 1px solid var(--grey-200); background: #fff; display: flex; align-items: center; padding: 0 20px; gap: 16px; position: sticky; top: 0; z-index: 30; }
+  .topbar-company { font-size: 14px; font-weight: 600; color: var(--ink); padding-right: 18px; border-right: 1px solid var(--grey-200); height: 28px; display: flex; align-items: center; }
+  .topbar-company .accent { color: var(--navy-700); }
+  .topbar-search { flex: 1; max-width: 560px; margin: 0 auto; height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--grey-100); border: 1px solid transparent; border-radius: 4px; color: var(--grey-500); font-size: 13px; }
+  .topbar-search input { all: unset; flex: 1; font-size: 13px; color: var(--ink); }
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .topbar-icon-btn { width: 32px; height: 32px; display: grid; place-items: center; background: transparent; border: none; border-radius: 4px; color: var(--grey-700); cursor: pointer; position: relative; }
+  .topbar-icon-btn:hover { background: var(--grey-100); color: var(--ink); }
+  .topbar-icon-btn.has-unread::after { content: ''; position: absolute; top: 7px; right: 8px; width: 8px; height: 8px; background: var(--red-700); border-radius: 50%; border: 1.5px solid #fff; }
+  .topbar-divider { width: 1px; height: 22px; background: var(--grey-200); margin: 0 6px; }
+  .topbar-user { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 999px; cursor: pointer; }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 11px; border: none; }
+  .topbar-user-text { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-user-name { font-size: 13px; color: var(--ink); font-weight: 500; line-height: 1.1; white-space: nowrap; }
+  .topbar-user-role { font-size: 11px; color: var(--grey-500); line-height: 1.1; }
+
+  /* ===== PAGE ===== */
+  .app-content { flex: 1; background: var(--canvas); overflow-y: auto; }
+  .page { padding: 24px 28px 60px; max-width: 1280px; }
+
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--grey-200); gap: 24px; }
+  .page-crumbs { font-size: 12px; color: var(--grey-500); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .page-crumbs a { color: var(--grey-500); text-decoration: none; }
+  .page-crumbs a:hover { color: var(--navy-700); }
+  .page-crumbs .sep { color: var(--grey-300); }
+  .page-crumbs .current { color: var(--ink); font-weight: 500; }
+  .page-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .page-title { font-size: 24px; font-weight: 600; color: var(--ink); margin: 0; letter-spacing: -0.01em; }
+  .page-title .mono { font-family: var(--font-mono); font-weight: 600; }
+  .page-sub { color: var(--grey-500); font-size: 13px; }
+  .page-sub b { color: var(--ink); font-weight: 500; }
+  .header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .btn-primary[disabled] { opacity: .45; cursor: not-allowed; pointer-events: none; }
+  .blocker-hint {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--amber-700);
+    padding: 4px 8px; background: var(--amber-50); border-radius: 3px;
+  }
+
+  /* ===== SUMMARY CARD ===== */
+  .summary-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; margin-bottom: 18px; }
+  .summary-head { padding: 14px 20px; border-bottom: 1px solid var(--grey-200); display: flex; align-items: center; justify-content: space-between; }
+  .summary-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); }
+  .summary-body {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+  }
+  .summary-kv {
+    padding: 14px 18px;
+    border-right: 1px solid var(--grey-200);
+    border-bottom: 1px solid var(--grey-200);
+  }
+  .summary-kv:nth-child(4n) { border-right: none; }
+  .summary-kv:nth-last-child(-n+4) { border-bottom: none; }
+  .summary-kv .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey-500); font-weight: 600; margin-bottom: 4px; }
+  .summary-kv .v { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .summary-kv .v.mono { font-family: var(--font-mono); }
+  .summary-kv .v .sub { font-size: 11px; color: var(--grey-500); display: block; font-weight: 400; margin-top: 1px; }
+
+  /* ===== TABS ===== */
+  .tabs-card { background: #fff; border: 1px solid var(--grey-200); border-radius: 4px; margin-bottom: 18px; }
+  .tab-strip { display: flex; align-items: stretch; border-bottom: 1px solid var(--grey-200); padding: 0 8px; background: #fff; overflow-x: auto; }
+  .tab-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 16px; background: transparent; border: none; color: var(--grey-700); font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn.active { color: var(--navy-700); border-bottom-color: var(--navy-700); }
+  .tab-btn .count { font-size: 11px; background: var(--grey-100); color: var(--grey-700); padding: 1px 7px; border-radius: 999px; font-weight: 500; }
+  .tab-btn.active .count { background: var(--navy-50); color: var(--navy-700); }
+  .tab-btn .alert-badge { font-size: 10px; background: var(--red-50); color: var(--red-700); padding: 1px 7px; border-radius: 999px; font-weight: 700; }
+  .tab-btn .progress-pill { font-size: 10px; background: var(--amber-50); color: var(--amber-700); padding: 1px 7px; border-radius: 999px; font-weight: 600; }
+  .tab-btn .done-pill { font-size: 10px; background: var(--green-50); color: var(--green-700); padding: 1px 7px; border-radius: 999px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; }
+  .tab-spacer { flex: 1; }
+  .tab-strip-meta { display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 11.5px; color: var(--grey-500); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ===== TABLES (shared) ===== */
+  .dt { width: 100%; font-size: 13px; }
+  .dt th { text-align: left; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey-500); padding: 11px 16px; border-bottom: 1px solid var(--grey-200); background: var(--grey-100); white-space: nowrap; }
+  .dt th.r { text-align: right; }
+  .dt td { padding: 12px 16px; border-bottom: 1px solid var(--grey-200); color: var(--ink); vertical-align: middle; }
+  .dt td.r { text-align: right; font-variant-numeric: tabular-nums; }
+  .dt tr:last-child td { border-bottom: none; }
+  .dt tr:hover td { background: var(--navy-50); }
+  .dt td.col-line { text-align: center; color: var(--grey-400); font-family: var(--font-mono); font-size: 11px; background: var(--grey-100); border-right: 1px solid var(--grey-200); font-weight: 500; width: 50px; }
+  .dt tr:hover td.col-line { background: var(--navy-100); color: var(--navy-700); }
+  .variant-name { font-weight: 500; color: var(--ink); }
+  .variant-sku { font-family: var(--font-mono); font-size: 11px; color: var(--grey-500); margin-top: 2px; }
+  .num-input { width: 88px; height: 30px; padding: 0 8px; border: 1px solid var(--grey-300); border-radius: 3px; font-family: inherit; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; background: #fff; }
+  .num-input:focus { outline: none; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.10); }
+  .num-input.variance-ok { color: var(--green-700); font-weight: 600; }
+
+  /* variance display */
+  .variance-display { font-variant-numeric: tabular-nums; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+  .variance-display.ok { color: var(--green-700); }
+  .variance-display.bad { color: var(--red-700); }
+  .variance-display .sign { font-size: 11px; opacity: 0.7; }
+
+  .reason-cell textarea {
+    width: 100%; min-height: 30px; padding: 7px 10px;
+    border: 1px solid var(--grey-300); border-radius: 3px;
+    font-family: inherit; font-size: 12.5px; resize: vertical;
+    background: #fff; line-height: 1.4;
+  }
+  .reason-cell textarea:focus { outline: none; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.10); }
+  .reason-cell textarea:disabled { background: var(--grey-100); border-color: var(--grey-200); color: var(--grey-400); cursor: not-allowed; resize: none; }
+  .reason-cell .hint { font-size: 11px; color: var(--grey-400); font-style: italic; padding: 7px 0; }
+
+  /* sub-section heading inside tab */
+  .sub-section-head {
+    padding: 16px 20px 8px;
+    border-top: 1px solid var(--grey-200);
+    background: #FBFBFB;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .sub-section-head h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+  .sub-section-head .count-tag { font-size: 11px; color: var(--grey-500); font-weight: 500; background: var(--grey-100); padding: 2px 7px; border-radius: 999px; }
+
+  /* totals strip */
+  .totals-strip { padding: 14px 20px; border-top: 1px solid var(--grey-200); display: flex; align-items: center; gap: 16px; background: #FBFBFB; }
+  .totals-strip .left { display: flex; align-items: center; gap: 16px; font-size: 12px; color: var(--grey-500); flex: 1; }
+  .totals-strip b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .totals-strip .grand { font-size: 18px; color: var(--navy-800); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* ===== SERIALISATION TAB ===== */
+  .ser-layout { display: grid; grid-template-columns: 240px 1fr; min-height: 540px; }
+  .ser-rail { border-right: 1px solid var(--grey-200); background: #FBFBFB; }
+  .ser-rail-head { padding: 12px 16px; border-bottom: 1px solid var(--grey-200); font-size: 11px; color: var(--grey-500); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+  .ser-rail-item {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--grey-200);
+    cursor: pointer;
+    display: flex; flex-direction: column; gap: 4px;
+    border-left: 3px solid transparent;
+  }
+  .ser-rail-item:hover { background: var(--grey-100); }
+  .ser-rail-item.active { background: #fff; border-left-color: var(--navy-700); }
+  .ser-rail-item .name { font-size: 12.5px; font-weight: 500; color: var(--ink); line-height: 1.3; }
+  .ser-rail-item .progress { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--grey-500); }
+  .ser-rail-item .progress-bar { flex: 1; height: 3px; background: var(--grey-200); border-radius: 2px; overflow: hidden; }
+  .ser-rail-item .progress-bar .fill { height: 100%; background: var(--amber-700); border-radius: 2px; }
+  .ser-rail-item.done .progress-bar .fill { background: var(--green-700); }
+  .ser-rail-item .progress-num { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--ink); }
+
+  .ser-main { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .ser-target { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+  .ser-target h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+  .ser-target .sub { font-size: 12px; color: var(--grey-500); }
+  .ser-progress-big {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px; background: var(--amber-50);
+    border: 1px solid #F1DBC0; border-radius: 4px;
+  }
+  .ser-progress-num { font-size: 22px; font-weight: 700; color: var(--amber-700); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .ser-progress-num span { font-size: 14px; color: var(--grey-700); font-weight: 500; }
+  .ser-progress-bar { flex: 1; height: 8px; background: #fff; border-radius: 4px; overflow: hidden; border: 1px solid #E8D2B6; }
+  .ser-progress-bar .fill { height: 100%; background: var(--amber-700); border-radius: 4px; transition: width .3s; }
+  .ser-progress-meta { font-size: 12px; color: var(--amber-700); font-weight: 500; }
+
+  .ser-mode-toggle { display: inline-flex; padding: 3px; background: var(--grey-100); border-radius: 4px; gap: 2px; }
+  .ser-mode-btn { padding: 6px 14px; background: transparent; border: none; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--grey-700); cursor: pointer; border-radius: 3px; }
+  .ser-mode-btn.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
+  .scan-zone {
+    border: 2px dashed #C0DBC4;
+    background: var(--green-50);
+    border-radius: 6px;
+    padding: 22px;
+    display: flex; align-items: center; gap: 16px;
+    position: relative;
+  }
+  .scan-glyph {
+    width: 56px; height: 56px;
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #C0DBC4;
+    display: grid; place-items: center;
+    color: var(--green-700);
+    position: relative;
+  }
+  .scan-glyph::after {
+    content: ''; position: absolute; inset: -4px;
+    border-radius: 10px;
+    border: 2px solid var(--green-700);
+    opacity: 0.4;
+    animation: scanPulse 1.6s ease-out infinite;
+  }
+  @keyframes scanPulse {
+    0% { transform: scale(.96); opacity: 0.7; }
+    100% { transform: scale(1.18); opacity: 0; }
+  }
+  .scan-body { flex: 1; }
+  .scan-title { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 2px; display: inline-flex; align-items: center; gap: 8px; }
+  .scan-title .indicator { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--green-700); font-weight: 600; }
+  .scan-title .indicator-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-700); animation: blinkDot 1s ease-in-out infinite; }
+  @keyframes blinkDot { 50% { opacity: 0.3; } }
+  .scan-hint { font-size: 12px; color: var(--grey-700); margin-bottom: 8px; }
+  .scan-input {
+    width: 100%; height: 40px;
+    padding: 0 14px;
+    background: #fff; border: 1px solid var(--green-700); border-radius: 4px;
+    font-family: var(--font-mono); font-size: 14px; color: var(--ink);
+    letter-spacing: 0.05em;
+  }
+  .scan-input::placeholder { color: var(--grey-400); font-family: var(--font-mono); letter-spacing: 0.02em; }
+
+  .manual-zone { display: none; padding: 16px 0; }
+  .manual-zone.active { display: block; }
+  .manual-zone label { font-size: 12.5px; color: var(--grey-700); display: block; margin-bottom: 6px; }
+  .manual-textarea {
+    width: 100%; min-height: 110px;
+    padding: 10px 12px;
+    border: 1px solid var(--grey-300); border-radius: 4px;
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink);
+    line-height: 1.5;
+  }
+  .manual-textarea:focus { outline: none; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.10); }
+
+  .scan-zone.hidden { display: none; }
+
+  .ser-list-head {
+    padding: 12px 16px;
+    border-top: 1px solid var(--grey-200);
+    background: #FBFBFB;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: var(--grey-500);
+    margin: 0 -24px;
+  }
+  .ser-list-head h4 { margin: 0; font-size: 12px; font-weight: 600; color: var(--ink); text-transform: uppercase; letter-spacing: 0.04em; }
+  .ser-list { margin: 0 -24px; max-height: 220px; overflow-y: auto; }
+  .ser-pair {
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--grey-100);
+    display: grid; grid-template-columns: 30px 60px 1fr 1fr 90px; gap: 12px;
+    align-items: center;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .ser-pair .check { color: var(--green-700); width: 18px; height: 18px; display: grid; place-items: center; background: var(--green-50); border-radius: 50%; }
+  .ser-pair .unit-num { color: var(--grey-400); font-family: var(--font-mono); font-size: 11px; }
+  .ser-pair .label { color: var(--grey-500); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .ser-pair .serial { font-family: var(--font-mono); color: var(--ink); font-size: 12px; }
+  .ser-pair .time { color: var(--grey-500); font-size: 11px; }
+
+  /* ===== LANDED COST TAB ===== */
+  .lc-amount-cell {
+    display: inline-flex; align-items: stretch;
+    border: 1px solid var(--grey-300); border-radius: 3px;
+    background: #fff; height: 32px;
+    overflow: hidden;
+  }
+  .lc-amount-cell:focus-within { border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.10); }
+  .lc-amount-cell .cur { background: var(--grey-100); padding: 0 8px; display: grid; place-items: center; font-size: 11px; color: var(--grey-700); font-weight: 600; border-right: 1px solid var(--grey-200); }
+  .lc-amount-cell input { all: unset; padding: 0 10px; font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; text-align: right; min-width: 140px; }
+  .doc-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 8px 4px 6px;
+    background: var(--green-50); color: var(--green-700);
+    border: 1px solid #C5E2C8;
+    border-radius: 3px;
+    font-size: 11.5px; font-family: var(--font-mono);
+    cursor: pointer;
+  }
+  .doc-chip:hover { background: #DCEEDD; }
+  .doc-chip .x { color: var(--green-700); opacity: 0.6; }
+  .doc-chip .x:hover { opacity: 1; }
+  .doc-missing {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    background: var(--red-50); color: var(--red-700);
+    border: 1px solid #F1C8C8;
+    border-radius: 3px;
+    font-size: 11.5px; font-weight: 600;
+    cursor: pointer;
+  }
+  .doc-missing:hover { background: #F4DBDB; }
+  .lc-controls {
+    padding: 12px 20px;
+    background: var(--canvas);
+    border-top: 1px solid var(--grey-200);
+    display: flex; align-items: center; gap: 16px;
+  }
+  .lc-controls .label { font-size: 12px; color: var(--grey-700); }
+  .lc-controls select.field { height: 30px; width: auto; min-width: 200px; padding: 0 28px 0 10px; }
+
+  /* ===== DOCUMENTS TAB ===== */
+  .docs-list .doc-row {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--grey-200);
+    display: grid;
+    grid-template-columns: 40px 1fr 180px 140px 80px 90px;
+    align-items: center;
+    gap: 16px;
+  }
+  .docs-list .doc-row:last-child { border-bottom: none; }
+  .docs-list .doc-row:hover { background: var(--navy-50); }
+  .doc-icon { width: 32px; height: 36px; background: var(--navy-50); color: var(--navy-700); border-radius: 3px; display: grid; place-items: center; flex-shrink: 0; }
+  .doc-icon.pdf { background: #FCE9E4; color: #B23A1C; }
+  .doc-icon.img { background: var(--green-50); color: var(--green-700); }
+  .doc-name { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .doc-name .meta { font-size: 11px; color: var(--grey-500); font-weight: 400; margin-top: 2px; }
+  .doc-uploader { font-size: 12.5px; color: var(--ink); }
+  .doc-uploader .role { font-size: 11px; color: var(--grey-500); }
+  .doc-when { font-size: 12px; color: var(--grey-700); font-variant-numeric: tabular-nums; }
+  .doc-when .when-rel { font-size: 11px; color: var(--grey-500); display: block; }
+  .doc-size { font-size: 12px; color: var(--grey-700); font-variant-numeric: tabular-nums; text-align: right; }
+
+  /* ===== BOTTOM SUMMARY PANEL ===== */
+  .bottom-summary {
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 4px;
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 16px;
+    align-items: center;
+    position: sticky; bottom: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .bs-stat { display: flex; align-items: center; gap: 12px; }
+  .bs-stat-icon { width: 36px; height: 36px; border-radius: 4px; display: grid; place-items: center; flex-shrink: 0; }
+  .bs-stat-icon.ok { background: var(--green-50); color: var(--green-700); }
+  .bs-stat-icon.warn { background: var(--amber-50); color: var(--amber-700); }
+  .bs-stat-icon.bad { background: var(--red-50); color: var(--red-700); }
+  .bs-stat-text .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey-500); font-weight: 600; }
+  .bs-stat-text .val { font-size: 14px; color: var(--ink); font-weight: 600; margin-top: 1px; font-variant-numeric: tabular-nums; }
+  .bs-stat-text .val .num-detail { color: var(--grey-500); font-weight: 400; font-size: 12px; }
+  .bs-actions { display: flex; gap: 8px; align-items: center; }
+
+</style>
+</head>
+<body>
+
+<!-- ====================== SIDEBAR ====================== -->
+<aside class="app-sidebar">
+  <div class="app-brand">
+    <div class="app-brand-mark">EI</div>
+    <div>
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+  <nav class="nav-scroll">
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Overview</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body"><a class="nav-item" href="#">Dashboard</a></div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-header"><span>Procurement</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Purchase Orders</a>
+        <a class="nav-item" href="#">Proforma Invoices</a>
+        <a class="nav-item" href="#">Suppliers &amp; Counterparties</a>
+        <a class="nav-item active" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h7v6H2zM9 7h3.5l2 2v1.5H9z"/><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>Shipments</a>
+        <a class="nav-item" href="#">Letters of Credit</a>
+      </div>
+    </div>
+    <div class="nav-group collapsed">
+      <div class="nav-group-header"><span>Inventory</span><svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg></div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#">Units (kekes)</a>
+        <a class="nav-item" href="#">Spare Parts</a>
+        <a class="nav-item" href="#">Stock Movements</a>
+        <a class="nav-item" href="#">Assembly Jobs</a>
+      </div>
+    </div>
+  </nav>
+  <div class="app-user">
+    <div class="avatar">KE</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Kelechi Ekuru</div>
+      <div class="app-user-role">Warehouse Manager</div>
+      <a class="app-user-sign" href="#"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4V3a1 1 0 00-1-1H3.5a1 1 0 00-1 1v10a1 1 0 001 1H9a1 1 0 001-1v-1"/><path d="M7 8h7m0 0l-2.5-2.5M14 8l-2.5 2.5"/></svg>Sign out</a>
+    </div>
+  </div>
+</aside>
+
+<!-- ====================== MAIN ====================== -->
+<main class="app-main">
+
+  <header class="topbar">
+    <div class="topbar-company">Enviable <span class="accent">Tricycle</span></div>
+    <div class="topbar-search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+      <input placeholder="Search shipments, POs, units…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-icon-btn" title="Help"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M6.5 6a1.5 1.5 0 113 0c0 1-1.5 1.2-1.5 2.5M8 11v.01"/></svg></button>
+      <button class="topbar-icon-btn has-unread" title="Notifications"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.5 11h9l-1-2V6.5a3.5 3.5 0 10-7 0V9l-1 2zM6.5 13a1.5 1.5 0 003 0"/></svg></button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user">
+        <div class="avatar">KE</div>
+        <div class="topbar-user-text">
+          <div class="topbar-user-name">Kelechi Ekuru</div>
+          <div class="topbar-user-role">Warehouse Manager</div>
+        </div>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--grey-400);"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-content">
+  <div class="page">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div>
+        <div class="page-crumbs">
+          <a href="#">Procurement</a><span class="sep">/</span>
+          <a href="#">Shipments</a><span class="sep">/</span>
+          <a href="#" class="mono" style="font-family: var(--font-mono);">SHP-2026-002</a><span class="sep">/</span>
+          <span class="current">Receive</span>
+        </div>
+        <div class="page-title-row">
+          <h1 class="page-title">Receive Shipment <span class="mono">SHP-2026-002</span></h1>
+          <span class="pill pill-amber">In Receipt</span>
+        </div>
+        <div class="page-sub">800 units expected from <b>VSK Motors and Traders FZE</b> · cleared customs <b>10 May 2026</b> · arrived at <b>Lagos · HQ</b> warehouse this morning</div>
+      </div>
+      <div class="header-actions">
+        <span class="blocker-hint">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.01"/></svg>
+          3 items block completion
+        </span>
+        <button class="btn btn-secondary">Save progress</button>
+        <button class="btn btn-primary" id="completeBtn" disabled>
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 8l3.5 3.5L14 3"/></svg>
+          Complete Receipt
+        </button>
+      </div>
+    </div>
+
+    <!-- SUMMARY CARD -->
+    <section class="summary-card">
+      <div class="summary-head">
+        <h2 class="summary-title">Shipment Reference</h2>
+        <div style="font-size: 12px; color: var(--grey-500);">
+          Receiving as <b style="color: var(--ink);">Kelechi Ekuru</b> · Warehouse Manager · started <b style="color: var(--ink);">today, 08:14 WAT</b>
+        </div>
+      </div>
+      <div class="summary-body">
+        <div class="summary-kv"><div class="k">Shipment Reference</div><div class="v mono">SHP-2026-002</div></div>
+        <div class="summary-kv"><div class="k">Purchase Order</div><div class="v mono"><a href="#" style="color: var(--navy-700);">PO-2026-001</a></div></div>
+        <div class="summary-kv"><div class="k">Active PI</div><div class="v mono"><a href="#" style="color: var(--navy-700);">ORD0000023649</a> <span class="sub">Revision 1 · 20 Feb 2026</span></div></div>
+        <div class="summary-kv"><div class="k">Supplier</div><div class="v">VSK Motors and Traders FZE <span class="sub">Sharjah, UAE</span></div></div>
+
+        <div class="summary-kv"><div class="k">Bill of Lading</div><div class="v mono">BL-2026-NGN-0042</div></div>
+        <div class="summary-kv"><div class="k">Vessel</div><div class="v">MV Apapa Express <span class="sub">Maersk Line · Voyage 2026/12</span></div></div>
+        <div class="summary-kv"><div class="k">Arrival Date</div><div class="v">10 May 2026 <span class="sub">Apapa Port, Lagos</span></div></div>
+        <div class="summary-kv"><div class="k">Clearing Status</div><div class="v"><span class="pill pill-green">Cleared</span> <span class="sub">SON SONCAP · NAFDAC · NCS</span></div></div>
+      </div>
+    </section>
+
+    <!-- TABS -->
+    <section class="tabs-card">
+
+      <div class="tab-strip">
+        <button class="tab-btn active" data-tab="manifest">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 7h12M2 10h12"/></svg>
+          Manifest Match
+          <span class="alert-badge">1 variance</span>
+        </button>
+        <button class="tab-btn" data-tab="serial">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4v8M4 4v8M6 4v8M8 4v8M10 4v8M12 4v8M14 4v8"/></svg>
+          Unit Serialisation
+          <span class="progress-pill">798 / 800</span>
+        </button>
+        <button class="tab-btn" data-tab="landed">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6l5-3 5 3M3 6v6h10V6M5 7v4M8 7v4M11 7v4"/></svg>
+          Landed Cost
+          <span class="alert-badge">1 missing doc</span>
+        </button>
+        <button class="tab-btn" data-tab="docs">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg>
+          Documents
+          <span class="count">8</span>
+        </button>
+        <div class="tab-spacer"></div>
+        <div class="tab-strip-meta">Receipt date · <b style="color: var(--ink);">19 May 2026</b></div>
+      </div>
+
+      <!-- Tab panels -->
+      <div class="tab-panel active" id="tab-manifest">
+        <!-- UNITS -->
+        <table class="dt">
+          <thead>
+            <tr>
+              <th class="col-line">#</th>
+              <th>Product Variant</th>
+              <th class="r" style="width: 110px;">Declared</th>
+              <th class="r" style="width: 130px;">Received</th>
+              <th class="r" style="width: 140px;">Variance</th>
+              <th style="width: 340px;">Variance Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-line">1</td>
+              <td>
+                <div class="variant-name">TVS King GS+ DP CKD EXP10 G Yellow</div>
+                <div class="variant-sku">SKU · TVS-KING-GSPDP-EXP10-GY · CKD</div>
+              </td>
+              <td class="r">500</td>
+              <td class="r"><input class="num-input variance-ok" value="500" /></td>
+              <td class="r"><span class="variance-display ok"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg> 0</span></td>
+              <td class="reason-cell"><div class="hint">No variance — reason not required</div></td>
+            </tr>
+            <tr>
+              <td class="col-line">2</td>
+              <td>
+                <div class="variant-name">TVS King GS+ DP CKD EXP10 NEP Blue</div>
+                <div class="variant-sku">SKU · TVS-KING-GSPDP-EXP10-NB · CKD</div>
+              </td>
+              <td class="r">200</td>
+              <td class="r"><input class="num-input" value="198" style="color: var(--red-700); font-weight: 600; border-color: #F1C8C8;" /></td>
+              <td class="r"><span class="variance-display bad"><span class="sign">▾</span> -2</span></td>
+              <td class="reason-cell"><textarea placeholder="Required — explain the shortfall (e.g. damage in transit, miscount, etc.)">2 cartons opened at port inspection showed signs of water damage to lower kit; awaiting supplier acknowledgement before reconciling.</textarea></td>
+            </tr>
+            <tr>
+              <td class="col-line">3</td>
+              <td>
+                <div class="variant-name">TVS King ZS+ EXP CKD G Yellow</div>
+                <div class="variant-sku">SKU · TVS-KING-ZSPEXP-CKD-GY · CKD · assembles to CBU</div>
+              </td>
+              <td class="r">100</td>
+              <td class="r"><input class="num-input variance-ok" value="100" /></td>
+              <td class="r"><span class="variance-display ok"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg> 0</span></td>
+              <td class="reason-cell"><div class="hint">No variance — reason not required</div></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- SPARE PARTS SUB-SECTION -->
+        <div class="sub-section-head">
+          <h3>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="1.8"/><path d="M8 2.5v2M8 11.5v2M2.5 8h2M11.5 8h2M4 4l1.4 1.4M10.6 10.6L12 12M4 12l1.4-1.4M10.6 5.4L12 4"/></svg>
+            Spare Parts
+          </h3>
+          <span class="count-tag">4 SKUs · 1,260 pieces declared</span>
+        </div>
+        <table class="dt">
+          <thead>
+            <tr>
+              <th class="col-line">#</th>
+              <th>Part</th>
+              <th class="r" style="width: 110px;">Declared</th>
+              <th class="r" style="width: 130px;">Received</th>
+              <th class="r" style="width: 140px;">Variance</th>
+              <th style="width: 340px;">Variance Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-line">SP1</td>
+              <td>
+                <div class="variant-name">Brake pad set — front</div>
+                <div class="variant-sku">SKU · SP-BRK-PAD-FR · Pieces · TVS OE</div>
+              </td>
+              <td class="r">400</td>
+              <td class="r"><input class="num-input variance-ok" value="400" /></td>
+              <td class="r"><span class="variance-display ok"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg> 0</span></td>
+              <td class="reason-cell"><div class="hint">No variance</div></td>
+            </tr>
+            <tr>
+              <td class="col-line">SP2</td>
+              <td>
+                <div class="variant-name">Air filter element</div>
+                <div class="variant-sku">SKU · SP-AIR-FLT-STD · Pieces · TVS OE</div>
+              </td>
+              <td class="r">500</td>
+              <td class="r"><input class="num-input variance-ok" value="500" /></td>
+              <td class="r"><span class="variance-display ok"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg> 0</span></td>
+              <td class="reason-cell"><div class="hint">No variance</div></td>
+            </tr>
+            <tr>
+              <td class="col-line">SP3</td>
+              <td>
+                <div class="variant-name">Spark plug · CR8E equivalent</div>
+                <div class="variant-sku">SKU · SP-SPK-PLG-CR8 · Pieces · NGK aftermarket</div>
+              </td>
+              <td class="r">300</td>
+              <td class="r"><input class="num-input" value="288" style="color: var(--red-700); font-weight: 600; border-color: #F1C8C8;" /></td>
+              <td class="r"><span class="variance-display bad"><span class="sign">▾</span> -12</span></td>
+              <td class="reason-cell"><textarea placeholder="Required — explain the shortfall">1 sealed pack (12 pcs) absent from carton SP-03-08; pack-list signed by VSK warehouse shows 25 packs, only 24 received.</textarea></td>
+            </tr>
+            <tr>
+              <td class="col-line">SP4</td>
+              <td>
+                <div class="variant-name">Headlamp assembly</div>
+                <div class="variant-sku">SKU · SP-HDL-ASM-12V · Pieces · TVS OE</div>
+              </td>
+              <td class="r">60</td>
+              <td class="r"><input class="num-input variance-ok" value="60" /></td>
+              <td class="r"><span class="variance-display ok"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg> 0</span></td>
+              <td class="reason-cell"><div class="hint">No variance</div></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="totals-strip">
+          <div class="left">
+            <span><b>3</b> of 3 unit lines counted</span>
+            <span style="color: var(--grey-300);">·</span>
+            <span><b>4</b> of 4 spare-parts lines counted</span>
+            <span style="color: var(--grey-300);">·</span>
+            <span style="color: var(--red-700);"><b style="color: var(--red-700);">2</b> variances flagged</span>
+          </div>
+          <span style="font-size: 12px; color: var(--grey-500);">Received <b style="color: var(--ink);">798</b> of 800 units &nbsp;·&nbsp; <b style="color: var(--ink);">1,248</b> of 1,260 parts</span>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-serial">
+        <div class="ser-layout">
+
+          <!-- Left rail: variants -->
+          <div class="ser-rail">
+            <div class="ser-rail-head">Variants in shipment</div>
+
+            <div class="ser-rail-item active">
+              <div class="name">TVS King GS+ DP CKD EXP10 G Yellow</div>
+              <div class="progress">
+                <div class="progress-bar"><div class="fill" style="width: 99.6%;"></div></div>
+                <span class="progress-num">498 / 500</span>
+              </div>
+            </div>
+
+            <div class="ser-rail-item done">
+              <div class="name">TVS King GS+ DP CKD EXP10 NEP Blue</div>
+              <div class="progress">
+                <div class="progress-bar"><div class="fill" style="width: 100%;"></div></div>
+                <span class="progress-num" style="color: var(--green-700);">198 / 198 ✓</span>
+              </div>
+            </div>
+
+            <div class="ser-rail-item done">
+              <div class="name">TVS King ZS+ EXP CKD G Yellow</div>
+              <div class="progress">
+                <div class="progress-bar"><div class="fill" style="width: 100%;"></div></div>
+                <span class="progress-num" style="color: var(--green-700);">100 / 100 ✓</span>
+              </div>
+            </div>
+
+            <div style="padding: 12px 14px; border-top: 1px solid var(--grey-200); font-size: 11.5px; color: var(--grey-500);">
+              <div style="font-weight: 600; color: var(--ink); margin-bottom: 4px;">Overall progress</div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="flex: 1; height: 4px; background: var(--grey-200); border-radius: 2px; overflow: hidden;">
+                  <div style="height: 100%; width: 99.75%; background: var(--amber-700); border-radius: 2px;"></div>
+                </div>
+                <span style="font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 500;">798 / 800</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main column -->
+          <div class="ser-main">
+
+            <div class="ser-target">
+              <div>
+                <h3>TVS King GS+ DP CKD EXP10 G Yellow</h3>
+                <div class="sub">SKU · TVS-KING-GSPDP-EXP10-GY · 500 units declared on manifest line 1</div>
+              </div>
+              <div class="ser-mode-toggle">
+                <button class="ser-mode-btn active" data-mode="scan">Scan</button>
+                <button class="ser-mode-btn" data-mode="manual">Manual entry</button>
+              </div>
+            </div>
+
+            <!-- Progress -->
+            <div class="ser-progress-big">
+              <div class="ser-progress-num">498 <span>of 500 units</span></div>
+              <div class="ser-progress-bar"><div class="fill" style="width: 99.6%;"></div></div>
+              <div class="ser-progress-meta">2 units remaining · 99.6%</div>
+            </div>
+
+            <!-- Scan zone -->
+            <div class="scan-zone">
+              <div class="scan-glyph">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7V5a1 1 0 011-1h2M21 7V5a1 1 0 00-1-1h-2M3 17v2a1 1 0 001 1h2M21 17v2a1 1 0 01-1 1h-2"/><path d="M6 8v8M9 8v8M12 8v8M15 8v8M18 8v8"/></svg>
+              </div>
+              <div class="scan-body">
+                <div class="scan-title">
+                  Ready to scan
+                  <span class="indicator"><span class="indicator-dot"></span>SCANNER ACTIVE</span>
+                </div>
+                <div class="scan-hint">Scan the engine number first, then the chassis number on the next bike. The pair will save automatically.</div>
+                <input class="scan-input" placeholder="Awaiting scan…  (cursor focuses automatically)" autofocus />
+              </div>
+            </div>
+
+            <!-- Manual zone -->
+            <div class="manual-zone">
+              <label>Paste serial pairs · one per line · format: <code style="background: var(--grey-100); padding: 1px 5px; border-radius: 2px; font-size: 11px;">engine_number, chassis_number</code></label>
+              <textarea class="manual-textarea" placeholder="JN46G2104891, MD626BC18N1G04891
+JN46G2104892, MD626BC18N1G04892
+JN46G2104893, MD626BC18N1G04893
+…"></textarea>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                <span style="font-size: 11px; color: var(--grey-500);">2 lines pasted will populate units 499–500</span>
+                <button class="btn btn-primary btn-sm">Import 2 pairs</button>
+              </div>
+            </div>
+
+            <!-- Recent serial captures -->
+            <div class="ser-list-head">
+              <h4>Captured serials · this variant</h4>
+              <span>showing latest 8 of 498 captured</span>
+            </div>
+            <div class="ser-list">
+              <div class="ser-pair">
+                <div class="check"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg></div>
+                <div class="unit-num">#498</div>
+                <div><span class="label">Engine</span>&nbsp;&nbsp;<span class="serial">JN46G2104888</span></div>
+                <div><span class="label">Chassis</span>&nbsp;&nbsp;<span class="serial">MD626BC18N1G04888</span></div>
+                <div class="time">08:51:22</div>
+              </div>
+              <div class="ser-pair">
+                <div class="check"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg></div>
+                <div class="unit-num">#497</div>
+                <div><span class="label">Engine</span>&nbsp;&nbsp;<span class="serial">JN46G2104887</span></div>
+                <div><span class="label">Chassis</span>&nbsp;&nbsp;<span class="serial">MD626BC18N1G04887</span></div>
+                <div class="time">08:51:11</div>
+              </div>
+              <div class="ser-pair">
+                <div class="check"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg></div>
+                <div class="unit-num">#496</div>
+                <div><span class="label">Engine</span>&nbsp;&nbsp;<span class="serial">JN46G2104886</span></div>
+                <div><span class="label">Chassis</span>&nbsp;&nbsp;<span class="serial">MD626BC18N1G04886</span></div>
+                <div class="time">08:50:58</div>
+              </div>
+              <div class="ser-pair">
+                <div class="check"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg></div>
+                <div class="unit-num">#495</div>
+                <div><span class="label">Engine</span>&nbsp;&nbsp;<span class="serial">JN46G2104885</span></div>
+                <div><span class="label">Chassis</span>&nbsp;&nbsp;<span class="serial">MD626BC18N1G04885</span></div>
+                <div class="time">08:50:46</div>
+              </div>
+              <div class="ser-pair">
+                <div class="check"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg></div>
+                <div class="unit-num">#494</div>
+                <div><span class="label">Engine</span>&nbsp;&nbsp;<span class="serial">JN46G2104884</span></div>
+                <div><span class="label">Chassis</span>&nbsp;&nbsp;<span class="serial">MD626BC18N1G04884</span></div>
+                <div class="time">08:50:33</div>
+              </div>
+              <div class="ser-pair">
+                <div class="check"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg></div>
+                <div class="unit-num">#493</div>
+                <div><span class="label">Engine</span>&nbsp;&nbsp;<span class="serial">JN46G2104883</span></div>
+                <div><span class="label">Chassis</span>&nbsp;&nbsp;<span class="serial">MD626BC18N1G04883</span></div>
+                <div class="time">08:50:21</div>
+              </div>
+              <div class="ser-pair">
+                <div class="check"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg></div>
+                <div class="unit-num">#492</div>
+                <div><span class="label">Engine</span>&nbsp;&nbsp;<span class="serial">JN46G2104882</span></div>
+                <div><span class="label">Chassis</span>&nbsp;&nbsp;<span class="serial">MD626BC18N1G04882</span></div>
+                <div class="time">08:50:09</div>
+              </div>
+              <div class="ser-pair">
+                <div class="check"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8l3.5 3.5L13 4"/></svg></div>
+                <div class="unit-num">#491</div>
+                <div><span class="label">Engine</span>&nbsp;&nbsp;<span class="serial">JN46G2104881</span></div>
+                <div><span class="label">Chassis</span>&nbsp;&nbsp;<span class="serial">MD626BC18N1G04881</span></div>
+                <div class="time">08:49:55</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-landed">
+        <table class="dt">
+          <thead>
+            <tr>
+              <th class="col-line">#</th>
+              <th style="width: 200px;">Component</th>
+              <th>Counterparty</th>
+              <th class="r" style="width: 200px;">Amount · NGN</th>
+              <th style="width: 280px;">Document</th>
+              <th style="width: 50px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-line">1</td>
+              <td><div class="variant-name">Freight</div><div class="variant-sku">Sea freight · 90 × 20ft</div></td>
+              <td>
+                <div style="font-weight: 500;">Royal Logistics Ltd.</div>
+                <div style="font-size: 11px; color: var(--grey-500);">Freight Forwarder · Lagos</div>
+              </td>
+              <td class="r">
+                <div class="lc-amount-cell"><span class="cur">₦</span><input value="142,500,000.00" /></div>
+              </td>
+              <td>
+                <span class="doc-chip">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg>
+                  freight_invoice.pdf <span style="color: var(--green-700); opacity: 0.6;">· 248 KB</span>
+                  <span class="x">×</span>
+                </span>
+              </td>
+              <td><button class="row-remove" style="width: 26px; height: 26px; background: transparent; border: none; border-radius: 3px; color: var(--grey-400); cursor: pointer;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V2h4v2M5 4l1 10h4l1-10"/></svg></button></td>
+            </tr>
+            <tr>
+              <td class="col-line">2</td>
+              <td><div class="variant-name">Marine Insurance</div><div class="variant-sku">Policy · all-risks CFR</div></td>
+              <td>
+                <div style="font-weight: 500;">Leadway Assurance</div>
+                <div style="font-size: 11px; color: var(--grey-500);">Insurance Company · Victoria Island</div>
+              </td>
+              <td class="r"><div class="lc-amount-cell"><span class="cur">₦</span><input value="8,500,000.00" /></div></td>
+              <td>
+                <span class="doc-chip">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg>
+                  insurance_cert.pdf <span style="color: var(--green-700); opacity: 0.6;">· 196 KB</span>
+                  <span class="x">×</span>
+                </span>
+              </td>
+              <td><button style="width: 26px; height: 26px; background: transparent; border: none; border-radius: 3px; color: var(--grey-400); cursor: pointer;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V2h4v2M5 4l1 10h4l1-10"/></svg></button></td>
+            </tr>
+            <tr>
+              <td class="col-line">3</td>
+              <td><div class="variant-name">Customs Duty</div><div class="variant-sku">SGD · CET 10% + 7.5% VAT</div></td>
+              <td>
+                <div style="font-weight: 500;">Nigeria Customs Service</div>
+                <div style="font-size: 11px; color: var(--grey-500);">Apapa Command · Federal Agency</div>
+              </td>
+              <td class="r"><div class="lc-amount-cell"><span class="cur">₦</span><input value="480,000,000.00" /></div></td>
+              <td>
+                <span class="doc-chip">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg>
+                  customs_assessment.pdf <span style="color: var(--green-700); opacity: 0.6;">· 412 KB</span>
+                  <span class="x">×</span>
+                </span>
+              </td>
+              <td><button style="width: 26px; height: 26px; background: transparent; border: none; border-radius: 3px; color: var(--grey-400); cursor: pointer;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V2h4v2M5 4l1 10h4l1-10"/></svg></button></td>
+            </tr>
+            <tr style="background: #FEF7F7;">
+              <td class="col-line" style="background: #FBE5E5; color: var(--red-700);">4</td>
+              <td><div class="variant-name">Port Charges</div><div class="variant-sku">Storage · handling · wharfage</div></td>
+              <td>
+                <div style="font-weight: 500;">Nigerian Ports Authority</div>
+                <div style="font-size: 11px; color: var(--grey-500);">NPA · Apapa Terminal</div>
+              </td>
+              <td class="r"><div class="lc-amount-cell"><span class="cur">₦</span><input value="14,200,000.00" /></div></td>
+              <td>
+                <span class="doc-missing">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.01"/></svg>
+                  No document attached
+                </span>
+                <button class="btn btn-ghost btn-sm" style="margin-left: 8px;">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+                  Upload
+                </button>
+              </td>
+              <td><button style="width: 26px; height: 26px; background: transparent; border: none; border-radius: 3px; color: var(--grey-400); cursor: pointer;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V2h4v2M5 4l1 10h4l1-10"/></svg></button></td>
+            </tr>
+            <tr>
+              <td class="col-line">5</td>
+              <td><div class="variant-name">Clearing Agent Fees</div><div class="variant-sku">Customs brokerage · documentation</div></td>
+              <td>
+                <div style="font-weight: 500;">Apex Clearing Services</div>
+                <div style="font-size: 11px; color: var(--grey-500);">Clearing Agent · Apapa</div>
+              </td>
+              <td class="r"><div class="lc-amount-cell"><span class="cur">₦</span><input value="22,000,000.00" /></div></td>
+              <td>
+                <span class="doc-chip">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg>
+                  clearing_invoice.pdf <span style="color: var(--green-700); opacity: 0.6;">· 184 KB</span>
+                  <span class="x">×</span>
+                </span>
+              </td>
+              <td><button style="width: 26px; height: 26px; background: transparent; border: none; border-radius: 3px; color: var(--grey-400); cursor: pointer;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V2h4v2M5 4l1 10h4l1-10"/></svg></button></td>
+            </tr>
+            <tr>
+              <td class="col-line">6</td>
+              <td><div class="variant-name">Inland Transport</div><div class="variant-sku">Apapa Port → Lagos HQ Warehouse</div></td>
+              <td>
+                <div style="font-weight: 500;">Apex Clearing Services</div>
+                <div style="font-size: 11px; color: var(--grey-500);">Clearing Agent · trucking arm</div>
+              </td>
+              <td class="r"><div class="lc-amount-cell"><span class="cur">₦</span><input value="6,500,000.00" /></div></td>
+              <td>
+                <span class="doc-chip">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg>
+                  transport_invoice.pdf <span style="color: var(--green-700); opacity: 0.6;">· 142 KB</span>
+                  <span class="x">×</span>
+                </span>
+              </td>
+              <td><button style="width: 26px; height: 26px; background: transparent; border: none; border-radius: 3px; color: var(--grey-400); cursor: pointer;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V2h4v2M5 4l1 10h4l1-10"/></svg></button></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="lc-controls">
+          <button class="btn btn-secondary btn-sm">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+            Add cost component
+          </button>
+          <div style="flex: 1;"></div>
+          <span class="label">Allocation method</span>
+          <select class="field">
+            <option selected>Equal per unit</option>
+            <option>Weighted by line value</option>
+            <option>Weighted by line weight (kg)</option>
+            <option>Manual per line</option>
+          </select>
+          <span style="font-size: 11px; color: var(--grey-500); border-left: 1px solid var(--grey-200); padding-left: 16px;">₦ 673,700,000 ÷ 798 units = <b style="color: var(--ink);">₦ 844,236</b> /unit</span>
+        </div>
+
+        <div class="totals-strip">
+          <div class="left">
+            <span><b>6</b> components captured</span>
+            <span style="color: var(--grey-300);">·</span>
+            <span style="color: var(--red-700);"><b style="color: var(--red-700);">1</b> missing supporting document</span>
+            <span style="color: var(--grey-300);">·</span>
+            <span>Allocated equally across <b>798</b> received units</span>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 11px; color: var(--grey-500); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; margin-bottom: 2px;">Total Landed Cost</div>
+            <div class="grand">₦ 673,700,000.00</div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-docs">
+        <div style="padding: 12px 18px; border-bottom: 1px solid var(--grey-200); background: var(--canvas); display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 12px; color: var(--grey-500);"><b style="color: var(--ink);">8 documents</b> attached to this shipment · 3.4 MB total</span>
+          <div style="flex: 1;"></div>
+          <button class="btn btn-secondary btn-sm">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v8m0 0l-3-3m3 3l3-3M3 13h10"/></svg>
+            Download all (.zip)
+          </button>
+          <button class="btn btn-primary btn-sm">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+            Upload document
+          </button>
+        </div>
+
+        <div class="docs-list">
+
+          <div class="doc-row">
+            <div class="doc-icon pdf"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg></div>
+            <div class="doc-name">BL-2026-NGN-0042 — Bill of Lading.pdf<div class="meta">Original Maersk B/L · endorsed by Zenith Bank</div></div>
+            <div class="doc-uploader">Daniel Omage <div class="role">Customs Liaison</div></div>
+            <div class="doc-when">10 May 2026, 14:22<span class="when-rel">9 days ago</span></div>
+            <div class="doc-size">624 KB</div>
+            <div><a class="lnk" href="#" style="color: var(--navy-700); font-size: 12px; font-weight: 500;">View →</a></div>
+          </div>
+
+          <div class="doc-row">
+            <div class="doc-icon pdf"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg></div>
+            <div class="doc-name">CommercialInvoice-ORD0000023649.pdf<div class="meta">VSK final commercial invoice · stamped</div></div>
+            <div class="doc-uploader">Funmi Adebayo <div class="role">Procurement Officer</div></div>
+            <div class="doc-when">10 May 2026, 14:20<span class="when-rel">9 days ago</span></div>
+            <div class="doc-size">412 KB</div>
+            <div><a class="lnk" href="#" style="color: var(--navy-700); font-size: 12px; font-weight: 500;">View →</a></div>
+          </div>
+
+          <div class="doc-row">
+            <div class="doc-icon pdf"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg></div>
+            <div class="doc-name">PackingList-MV-Apapa-Express.pdf<div class="meta">90 containers · carton-level detail</div></div>
+            <div class="doc-uploader">Funmi Adebayo <div class="role">Procurement Officer</div></div>
+            <div class="doc-when">10 May 2026, 14:18<span class="when-rel">9 days ago</span></div>
+            <div class="doc-size">528 KB</div>
+            <div><a class="lnk" href="#" style="color: var(--navy-700); font-size: 12px; font-weight: 500;">View →</a></div>
+          </div>
+
+          <div class="doc-row">
+            <div class="doc-icon pdf"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg></div>
+            <div class="doc-name">SONCAP-Certificate-2026-Q2.pdf<div class="meta">Standards Org. of Nigeria · product certification</div></div>
+            <div class="doc-uploader">Daniel Omage <div class="role">Customs Liaison</div></div>
+            <div class="doc-when">12 May 2026, 09:08<span class="when-rel">7 days ago</span></div>
+            <div class="doc-size">312 KB</div>
+            <div><a class="lnk" href="#" style="color: var(--navy-700); font-size: 12px; font-weight: 500;">View →</a></div>
+          </div>
+
+          <div class="doc-row">
+            <div class="doc-icon pdf"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg></div>
+            <div class="doc-name">customs_assessment.pdf<div class="meta">NCS duty + VAT assessment · SGD-A2-1748392</div></div>
+            <div class="doc-uploader">Daniel Omage <div class="role">Customs Liaison</div></div>
+            <div class="doc-when">12 May 2026, 16:44<span class="when-rel">7 days ago</span></div>
+            <div class="doc-size">412 KB</div>
+            <div><a class="lnk" href="#" style="color: var(--navy-700); font-size: 12px; font-weight: 500;">View →</a></div>
+          </div>
+
+          <div class="doc-row">
+            <div class="doc-icon pdf"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg></div>
+            <div class="doc-name">freight_invoice.pdf<div class="meta">Royal Logistics Ltd. · INV-2026-1108</div></div>
+            <div class="doc-uploader">Daniel Omage <div class="role">Customs Liaison</div></div>
+            <div class="doc-when">14 May 2026, 11:02<span class="when-rel">5 days ago</span></div>
+            <div class="doc-size">248 KB</div>
+            <div><a class="lnk" href="#" style="color: var(--navy-700); font-size: 12px; font-weight: 500;">View →</a></div>
+          </div>
+
+          <div class="doc-row">
+            <div class="doc-icon pdf"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/></svg></div>
+            <div class="doc-name">insurance_cert.pdf<div class="meta">Leadway Assurance · marine all-risks</div></div>
+            <div class="doc-uploader">Funmi Adebayo <div class="role">Procurement Officer</div></div>
+            <div class="doc-when">14 May 2026, 11:08<span class="when-rel">5 days ago</span></div>
+            <div class="doc-size">196 KB</div>
+            <div><a class="lnk" href="#" style="color: var(--navy-700); font-size: 12px; font-weight: 500;">View →</a></div>
+          </div>
+
+          <div class="doc-row">
+            <div class="doc-icon img"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1"/><circle cx="6" cy="7" r="1.3"/><path d="M2 11l4-3 3 2 5-4"/></svg></div>
+            <div class="doc-name">container-seal-photos.zip<div class="meta">Inspection photos · 90 containers · seal numbers</div></div>
+            <div class="doc-uploader">Kelechi Ekuru <div class="role">Warehouse Manager</div></div>
+            <div class="doc-when">19 May 2026, 08:14<span class="when-rel">today</span></div>
+            <div class="doc-size">680 KB</div>
+            <div><a class="lnk" href="#" style="color: var(--navy-700); font-size: 12px; font-weight: 500;">View →</a></div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- BOTTOM SUMMARY -->
+    <div class="bottom-summary">
+      <div class="bs-stat">
+        <div class="bs-stat-icon warn"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4v8M4 4v8M6 4v8M8 4v8M10 4v8M12 4v8M14 4v8"/></svg></div>
+        <div class="bs-stat-text">
+          <div class="label">Serialisation</div>
+          <div class="val">798 / 800 units <span class="num-detail">· 2 remaining</span></div>
+        </div>
+      </div>
+      <div class="bs-stat">
+        <div class="bs-stat-icon bad"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11v.01"/></svg></div>
+        <div class="bs-stat-text">
+          <div class="label">Variances</div>
+          <div class="val" style="color: var(--red-700);">1 unresolved <span class="num-detail">· NEP Blue, -2 units</span></div>
+        </div>
+      </div>
+      <div class="bs-stat">
+        <div class="bs-stat-icon bad"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3"/><path d="M6 9l4 4M10 9l-4 4" stroke-width="1.6"/></svg></div>
+        <div class="bs-stat-text">
+          <div class="label">Landed Cost Docs</div>
+          <div class="val" style="color: var(--red-700);">1 missing <span class="num-detail">· NPA port charges</span></div>
+        </div>
+      </div>
+      <div class="bs-actions">
+        <button class="btn btn-secondary">Save progress</button>
+        <button class="btn btn-primary" disabled>
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 8l3.5 3.5L14 3"/></svg>
+          Complete Receipt
+        </button>
+      </div>
+    </div>
+
+  </div>
+  </div>
+
+</main>
+
+<script>
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+  });
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${t}`));
+    });
+  });
+
+  // Mode toggle for serialisation
+  document.addEventListener('click', (e) => {
+    if (e.target.matches('.ser-mode-btn')) {
+      const mode = e.target.dataset.mode;
+      document.querySelectorAll('.ser-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+      document.querySelector('.scan-zone').classList.toggle('hidden', mode !== 'scan');
+      document.querySelector('.manual-zone').classList.toggle('active', mode === 'manual');
+    }
+    if (e.target.closest('.ser-rail-item')) {
+      const item = e.target.closest('.ser-rail-item');
+      document.querySelectorAll('.ser-rail-item').forEach(i => i.classList.toggle('active', i === item));
+    }
+  });
+</script>
+
+<script src="role-switcher.js"></script>
+</body>
+</html>

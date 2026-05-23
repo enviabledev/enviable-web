@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Application Shell — Enviable I&O</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  body { display: flex; min-height: 100vh; }
+
+  /* =========================================================
+     SIDEBAR
+     ========================================================= */
+  .app-sidebar {
+    width: var(--sidebar-w);
+    background: var(--navy-800);
+    color: #cfdcec;
+    flex-shrink: 0;
+    position: sticky; top: 0; align-self: flex-start;
+    height: 100vh;
+    display: flex; flex-direction: column;
+    font-size: var(--fs-13);
+    transition: width .18s ease;
+  }
+  .app-sidebar.collapsed { width: 60px; }
+
+  /* Brand block */
+  .app-brand {
+    height: var(--topbar-h);
+    padding: 0 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0;
+  }
+  .app-brand-mark {
+    width: 30px; height: 30px; border-radius: 4px;
+    background: linear-gradient(135deg, #2c5e8e, #5a82a8);
+    display: grid; place-items: center;
+    color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .app-brand-name {
+    color: #fff; font-weight: 600; font-size: 13.5px; line-height: 1.15;
+    white-space: nowrap; overflow: hidden;
+  }
+  .app-brand-sub  { color: #8aa6c4; font-size: 10.5px; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; }
+  .app-sidebar.collapsed .app-brand-text { display: none; }
+
+  /* Collapse toggle */
+  .sidebar-collapse-btn {
+    position: absolute;
+    top: 14px;
+    right: -12px;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid var(--grey-300);
+    color: var(--grey-700);
+    display: grid; place-items: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    z-index: 50;
+    transition: transform .18s ease;
+  }
+  .sidebar-collapse-btn:hover { color: var(--navy-700); border-color: var(--navy-700); }
+  .app-sidebar.collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
+
+  /* Nav scroll body */
+  .nav-scroll {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 8px 8px 12px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.15) transparent;
+  }
+  .nav-scroll::-webkit-scrollbar { width: 6px; }
+  .nav-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 12px 6px;
+    color: #6f8aa6;
+    text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; font-weight: 600;
+    user-select: none;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .nav-group-header:hover { color: #b6cae0; }
+  .nav-group-header .chev {
+    color: #6f8aa6;
+    transition: transform .15s ease;
+  }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .nav-group-body { display: none; }
+
+  .app-sidebar.collapsed .nav-group-header { padding: 10px 0 4px; justify-content: center; }
+  .app-sidebar.collapsed .nav-group-header .label-text { display: none; }
+  .app-sidebar.collapsed .nav-group-header .chev { display: none; }
+  .app-sidebar.collapsed .nav-group-header::after {
+    content: ''; width: 24px; height: 1px; background: rgba(255,255,255,0.10);
+  }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 7px 12px;
+    border-radius: 3px;
+    color: #cfdcec; text-decoration: none;
+    line-height: 1.3;
+    position: relative;
+    white-space: nowrap;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; text-decoration: none; }
+  .nav-item.active {
+    background: var(--navy-700); color: #fff;
+    font-weight: 500;
+  }
+  .nav-item.active::before {
+    content: ''; position: absolute; left: -8px; top: 4px; bottom: 4px;
+    width: 3px; border-radius: 0 2px 2px 0; background: #5a9fe8;
+  }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: .85; }
+  .nav-item.active svg { opacity: 1; }
+
+  .app-sidebar.collapsed .nav-item { justify-content: center; padding: 9px 0; }
+  .app-sidebar.collapsed .nav-item .label-text { display: none; }
+  .app-sidebar.collapsed .nav-item.active::before { display: none; }
+
+  /* Tooltip when collapsed */
+  .app-sidebar.collapsed .nav-item:hover::after,
+  .app-sidebar.collapsed .app-brand:hover::after {
+    content: attr(data-tip);
+    position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
+    margin-left: 8px;
+    padding: 5px 10px;
+    background: var(--ink); color: #fff;
+    border-radius: 3px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 100;
+    pointer-events: none;
+    box-shadow: var(--shadow-md);
+  }
+
+  /* User block at bottom */
+  .app-user {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0;
+  }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--navy-600); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 600; font-size: 12px; flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .app-user-meta {
+    line-height: 1.25; flex: 1; min-width: 0;
+    overflow: hidden;
+  }
+  .app-user-name { color: #fff; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-user-role { color: #8aa6c4; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-user-sign {
+    color: #8aa6c4; font-size: 11px;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 2px;
+  }
+  .app-user-sign:hover { color: #fff; text-decoration: none; }
+  .app-sidebar.collapsed .app-user { padding: 10px 0; justify-content: center; }
+  .app-sidebar.collapsed .app-user-meta { display: none; }
+
+  /* =========================================================
+     TOP BAR
+     ========================================================= */
+  .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    height: var(--topbar-h);
+    border-bottom: 1px solid var(--grey-200);
+    background: #fff;
+    display: flex; align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    position: sticky; top: 0; z-index: 30;
+    flex-shrink: 0;
+  }
+  .topbar-company {
+    font-size: 14px; font-weight: 600; color: var(--ink);
+    letter-spacing: -0.005em;
+    padding-right: 18px;
+    border-right: 1px solid var(--grey-200);
+    height: 28px; display: flex; align-items: center;
+  }
+  .topbar-company .accent { color: var(--navy-700); }
+
+  /* Global search — center */
+  .topbar-search {
+    flex: 1;
+    max-width: 560px;
+    margin: 0 auto;
+    height: 32px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px;
+    background: var(--grey-100);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--grey-500);
+    font-size: 13px;
+    transition: background .12s, border-color .12s;
+  }
+  .topbar-search:hover { background: #EFEFEF; }
+  .topbar-search:focus-within { background: #fff; border-color: var(--navy-700); box-shadow: 0 0 0 3px rgba(31,78,121,0.10); }
+  .topbar-search input { all: unset; flex: 1; font-size: 13px; color: var(--ink); }
+  .topbar-search .kbd { margin-left: auto; }
+
+  /* Right cluster */
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .topbar-icon-btn {
+    width: 32px; height: 32px; display: grid; place-items: center;
+    background: transparent; border: none; border-radius: 4px;
+    color: var(--grey-700); cursor: pointer;
+    position: relative;
+  }
+  .topbar-icon-btn:hover { background: var(--grey-100); color: var(--ink); }
+  .topbar-icon-btn.has-unread::after {
+    content: ''; position: absolute;
+    top: 7px; right: 8px;
+    width: 8px; height: 8px;
+    background: var(--red-700);
+    border-radius: 50%;
+    border: 1.5px solid #fff;
+  }
+  .topbar-divider { width: 1px; height: 22px; background: var(--grey-200); margin: 0 6px; }
+
+  .topbar-user {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 10px 4px 4px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .topbar-user:hover { background: var(--grey-100); }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 11px; border: none; }
+  .topbar-user .topbar-user-name {
+    font-size: 13px; color: var(--ink); font-weight: 500;
+    line-height: 1.1; white-space: nowrap;
+  }
+  .topbar-user .topbar-user-role {
+    font-size: 11px; color: var(--grey-500); line-height: 1.1;
+  }
+  .topbar-user-text { display: flex; flex-direction: column; gap: 1px; }
+  .topbar-user .chev { color: var(--grey-400); margin-left: 2px; }
+
+  /* =========================================================
+     CONTENT AREA — empty placeholder for now
+     ========================================================= */
+  .app-content {
+    flex: 1;
+    background: var(--canvas);
+    padding: 24px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .content-placeholder {
+    width: 100%;
+    max-width: 920px;
+    min-height: 460px;
+    border: 1px dashed var(--grey-300);
+    border-radius: 6px;
+    background: repeating-linear-gradient(
+      135deg,
+      rgba(31,78,121,0.015) 0 14px,
+      transparent 14px 28px
+    ), #FBFBFC;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 40px;
+    text-align: center;
+    color: var(--grey-500);
+  }
+  .content-placeholder-icon {
+    width: 44px; height: 44px;
+    background: var(--grey-100);
+    color: var(--grey-400);
+    border-radius: 8px;
+    display: grid; place-items: center;
+    margin-bottom: 14px;
+  }
+  .content-placeholder-title {
+    color: var(--ink); font-size: 14px; font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .content-placeholder-msg {
+    font-size: 13px;
+    color: var(--grey-500);
+    max-width: 380px; line-height: 1.5;
+  }
+  .content-placeholder-tag {
+    margin-top: 18px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--grey-400);
+    padding: 4px 8px; border-radius: 3px;
+    background: var(--grey-100);
+    letter-spacing: 0.04em;
+  }
+
+  /* =========================================================
+     NOTIFICATIONS POPOVER
+     ========================================================= */
+  .notif-pop {
+    position: absolute; top: calc(var(--topbar-h) + 4px); right: 16px;
+    width: 360px;
+    background: #fff;
+    border: 1px solid var(--grey-200);
+    border-radius: 6px;
+    box-shadow: var(--shadow-lg);
+    z-index: 60;
+    display: none;
+    overflow: hidden;
+  }
+  .notif-pop.open { display: block; }
+  .notif-head {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--grey-200);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .notif-head h4 { margin: 0; font-size: 13px; font-weight: 600; }
+  .notif-head a { font-size: 12px; }
+  .notif-list { max-height: 360px; overflow-y: auto; }
+  .notif-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--grey-200);
+    display: flex; gap: 10px;
+    cursor: pointer;
+  }
+  .notif-item:hover { background: var(--grey-100); }
+  .notif-item:last-child { border-bottom: none; }
+  .notif-item.unread { background: var(--navy-50); }
+  .notif-item.unread:hover { background: var(--navy-100); }
+  .notif-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--navy-700);
+    flex-shrink: 0; margin-top: 6px;
+  }
+  .notif-item:not(.unread) .notif-dot { background: transparent; border: 1px solid var(--grey-300); }
+  .notif-body { flex: 1; font-size: 13px; line-height: 1.4; }
+  .notif-title { color: var(--ink); font-weight: 500; margin-bottom: 2px; }
+  .notif-title .ref { color: var(--navy-700); font-family: var(--font-mono); font-size: 12px; }
+  .notif-meta { color: var(--grey-500); font-size: 11px; margin-top: 3px; }
+  .notif-foot { padding: 10px 16px; border-top: 1px solid var(--grey-200); background: var(--grey-100); text-align: center; }
+
+</style>
+</head>
+<body>
+
+<!-- ========================== SIDEBAR ========================== -->
+<aside class="app-sidebar" id="sidebar">
+
+  <button class="sidebar-collapse-btn" id="collapseBtn" title="Collapse sidebar">
+    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4l-4 4 4 4"/></svg>
+  </button>
+
+  <div class="app-brand" data-tip="Enviable Tricycle">
+    <div class="app-brand-mark">EI</div>
+    <div class="app-brand-text">
+      <div class="app-brand-name">Enviable I&amp;O</div>
+      <div class="app-brand-sub">Inventory &amp; Operations</div>
+    </div>
+  </div>
+
+  <nav class="nav-scroll">
+
+    <!-- Overview -->
+    <div class="nav-group">
+      <div class="nav-group-header">
+        <span class="label-text">Overview</span>
+        <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+      <div class="nav-group-body">
+        <a class="nav-item active" href="#" data-tip="Dashboard">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="2" width="5" height="6" rx="0.5"/>
+            <rect x="9" y="2" width="5" height="4" rx="0.5"/>
+            <rect x="2" y="10" width="5" height="4" rx="0.5"/>
+            <rect x="9" y="8" width="5" height="6" rx="0.5"/>
+          </svg>
+          <span class="label-text">Dashboard</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Procurement -->
+    <div class="nav-group">
+      <div class="nav-group-header">
+        <span class="label-text">Procurement</span>
+        <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#" data-tip="Purchase Orders">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="10" height="11.5" rx="1"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>
+          <span class="label-text">Purchase Orders</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Proforma Invoices">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h7l3 3V13a1 1 0 01-1 1H3.5a.5.5 0 01-.5-.5V2.5z"/><path d="M10 2.5v3h3M5.5 8.5h5M5.5 11h3.5"/></svg>
+          <span class="label-text">Proforma Invoices</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Suppliers &amp; Counterparties">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5.5" cy="6" r="2"/><circle cx="11" cy="7" r="1.5"/><path d="M2 13c0-2 1.5-3.5 3.5-3.5S9 11 9 13M9 13c0-1.5 1-2.5 2-2.5s2 1 2 2.5"/></svg>
+          <span class="label-text">Suppliers &amp; Counterparties</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Shipments">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h7v6H2zM9 7h3.5l2 2v1.5H9z"/><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>
+          <span class="label-text">Shipments</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Letters of Credit">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3.5" width="11" height="9" rx="1"/><path d="M2.5 6l5.5 3.5L13.5 6"/></svg>
+          <span class="label-text">Letters of Credit</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Inventory -->
+    <div class="nav-group">
+      <div class="nav-group-header">
+        <span class="label-text">Inventory</span>
+        <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#" data-tip="Units (kekes)">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 11h2l1-3.5h6L12 11h2.5"/><path d="M2 11v1.5M14 11v1.5"/><circle cx="5" cy="12.5" r="1.3"/><circle cx="11" cy="12.5" r="1.3"/></svg>
+          <span class="label-text">Units (kekes)</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Spare Parts">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5l1.5 1.5L8 5.5 6.5 4 8 2.5zM2.5 8L4 6.5 5.5 8 4 9.5 2.5 8zM13.5 8L12 6.5 10.5 8 12 9.5 13.5 8zM8 13.5l1.5-1.5L8 10.5 6.5 12 8 13.5z"/><circle cx="8" cy="8" r="1.8"/></svg>
+          <span class="label-text">Spare Parts</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Stock Movements">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5h9M8 2.5L11 5 8 7.5M14 11H5M8 8.5L5 11l3 2.5"/></svg>
+          <span class="label-text">Stock Movements</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Assembly Jobs">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="6" width="11" height="7" rx="1"/><path d="M5 6V4a3 3 0 016 0v2M6 9h4M6 11h3"/></svg>
+          <span class="label-text">Assembly Jobs</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Sales -->
+    <div class="nav-group">
+      <div class="nav-group-header">
+        <span class="label-text">Sales</span>
+        <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#" data-tip="Sales Orders">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="10" height="11.5" rx="1"/><path d="M5.5 6h5M5.5 8.5h5M5.5 11h3"/><path d="M11 6l-3 3-1.5-1.5" stroke="none" fill="none"/></svg>
+          <span class="label-text">Sales Orders</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Customers">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5"/></svg>
+          <span class="label-text">Customers</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Price Lists">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8.5 2.5l5 5-6 6-5-5V2.5h6z"/><circle cx="6" cy="6" r="0.8" fill="currentColor"/></svg>
+          <span class="label-text">Price Lists</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Invoices &amp; Payments">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2.5h10v11l-2-1-1.5 1L8 12.5l-1.5 1L5 12.5l-2 1v-11z"/><path d="M5.5 5.5h5M5.5 8h5"/></svg>
+          <span class="label-text">Invoices &amp; Payments</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Deliveries">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h7v6H2zM9 7h3.5l2 2v1.5H9z"/><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>
+          <span class="label-text">Deliveries</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Reports -->
+    <div class="nav-group">
+      <div class="nav-group-header">
+        <span class="label-text">Reports</span>
+        <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#" data-tip="Revenue &amp; Sales">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13l4-4 3 3 5-6"/><path d="M11 6h3v3"/></svg>
+          <span class="label-text">Revenue &amp; Sales</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Stocks">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="9" width="2.5" height="5"/><rect x="6.75" y="6" width="2.5" height="8"/><rect x="10.5" y="3" width="2.5" height="11"/></svg>
+          <span class="label-text">Stocks</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Customers">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2"/><circle cx="11" cy="7" r="1.5"/><path d="M2 13c0-2 1.8-3.5 4-3.5S10 11 10 13M10 13c0-1.5 1-2.5 2-2.5s2 1 2 2.5"/></svg>
+          <span class="label-text">Customers</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Audit Log">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2a6 6 0 11-4.5 2"/><path d="M3.5 1.5v3h3M8 5v3.5l2 1.5"/></svg>
+          <span class="label-text">Audit Log</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Admin -->
+    <div class="nav-group">
+      <div class="nav-group-header">
+        <span class="label-text">Admin</span>
+        <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+      <div class="nav-group-body">
+        <a class="nav-item" href="#" data-tip="Users">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5"/></svg>
+          <span class="label-text">Users</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Roles">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.5 5-5 6-2.5-1-5-3-5-6V4l5-2z"/><path d="M6 8l1.5 1.5L10.5 6.5"/></svg>
+          <span class="label-text">Roles</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Historical Data Load">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="8" cy="4" rx="5" ry="2"/><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4"/><path d="M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/></svg>
+          <span class="label-text">Historical Data Load</span>
+        </a>
+        <a class="nav-item" href="#" data-tip="Settings">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4"/></svg>
+          <span class="label-text">Settings</span>
+        </a>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- User identity block at the bottom -->
+  <div class="app-user">
+    <div class="avatar">KE</div>
+    <div class="app-user-meta">
+      <div class="app-user-name">Kelechi Ekuru</div>
+      <div class="app-user-role">Warehouse Manager</div>
+      <a class="app-user-sign" href="#">
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 4V3a1 1 0 00-1-1H3.5a1 1 0 00-1 1v10a1 1 0 001 1H9a1 1 0 001-1v-1"/><path d="M7 8h7m0 0l-2.5-2.5M14 8l-2.5 2.5"/></svg>
+        Sign out
+      </a>
+    </div>
+  </div>
+
+</aside>
+
+<!-- ========================== MAIN ========================== -->
+<main class="app-main">
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar-company">
+      Enviable <span class="accent">Tricycle</span>
+    </div>
+
+    <div class="topbar-search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l3 3"/></svg>
+      <input placeholder="Search purchase orders, units, SKUs, customers, invoices…" />
+      <span class="kbd">⌘K</span>
+    </div>
+
+    <div class="topbar-right">
+      <button class="topbar-icon-btn" title="Help">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M6.5 6a1.5 1.5 0 113 0c0 1-1.5 1.2-1.5 2.5M8 11v.01"/></svg>
+      </button>
+      <button class="topbar-icon-btn has-unread" id="notifBtn" title="Notifications">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.5 11h9l-1-2V6.5a3.5 3.5 0 10-7 0V9l-1 2zM6.5 13a1.5 1.5 0 003 0"/></svg>
+      </button>
+      <div class="topbar-divider"></div>
+      <div class="topbar-user" id="userMenu">
+        <div class="avatar">KE</div>
+        <div class="topbar-user-text">
+          <div class="topbar-user-name">Kelechi Ekuru</div>
+          <div class="topbar-user-role">Warehouse Manager</div>
+        </div>
+        <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l3 3 3-3"/></svg>
+      </div>
+    </div>
+
+    <!-- Notifications popover -->
+    <div class="notif-pop" id="notifPop">
+      <div class="notif-head">
+        <h4>Notifications · <span style="color:var(--grey-500); font-weight:500;">3 unread</span></h4>
+        <a href="#">Mark all read</a>
+      </div>
+      <div class="notif-list">
+        <div class="notif-item unread">
+          <div class="notif-dot"></div>
+          <div class="notif-body">
+            <div class="notif-title">PO <span class="ref">PO-2026-00482</span> needs your approval</div>
+            <div class="notif-meta">Raised by Funmi Adebayo · 18 min ago</div>
+          </div>
+        </div>
+        <div class="notif-item unread">
+          <div class="notif-dot"></div>
+          <div class="notif-body">
+            <div class="notif-title">Receipt discrepancy flagged on shipment <span class="ref">MAEU-748293</span></div>
+            <div class="notif-meta">14 units short · Chinonso Eze · 1 h ago</div>
+          </div>
+        </div>
+        <div class="notif-item unread">
+          <div class="notif-dot"></div>
+          <div class="notif-body">
+            <div class="notif-title">Form M <span class="ref">A2-2026-04-0193</span> approved by Zenith Bank</div>
+            <div class="notif-meta">2 h ago</div>
+          </div>
+        </div>
+        <div class="notif-item">
+          <div class="notif-dot"></div>
+          <div class="notif-body">
+            <div class="notif-title">Assembly job <span class="ref">AJ-2026-0118</span> closed</div>
+            <div class="notif-meta">42 units to InWarehouseCBU · yesterday, 17:42</div>
+          </div>
+        </div>
+        <div class="notif-item">
+          <div class="notif-dot"></div>
+          <div class="notif-body">
+            <div class="notif-title">Sales order <span class="ref">SO-2026-01184</span> dispatched</div>
+            <div class="notif-meta">To Honest Logistics · yesterday, 11:08</div>
+          </div>
+        </div>
+      </div>
+      <div class="notif-foot"><a href="#">View all notifications</a></div>
+    </div>
+  </header>
+
+  <!-- Content area -->
+  <div class="app-content">
+    <div class="content-placeholder">
+      <div class="content-placeholder-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      </div>
+      <div class="content-placeholder-title">Content area</div>
+      <div class="content-placeholder-msg">Every screen we design lives inside this shell. The active nav item determines what renders here — Dashboard, Purchase Orders, Inventory, and so on.</div>
+      <div class="content-placeholder-tag">&lt;main slot&gt;</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ========================== SCRIPTS ========================== -->
+<script>
+  // Sidebar collapse toggle
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('collapseBtn').addEventListener('click', () => {
+    sidebar.classList.toggle('collapsed');
+  });
+
+  // Collapsible groups (click group label)
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    h.addEventListener('click', () => {
+      if (sidebar.classList.contains('collapsed')) return;
+      h.parentElement.classList.toggle('collapsed');
+    });
+  });
+
+  // Notifications popover
+  const notifBtn = document.getElementById('notifBtn');
+  const notifPop = document.getElementById('notifPop');
+  notifBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    notifPop.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!notifPop.contains(e.target)) notifPop.classList.remove('open');
+  });
+</script>
+
+<script src="role-switcher.js"></script>
+</body>
+</html>
