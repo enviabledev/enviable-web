@@ -4,14 +4,37 @@ import { apiFetch, type ApiResult } from "./client";
  * GET /api/products. Catalogue of products with nested variants. The frontend
  * uses this for the PO and SO line-item variant selects.
  *
- * Note (known backend gap, surfaced during prompt-4 frontend build):
- * the endpoint is currently gated on pricelist.read. Procurement Officer
- * (the role that creates POs in production) lacks pricelist.read and
- * therefore gets 403 here. IT Admin works via the wildcard grant. The proper
- * fix is in the backend (introduce a product.read permission decoupled from
- * pricelist.read, grant it to the roles that need to reference the catalogue,
- * and re-gate /api/products on it). Until that lands, the PO create form is
- * usable only by principals that hold pricelist.read.
+ * Permission gate: `product.read`. The catalogue read is deliberately
+ * decoupled from pricing read; do not collapse these back into one
+ * permission.
+ *
+ * History (the reasoning behind the decomposition, recorded so it isn't
+ * later "simplified" away):
+ *
+ * The catalogue read was originally gated on `pricelist.read`, which the
+ * Procurement Officer role (the role that creates POs in production)
+ * does not hold. That caused Procurement Officers to get 403 on this
+ * endpoint and therefore be unable to populate the variant select on the
+ * PO create form, the very screen their job revolves around. IT Admin
+ * passed only because of the `*` wildcard grant; no production role
+ * could.
+ *
+ * That was a permission-model defect, not a frontend workaround
+ * opportunity: catalogue identity (which products exist) is not the
+ * same kind of data as pricing (what those products cost), and gating
+ * both behind a single permission conflated them. The backend was
+ * changed to introduce a dedicated `product.read` permission, granted
+ * to every role that legitimately needs to reference the catalogue
+ * (Procurement Officer, the Sales and Warehouse roles, etc.), and the
+ * guard on this endpoint was switched to `product.read`. `pricelist.read`
+ * continues to gate the actual price-list endpoints, which carry the
+ * sensitive pricing data. Catalogue identity and pricing sensitivity
+ * are different concerns; the permissions reflect that.
+ *
+ * If a future change considers merging `product.read` and
+ * `pricelist.read` back into one permission for simplicity, the merge
+ * is a regression. The Procurement Officer must keep catalogue read
+ * without gaining pricing read.
  */
 
 export type ProductCategory = "PASSENGER" | "CARGO";
