@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
   flattenVariantOptions,
+  getSalesOrder,
   listCustomers,
   listProducts,
+  listSalesOrders,
   listUnits,
   SALE_FORM,
   VAT_RATE,
@@ -38,6 +40,12 @@ export type SoFormProps = {
   initial?: SoFormInitial;
   submitLabel?: string;
   onSubmit: (body: CreateSoBody) => Promise<ApiResult<SalesOrderDetail>>;
+  /**
+   * When editing an existing SO, pass its id so its own line allocations are
+   * not treated as reservations the picker should hide; the user must still
+   * see the line's current unit as a valid option.
+   */
+  excludeSoId?: string;
 };
 
 let nextKey = 0;
@@ -52,14 +60,57 @@ const emptyLine = (): LineDraft => ({
 
 const UNIT_PRICE_RE = /^\d+(\.\d{1,2})?$/;
 
-export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormProps) {
+/**
+ * Fetch the set of unitIds currently held by an active sales order line.
+ * The backend's I-11 partial unique index (one_active_so_line_per_unit
+ * WHERE unitId IS NOT NULL) lets one such line per unit; we mirror that
+ * by collecting every line.unitId from every non-cancelled SO. Used both
+ * to pre-filter the picker and to identify which of the user's submitted
+ * units is the colliding one after a 409.
+ *
+ * Implementation: list SOs (no envelope, plain array), then GET each
+ * detail in parallel for the line set. N+1 calls; fine for the current
+ * scale, would warrant a backend "active-allocations" endpoint at larger
+ * volumes. Excluding `excludeSoId` lets the edit form skip its own SO so
+ * the picker still offers the current line's currently-allocated unit.
+ */
+async function loadReservedUnitIds(
+  excludeSoId: string | undefined,
+  signal: AbortSignal,
+): Promise<{ ids: Set<string>; idsToSoNumber: Map<string, string> }> {
+  const ids = new Set<string>();
+  const idsToSoNumber = new Map<string, string>();
+  const listRes = await listSalesOrders({}, signal);
+  if (listRes.kind !== "ok") return { ids, idsToSoNumber };
+  const candidates = listRes.data.filter(
+    (so) => so.status !== "CANCELLED" && so.status !== "REFUNDED" && so.id !== excludeSoId,
+  );
+  const details = await Promise.all(candidates.map((so) => getSalesOrder(so.id, signal)));
+  for (const r of details) {
+    if (r.kind !== "ok") continue;
+    for (const line of r.data.lines) {
+      if (line.unitId) {
+        ids.add(line.unitId);
+        idsToSoNumber.set(line.unitId, r.data.soNumber);
+      }
+    }
+  }
+  return { ids, idsToSoNumber };
+}
+
+export default function SoForm({ mode, initial, submitLabel, onSubmit, excludeSoId }: SoFormProps) {
   const { has } = usePermissions();
   const canDiscount = has("salesorder.discount");
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<ProductWithVariants[]>([]);
   const [availableUnits, setAvailableUnits] = useState<UnitListRow[]>([]);
+  const [reservedUnitIds, setReservedUnitIds] = useState<Set<string>>(new Set());
+  const [reservedToSoNumber, setReservedToSoNumber] = useState<Map<string, string>>(new Map());
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Set of line keys that the most recent 409 identified as colliding.
+  // Cleared on edit or successful submit.
+  const [conflictedLineKeys, setConflictedLineKeys] = useState<Set<string>>(new Set());
 
   const [customerId, setCustomerId] = useState(initial?.customerId ?? "");
   const [lines, setLines] = useState<LineDraft[]>(
@@ -84,20 +135,25 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
     Promise.all([
       listCustomers({ status: "ACTIVE", pageSize: 100 }, ctrl.signal),
       listProducts(ctrl.signal),
-      // Pull all units in IN_WAREHOUSE_CKD or IN_WAREHOUSE_CBU. The units
-      // endpoint can't filter on "already allocated", so the picker shows all
-      // matching-status units and relies on the I-11 409 to catch double-
-      // allocation. That matches receipt's duplicate-handling pattern.
+      // Units in IN_WAREHOUSE_CKD or IN_WAREHOUSE_CBU.
       listUnits({ pageSize: 250, status: ["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_CBU"] }, ctrl.signal),
-    ]).then(([cRes, pRes, uRes]) => {
+      // Pre-load the set of units already allocated to any non-cancelled SO
+      // line. Pre-filtering the picker by this set means the user mostly
+      // doesn't even see units that would 409; the 409 path becomes the rare
+      // race-condition fallback rather than the default friction.
+      loadReservedUnitIds(excludeSoId, ctrl.signal),
+    ]).then(([cRes, pRes, uRes, reserved]) => {
       if (ctrl.signal.aborted) return;
       if (cRes.kind === "ok") setCustomers(cRes.data.data);
-      else if (cRes.kind === "forbidden") setLoadError("You do not have permission to view customers (customer.read required).");
+      else if (cRes.kind === "forbidden")
+        setLoadError("You do not have permission to view customers (customer.read required).");
       if (pRes.kind === "ok") setProducts(pRes.data);
       if (uRes.kind === "ok") setAvailableUnits(uRes.data.data);
+      setReservedUnitIds(reserved.ids);
+      setReservedToSoNumber(reserved.idsToSoNumber);
     });
     return () => ctrl.abort();
-  }, []);
+  }, [excludeSoId]);
 
   const variantOptions = useMemo(() => flattenVariantOptions(products), [products]);
   const variantById = useMemo(() => {
@@ -109,23 +165,34 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
   const selectedCustomer = customers.find((c) => c.id === customerId);
 
   /**
-   * Units offered for a given line: must match the line's selected sale form's
-   * warehouse status AND the line's selected variant. We additionally hide
-   * units already chosen on OTHER lines in this same draft as a courtesy
-   * (server still enforces via I-11).
+   * Units offered for a given line: must match the line's selected sale
+   * form's warehouse status AND the line's selected variant. We additionally
+   * hide units already chosen on OTHER lines in this same draft AND units
+   * already allocated to any non-cancelled SO line elsewhere in the system
+   * (the I-11 mirror). The line's currently-selected unit is always kept so
+   * the user can see what they've picked even if it overlaps the reservation
+   * set (relevant in edit mode where the line's own unit appears reserved
+   * until excludeSoId masks it).
    */
-  const unitsForLine = (line: LineDraft): UnitListRow[] => {
-    if (!line.productVariantId) return [];
+  const unitsForLine = (line: LineDraft): { matching: UnitListRow[]; reservedCount: number } => {
+    if (!line.productVariantId) return { matching: [], reservedCount: 0 };
     const wantedStatus = line.saleForm === "CKD" ? "IN_WAREHOUSE_CKD" : "IN_WAREHOUSE_CBU";
     const usedOnOtherLines = new Set(
       lines.filter((l) => l.key !== line.key && l.unitId).map((l) => l.unitId),
     );
-    return availableUnits.filter(
+    const variantStatusMatch = availableUnits.filter(
       (u) =>
         u.productVariant.id === line.productVariantId &&
         u.status === wantedStatus &&
         !usedOnOtherLines.has(u.id),
     );
+    const reservedCount = variantStatusMatch.filter(
+      (u) => reservedUnitIds.has(u.id) && u.id !== line.unitId,
+    ).length;
+    const matching = variantStatusMatch.filter(
+      (u) => !reservedUnitIds.has(u.id) || u.id === line.unitId,
+    );
+    return { matching, reservedCount };
   };
 
   const setLine = (key: string, patch: Partial<LineDraft>) =>
@@ -192,6 +259,7 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
     setServerMessages([]);
     setConflictMessage(null);
     setForbiddenMessage(null);
+    setConflictedLineKeys(new Set());
     const local = clientErrors();
     if (local.length > 0) {
       setServerMessages(local);
@@ -220,6 +288,26 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
     }
     if (r.kind === "conflict") {
       setConflictMessage(r.message);
+      // For I-11 specifically, the server message is generic and doesn't name
+      // which unit is the conflict. Re-fetch the reservation set, identify any
+      // of OUR submitted lines whose unitId is now reserved elsewhere, and
+      // highlight those specific lines in the form. Without this the user has
+      // to guess which line is the problem when there are several.
+      if (r.message.includes("I-11")) {
+        try {
+          const fresh = await loadReservedUnitIds(excludeSoId, new AbortController().signal);
+          setReservedUnitIds(fresh.ids);
+          setReservedToSoNumber(fresh.idsToSoNumber);
+          const collidingKeys = new Set<string>();
+          for (const l of lines) {
+            if (l.unitId && fresh.ids.has(l.unitId)) collidingKeys.add(l.key);
+          }
+          setConflictedLineKeys(collidingKeys);
+        } catch {
+          // If the refresh fails we still have the generic panel; the user
+          // sees the server's message and can guess. Best-effort.
+        }
+      }
       return;
     }
     if (r.kind === "forbidden") {
@@ -231,6 +319,17 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
       return;
     }
     setServerMessages(["Unexpected response from the server."]);
+  };
+
+  // Clear a line's conflict flag when the user changes its unit. If they
+  // edit something else (e.g. discount) the flag stays so they can still see
+  // which line was the problem.
+  const clearLineConflictOnUnitChange = (key: string, prevUnitId: string, nextUnitId: string) => {
+    if (prevUnitId !== nextUnitId && conflictedLineKeys.has(key)) {
+      const next = new Set(conflictedLineKeys);
+      next.delete(key);
+      setConflictedLineKeys(next);
+    }
   };
 
   if (loadError) {
@@ -298,14 +397,29 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
         </header>
         <div className="divide-y divide-[var(--color-border-default)]">
           {lines.map((l, idx) => {
-            const unitsForThis = unitsForLine(l);
+            const { matching: unitsForThis, reservedCount } = unitsForLine(l);
             const variant = variantById.get(l.productVariantId);
             const displayUnitPrice = variant ? Number(variant.currentMarketPrice) * tierFactor : 0;
+            const isConflicted = conflictedLineKeys.has(l.key);
+            const conflictingSoNumber = l.unitId ? reservedToSoNumber.get(l.unitId) : undefined;
+            const conflictingEngine = l.unitId
+              ? availableUnits.find((u) => u.id === l.unitId)?.engineNumber
+              : undefined;
             return (
-              <div key={l.key} className="px-4 py-3">
+              <div
+                key={l.key}
+                className={`px-4 py-3 ${isConflicted ? "bg-[var(--color-danger-50)]" : ""}`}
+                style={isConflicted ? { boxShadow: "inset 4px 0 0 var(--color-danger-700)" } : undefined}
+              >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--color-ink-500)]">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--color-ink-500)] flex items-center gap-2">
                     Line {idx + 1}
+                    {isConflicted && (
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.04em] px-1.5 py-0.5 rounded-[2px] text-white"
+                            style={{ background: "var(--color-danger-700)" }}>
+                        Conflict: unit already reserved{conflictingSoNumber ? ` on ${conflictingSoNumber}` : ""}
+                      </span>
+                    )}
                   </span>
                   <button
                     type="button"
@@ -361,14 +475,22 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
                     <span className="block text-[10.5px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)] mb-1">
                       Unit to allocate{" "}
                       <span className="text-[var(--color-ink-400)] font-normal normal-case tracking-normal">
-                        ({unitsForThis.length} matching {l.saleForm} in warehouse)
+                        ({unitsForThis.length} available {l.saleForm}
+                        {reservedCount > 0 && `; ${reservedCount} reserved elsewhere, hidden`})
                       </span>
                     </span>
                     <select
                       value={l.unitId}
-                      onChange={(e) => setLine(l.key, { unitId: e.target.value })}
+                      onChange={(e) => {
+                        clearLineConflictOnUnitChange(l.key, l.unitId, e.target.value);
+                        setLine(l.key, { unitId: e.target.value });
+                      }}
                       disabled={!l.productVariantId}
-                      className="h-7 px-2 text-[12px] font-mono text-[var(--color-ink-900)] bg-white border border-[var(--color-border-strong)] rounded-[3px] focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)] w-full disabled:bg-[var(--color-ink-100)] disabled:text-[var(--color-ink-400)]"
+                      className={`h-7 px-2 text-[12px] font-mono text-[var(--color-ink-900)] bg-white border rounded-[3px] focus:outline-none focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)] w-full disabled:bg-[var(--color-ink-100)] disabled:text-[var(--color-ink-400)] ${
+                        isConflicted
+                          ? "border-[var(--color-danger-700)] focus:border-[var(--color-danger-700)]"
+                          : "border-[var(--color-border-strong)] focus:border-[var(--color-navy-700)]"
+                      }`}
                     >
                       <option value="">
                         {l.productVariantId ? "Select a specific unit" : "Pick a variant first"}
@@ -379,6 +501,17 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
                         </option>
                       ))}
                     </select>
+                    {isConflicted && conflictingEngine && (
+                      <p className="text-[11px] text-[var(--color-danger-700)] mt-1">
+                        <span className="font-mono">{conflictingEngine}</span> is already allocated
+                        {conflictingSoNumber && (
+                          <>
+                            {" "}on <span className="font-mono">{conflictingSoNumber}</span>
+                          </>
+                        )}
+                        . Pick a different unit above.
+                      </p>
+                    )}
                   </label>
                 </div>
 
@@ -463,27 +596,62 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
       )}
 
       {conflictMessage && (
-        <Panel tone="warning" title="Server rejected the order">
-          <div className="text-[12px] mb-1">
-            <span className="font-mono">{conflictMessage}</span>
-          </div>
-          {conflictMessage.includes("I-11") && (
-            <div className="text-[12px]">
-              That specific unit is already allocated to another active sales order. Pick a different
-              unit on the affected line; nothing was saved.
-            </div>
-          )}
-          {conflictMessage.includes("required for a CKD line") && (
-            <div className="text-[12px]">
-              The selected unit&apos;s warehouse status does not match the line&apos;s CKD form. Choose a unit
-              already in IN_WAREHOUSE_CKD.
-            </div>
-          )}
-          {conflictMessage.includes("required for a CBU line") && (
-            <div className="text-[12px]">
-              The selected unit&apos;s warehouse status does not match the line&apos;s CBU form. Choose a unit
-              already in IN_WAREHOUSE_CBU.
-            </div>
+        <Panel tone="warning" title="Server rejected the order. Nothing was saved.">
+          {conflictMessage.includes("I-11") && conflictedLineKeys.size > 0 ? (
+            <>
+              <div className="text-[12px] mb-1.5">
+                {conflictedLineKeys.size === 1
+                  ? "One line allocates a unit that is already reserved on another sales order:"
+                  : `${conflictedLineKeys.size} lines allocate units that are already reserved on other sales orders:`}
+              </div>
+              <ul className="text-[12px] list-disc list-inside space-y-0.5 mb-1.5">
+                {lines.map((l, idx) => {
+                  if (!conflictedLineKeys.has(l.key)) return null;
+                  const eng = availableUnits.find((u) => u.id === l.unitId)?.engineNumber;
+                  const onSo = l.unitId ? reservedToSoNumber.get(l.unitId) : undefined;
+                  return (
+                    <li key={l.key}>
+                      <span className="font-semibold">Line {idx + 1}</span>:{" "}
+                      <span className="font-mono">{eng ?? l.unitId}</span>
+                      {onSo && (
+                        <>
+                          {" "}is allocated on{" "}
+                          <span className="font-mono">{onSo}</span>
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="text-[12px]">
+                Pick a different unit on the highlighted line{conflictedLineKeys.size > 1 ? "s" : ""} above. The
+                picker has been refreshed and these units are now hidden.
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-[12px] mb-1">
+                Server message: <span className="font-mono">{conflictMessage}</span>
+              </div>
+              {conflictMessage.includes("I-11") && (
+                <div className="text-[12px]">
+                  A unit on this order is already allocated to another active sales order. Pick a
+                  different unit on the affected line; nothing was saved.
+                </div>
+              )}
+              {conflictMessage.includes("required for a CKD line") && (
+                <div className="text-[12px]">
+                  The selected unit&apos;s warehouse status does not match the line&apos;s CKD form. Choose a
+                  unit already in IN_WAREHOUSE_CKD.
+                </div>
+              )}
+              {conflictMessage.includes("required for a CBU line") && (
+                <div className="text-[12px]">
+                  The selected unit&apos;s warehouse status does not match the line&apos;s CBU form. Choose a
+                  unit already in IN_WAREHOUSE_CBU.
+                </div>
+              )}
+            </>
           )}
         </Panel>
       )}
