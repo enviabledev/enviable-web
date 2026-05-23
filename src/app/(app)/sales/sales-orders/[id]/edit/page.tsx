@@ -120,7 +120,6 @@ export default function EditSalesOrderPage() {
         mode="edit"
         initial={initial}
         submitLabel="Save Changes"
-        excludeSoId={so.id}
         onSubmit={async (body) => {
           const result = await updateSalesOrder(so.id, body);
           if (result.kind === "ok") router.replace(`/sales/sales-orders/${so.id}`);
