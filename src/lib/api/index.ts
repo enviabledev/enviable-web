@@ -1,5 +1,7 @@
 export { apiFetch, buildQuery, type ApiResult } from "./client";
 export { listUnits, getUnit } from "./units";
+export { getStocksReport } from "./reports";
+export { countPurchaseOrders, countShipments } from "./counts";
 export type {
   UnitStatus,
   MovementType,
@@ -18,3 +20,11 @@ export type {
   PaginatedResponse,
 } from "./types";
 export { UNIT_STATUS, MOVEMENT_TYPE, MOVEMENT_REFERENCE_TYPE } from "./types";
+export type {
+  StocksReport,
+  StocksReportQuery,
+  StocksBucketCounts,
+  StocksVariantRow,
+  StocksSparePartItem,
+  StocksSparePartsSection,
+} from "./reports";

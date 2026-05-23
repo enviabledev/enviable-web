@@ -22,7 +22,15 @@ DELETE FROM shipments WHERE id = 'fixt-ship-test';
 -- 4. Purchase order.
 DELETE FROM purchase_orders WHERE id = 'fixt-po-test';
 
--- 5. Cost-blind user (user_roles cascades via onDelete: Cascade on userId).
+-- 5. Spare parts (no FK dependents since spare_part_movements would cascade
+--    via referential delete; teardown also covers any movements written
+--    against fixture parts, though direct fixture inserts produce none).
+DELETE FROM spare_part_movements
+WHERE "sparePartId" IN ('fixt-sp-001', 'fixt-sp-002', 'fixt-sp-003');
+DELETE FROM spare_parts
+WHERE id IN ('fixt-sp-001', 'fixt-sp-002', 'fixt-sp-003');
+
+-- 6. Cost-blind user (user_roles cascades via onDelete: Cascade on userId).
 DELETE FROM users WHERE id = 'fixt-user-costblind';
 
 COMMIT;
@@ -32,4 +40,5 @@ SELECT
   (SELECT COUNT(*) FROM units WHERE "shipmentId" = 'fixt-ship-test')          AS leftover_units,
   (SELECT COUNT(*) FROM shipments WHERE id = 'fixt-ship-test')                AS leftover_shipment,
   (SELECT COUNT(*) FROM purchase_orders WHERE id = 'fixt-po-test')            AS leftover_po,
+  (SELECT COUNT(*) FROM spare_parts WHERE id LIKE 'fixt-sp-%')                AS leftover_sp,
   (SELECT COUNT(*) FROM users WHERE id = 'fixt-user-costblind')               AS leftover_user;

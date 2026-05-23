@@ -185,7 +185,31 @@ INSERT INTO stock_movements (
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
--- 5. COST-BLIND THROWAWAY USER (Sales Officer role lacks costdata.view)
+-- 5. SPARE PARTS (for the stocks report's spare-parts section)
+-- =============================================================================
+-- 3 parts with plausible quantities and landed-cost-per-unit values. Total
+-- landed-cost valuation: ₦2,850,000 (12*150_000 + 25*25_000 + 50*8_500).
+INSERT INTO spare_parts (
+  id, sku, name, description, "quantityOnHand", "landedCostPerUnit",
+  status, "createdAt", "updatedAt"
+) VALUES
+  ('fixt-sp-001', 'SPP-EBA-001', 'Engine Block Assembly',
+   'Replacement engine block, fits GS+ and ZS+ chassis.',
+   12, 150000.00, 'ACTIVE', NOW() - INTERVAL '20 days', NOW() - INTERVAL '5 days'),
+  ('fixt-sp-002', 'SPP-FWH-002', 'Front Wheel Hub',
+   'Front wheel hub assembly with bearings.',
+   25, 25000.00, 'ACTIVE', NOW() - INTERVAL '20 days', NOW() - INTERVAL '5 days'),
+  ('fixt-sp-003', 'SPP-BPS-003', 'Brake Pad Set',
+   'Standard brake pad set (4 pieces).',
+   50, 8500.00, 'ACTIVE', NOW() - INTERVAL '20 days', NOW() - INTERVAL '5 days')
+ON CONFLICT (id) DO NOTHING;
+
+-- =============================================================================
+-- 6. COST-BLIND THROWAWAY USER (Stock Auditor: report.stocks + unit.read,
+--    no costdata.view, so they see both the units list and the stocks report
+--    but with all landed-cost fields stripped server-side. Satisfies the I-8
+--    verification across the units, units-detail, and stocks-report endpoints
+--    with a single throwaway principal.)
 -- =============================================================================
 -- Created with the non-authenticating placeholder hash; set a real password
 -- after via the backend's set-password script (see README).
@@ -204,7 +228,7 @@ SELECT
   r.id,
   NOW()
 FROM roles r
-WHERE r.name = 'Sales Officer (Warehouse)'
+WHERE r.name = 'Stock Auditor'
 ON CONFLICT (id) DO NOTHING;
 
 COMMIT;
@@ -214,4 +238,5 @@ SELECT
   (SELECT COUNT(*) FROM units WHERE "shipmentId" = 'fixt-ship-test')          AS units,
   (SELECT COUNT(*) FROM stock_movements WHERE "unitId" IN
      (SELECT id FROM units WHERE "shipmentId" = 'fixt-ship-test'))            AS movements,
+  (SELECT COUNT(*) FROM spare_parts WHERE id LIKE 'fixt-sp-%')                AS spare_parts,
   (SELECT COUNT(*) FROM users WHERE id = 'fixt-user-costblind')               AS costblind_user;

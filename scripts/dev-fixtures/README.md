@@ -30,13 +30,22 @@ silently corrupts a seeded user or shipment.
   so the variant filter narrows visibly. Each has a plausible `landedCost`
   (2.4M NGN for CKD, 2.8M NGN for CBU) so the cost column shows real numbers
   for users who can see them, and is genuinely absent for users who cannot.
+  The 60 units cover every stocks-report bucket (CKD=22, InAssembly=6, CBU=10,
+  Sold=10, Other=12) so the report's 5-bucket partition exercises end to end.
 - 60 receipt movements (one per unit) so every unit has a non-empty timeline.
 - A 6-movement lifecycle on `fixt-u-001` (engine `FIXT-GS-0001`): RECEIPT,
   ASSEMBLY_START, ASSEMBLY_COMPLETE, SALE, RETURN, REPAIR_IN — telling a
   realistic story for the unit-detail timeline.
+- 3 spare parts (`fixt-sp-001` Engine Block Assembly, `fixt-sp-002` Front
+  Wheel Hub, `fixt-sp-003` Brake Pad Set) with plausible quantities and
+  landed-cost-per-unit so the stocks report's spare-parts section renders a
+  real total landed-cost valuation (₦2,850,000 across the three parts).
 - One throwaway cost-blind user `costblind-test@enviable.example`, assigned
-  the Sales Officer (Warehouse) role (the cost-blind role the seed already
-  defines but doesn't have a user against). Used for the I-8 verification.
+  the Stock Auditor role (cost-blind by design, additionally holds
+  `report.stocks` and `unit.read` so the same principal exercises the I-8
+  boundary across the units list, the unit detail, and the stocks report).
+  The seed has no operating user against this role; this throwaway fills
+  the gap for verification only and is removed on teardown.
 
 ## Usage
 
