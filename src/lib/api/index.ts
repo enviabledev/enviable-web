@@ -62,7 +62,6 @@ export type {
   SoLineUnitSummary,
   SalesOrderLine,
   SalesOrderListRow,
-  SalesOrderListResponse,
   SalesOrderDetail,
   SalesOrderListQuery,
   CreateSoLine,

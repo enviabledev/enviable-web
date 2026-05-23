@@ -10,38 +10,22 @@ import {
   listSalesOrders,
   SO_STATUS,
   type Customer,
-  type SalesOrderListResponse,
+  type SalesOrderListRow,
   type SoStatus,
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
 
-const PAGE_SIZES = [10, 25, 50, 100] as const;
-type PageSize = (typeof PAGE_SIZES)[number];
-
-function readParams(sp: URLSearchParams): {
-  page: number;
-  pageSize: PageSize;
-  customerId: string;
-  status: SoStatus | "";
-} {
-  const pageRaw = Number(sp.get("page") ?? "1");
-  const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
-  const psRaw = Number(sp.get("pageSize") ?? "25");
-  const pageSize: PageSize = (PAGE_SIZES as readonly number[]).includes(psRaw)
-    ? (psRaw as PageSize)
-    : 25;
+function readParams(sp: URLSearchParams): { customerId: string; status: SoStatus | "" } {
   const statusRaw = sp.get("status") ?? "";
   const status: SoStatus | "" = (SO_STATUS as readonly string[]).includes(statusRaw)
     ? (statusRaw as SoStatus)
     : "";
-  return { page, pageSize, customerId: sp.get("customerId") ?? "", status };
+  return { customerId: sp.get("customerId") ?? "", status };
 }
 
 function buildHref(params: ReturnType<typeof readParams>): string {
   const sp = new URLSearchParams();
-  if (params.page > 1) sp.set("page", String(params.page));
-  if (params.pageSize !== 25) sp.set("pageSize", String(params.pageSize));
   if (params.customerId) sp.set("customerId", params.customerId);
   if (params.status) sp.set("status", params.status);
   const qs = sp.toString();
@@ -55,7 +39,7 @@ export default function SalesOrdersListPage() {
   const canCreate = has("salesorder.create");
 
   const params = useMemo(() => readParams(new URLSearchParams(sp.toString())), [sp]);
-  const [data, setData] = useState<SalesOrderListResponse | null>(null);
+  const [rows, setRows] = useState<SalesOrderListRow[] | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [errMsg, setErrMsg] = useState<string>("");
 
@@ -72,19 +56,17 @@ export default function SalesOrdersListPage() {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    setData(null);
+    setRows(null);
     setErrMsg("");
     listSalesOrders(
       {
-        page: params.page,
-        pageSize: params.pageSize,
         customerId: params.customerId || undefined,
         status: params.status || undefined,
       },
       ctrl.signal,
     ).then((r) => {
       if (ctrl.signal.aborted) return;
-      if (r.kind === "ok") setData(r.data);
+      if (r.kind === "ok") setRows(r.data);
       else if (r.kind === "unauthorized") router.replace("/login");
       else if (r.kind === "forbidden") setErrMsg("You do not have access to view sales orders.");
       else if ("message" in r) setErrMsg(typeof r.message === "string" ? r.message : r.message.join("; "));
@@ -110,9 +92,9 @@ export default function SalesOrdersListPage() {
           </div>
           <h1 className="text-[24px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em] flex items-center gap-3">
             Sales Orders
-            {data && (
+            {rows && (
               <span className="font-mono text-[12px] bg-[var(--color-navy-50)] text-[var(--color-navy-800)] px-2.5 py-1 rounded-[3px] font-semibold">
-                {data.total} total
+                {rows.length} total
               </span>
             )}
           </h1>
@@ -139,7 +121,7 @@ export default function SalesOrdersListPage() {
           </span>
           <select
             value={params.customerId}
-            onChange={(e) => update({ customerId: e.target.value, page: 1 })}
+            onChange={(e) => update({ customerId: e.target.value })}
             className="h-8 px-2.5 bg-white border border-[var(--color-border-strong)] rounded-[3px] text-[13px] text-[var(--color-ink-900)] cursor-pointer focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_3px_rgba(31,78,121,0.10)]"
           >
             <option value="">All customers</option>
@@ -156,7 +138,7 @@ export default function SalesOrdersListPage() {
           </span>
           <select
             value={params.status}
-            onChange={(e) => update({ status: e.target.value as SoStatus | "", page: 1 })}
+            onChange={(e) => update({ status: e.target.value as SoStatus | "" })}
             className="h-8 px-2.5 bg-white border border-[var(--color-border-strong)] rounded-[3px] text-[13px] text-[var(--color-ink-900)] cursor-pointer focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_3px_rgba(31,78,121,0.10)]"
           >
             <option value="">All statuses</option>
@@ -195,7 +177,7 @@ export default function SalesOrdersListPage() {
             </tr>
           </thead>
           <tbody>
-            {data === null && !errMsg && (
+            {rows === null && !errMsg && (
               <tr>
                 <td colSpan={7} className="px-3.5 py-12 text-center text-[var(--color-ink-500)]">
                   Loading sales orders...
@@ -209,15 +191,15 @@ export default function SalesOrdersListPage() {
                 </td>
               </tr>
             )}
-            {data && data.data.length === 0 && (
+            {rows && rows.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-3.5 py-12 text-center text-[var(--color-ink-500)]">
                   No sales orders match the current filters.
                 </td>
               </tr>
             )}
-            {data &&
-              data.data.map((row, i) => (
+            {rows &&
+              rows.map((row, i) => (
                 <tr key={row.id} className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} hover:bg-[var(--color-navy-50)] border-b border-[var(--color-border-default)]`}>
                   <Td>
                     <Link
@@ -232,7 +214,7 @@ export default function SalesOrdersListPage() {
                     <SoStatusPill status={row.status} />
                   </Td>
                   <td className="px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[var(--color-ink-900)]">
-                    {row._count.lines}
+                    {row._count?.lines ?? "--"}
                   </td>
                   <td className="px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap font-mono text-[12px] font-semibold text-[var(--color-ink-900)]">
                     {formatNGN(row.total)}

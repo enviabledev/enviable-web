@@ -83,7 +83,7 @@ export type SalesOrderListRow = {
   createdAt: string;
   updatedAt: string;
   customer: { id: string; name: string };
-  _count: { lines: number };
+  _count?: { lines: number };
 };
 
 export type SalesOrderDetail = {
@@ -110,16 +110,7 @@ export type SalesOrderDetail = {
   lines: SalesOrderLine[];
 };
 
-export type SalesOrderListResponse = {
-  data: SalesOrderListRow[];
-  page: number;
-  pageSize: number;
-  total: number;
-};
-
 export type SalesOrderListQuery = {
-  page?: number;
-  pageSize?: 10 | 25 | 50 | 100;
   customerId?: string;
   status?: SoStatus;
   channel?: SalesChannel;
@@ -143,15 +134,13 @@ export type UpdateSoBody = Partial<CreateSoBody>;
 export async function listSalesOrders(
   query: SalesOrderListQuery = {},
   signal?: AbortSignal,
-): Promise<ApiResult<SalesOrderListResponse>> {
+): Promise<ApiResult<SalesOrderListRow[]>> {
   const qs = buildQuery({
-    page: query.page,
-    pageSize: query.pageSize,
     customerId: query.customerId,
     status: query.status,
     channel: query.channel,
   });
-  return apiFetch<SalesOrderListResponse>(`/api/sales-orders${qs}`, { signal });
+  return apiFetch<SalesOrderListRow[]>(`/api/sales-orders${qs}`, { signal });
 }
 
 export async function getSalesOrder(
