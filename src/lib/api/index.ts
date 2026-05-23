@@ -2,6 +2,33 @@ export { apiFetch, buildQuery, type ApiResult } from "./client";
 export { listUnits, getUnit } from "./units";
 export { getStocksReport } from "./reports";
 export { countPurchaseOrders, countShipments } from "./counts";
+export {
+  listPurchaseOrders,
+  getPurchaseOrder,
+  createPurchaseOrder,
+  updatePurchaseOrder,
+  submitPurchaseOrder,
+  approvePurchaseOrder,
+  poCanTransitionTo,
+  poIsEditable,
+  PO_STATUS,
+  PO_LEGAL_TRANSITIONS,
+} from "./purchase-orders";
+export type {
+  PoStatus,
+  PoSupplierSummary,
+  PoLine,
+  PoListRow,
+  PoDetail,
+  PoListQuery,
+  CreatePoLine,
+  CreatePoBody,
+  UpdatePoBody,
+} from "./purchase-orders";
+export { listCounterparties } from "./counterparties";
+export type { Counterparty, CounterpartyType, CounterpartyStatus } from "./counterparties";
+export { listProducts, flattenVariantOptions } from "./products";
+export type { ProductWithVariants, ProductVariantSummary, ProductCategory, ProductStatus } from "./products";
 export type {
   UnitStatus,
   MovementType,

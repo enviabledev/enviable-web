@@ -13,6 +13,7 @@ export type ApiResult<T> =
   | { kind: "unauthorized" }
   | { kind: "forbidden" }
   | { kind: "not_found" }
+  | { kind: "conflict"; message: string }
   | { kind: "validation"; status: number; message: string | string[] }
   | { kind: "server_error"; status: number; message: string }
   | { kind: "network_error"; message: string };
@@ -70,6 +71,20 @@ export async function apiFetch<T>(path: string, init?: ApiRequestInit): Promise<
   if (res.status === 401) return { kind: "unauthorized" };
   if (res.status === 403) return { kind: "forbidden" };
   if (res.status === 404) return { kind: "not_found" };
+
+  if (res.status === 409) {
+    // Conflict (state-machine violation, edit-after-submit, etc.). The backend
+    // returns { statusCode: 409, message: string, error: "Conflict" } with the
+    // human-readable message; surface it verbatim.
+    let msg = "Conflict";
+    try {
+      const body = (await res.json()) as { message?: string };
+      if (typeof body.message === "string") msg = body.message;
+    } catch {
+      msg = await res.text().catch(() => "Conflict");
+    }
+    return { kind: "conflict", message: msg };
+  }
 
   if (res.status >= 200 && res.status < 300) {
     // 204 No Content has no body.
