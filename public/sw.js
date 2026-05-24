@@ -21,16 +21,25 @@
  *   forever; with it, install creates a new versioned cache and activate
  *   deletes the old ones (the cleanup-on-activate pattern).
  *
- * Strategies:
- *   /_next/static/*    cache-first   (Next emits content-hashed filenames; safe
- *                                     to treat as immutable)
- *   navigate, fonts,   network-first with cache fallback   (so an online user
- *   images, other GETs                                      gets fresh content;
- *                                                           an offline user
- *                                                           gets the last seen)
+ * Strategy:
+ *   Network-first for EVERYTHING (navigations, /_next/static/*, fonts,
+ *   images, other GETs). The cache exists purely as an offline fallback:
+ *   when fetch succeeds, the fresh response is returned and also stored;
+ *   when fetch fails (offline), the cached copy is served, falling back to
+ *   the cached root for navigations.
+ *
+ *   Cache-first sounds tempting for /_next/static/* since Next emits
+ *   content-hashed filenames in production. But in dev with Turbopack,
+ *   bundle filenames can change as the code changes, and a cache-first SW
+ *   keeps serving stale JS after a code update (masking new code; the user
+ *   has to hard-reload to bypass the SW). The trade-off (one extra network
+ *   roundtrip per asset on online loads) is worth it for predictability: no
+ *   staleness, no surprises during iteration, and the offline-load
+ *   verification still works because the cache populates on every online
+ *   navigation.
  */
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const CACHE_NAME = `enviable-shell-${CACHE_VERSION}`;
 const CACHE_PREFIX = "enviable-shell-";
 
@@ -63,25 +72,8 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/")) return;
   if (url.pathname === "/sw.js") return;
 
-  if (url.pathname.startsWith("/_next/static/")) {
-    event.respondWith(cacheFirst(req));
-    return;
-  }
-
   event.respondWith(networkFirstWithCacheFallback(req));
 });
-
-async function cacheFirst(req) {
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(req);
-  if (cached) return cached;
-  const fresh = await fetch(req);
-  if (fresh.ok) {
-    // Clone before caching: a Response body can only be consumed once.
-    cache.put(req, fresh.clone());
-  }
-  return fresh;
-}
 
 async function networkFirstWithCacheFallback(req) {
   const cache = await caches.open(CACHE_NAME);
