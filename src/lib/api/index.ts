@@ -69,7 +69,7 @@ export type {
   CreateSoBody,
   UpdateSoBody,
 } from "./sales-orders";
-export { listCustomers } from "./customers";
+export { listCustomers, getCustomer } from "./customers";
 export type {
   Customer,
   CustomerType,

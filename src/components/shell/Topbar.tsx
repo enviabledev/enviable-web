@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { BellIcon, ChevronDownIcon, HelpIcon, SearchIcon } from "@/components/icons";
+import SyncStatusIndicator from "@/components/sync/SyncStatusIndicator";
 import { usePrincipal } from "@/lib/auth";
 
 function initialsOf(fullName: string): string {
@@ -46,7 +47,11 @@ export default function Topbar() {
         </span>
       </label>
 
-      <div className="flex items-center gap-1 relative">
+      <div className="flex items-center gap-2 relative">
+        <SyncStatusIndicator />
+
+        <div className="w-px h-[22px] bg-[var(--color-border-default)] mx-0.5" />
+
         <button
           type="button"
           title="Help"

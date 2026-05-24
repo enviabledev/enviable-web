@@ -5,6 +5,7 @@ import { useEffect, type ReactNode } from "react";
 
 import AppShell from "@/components/shell/AppShell";
 import { useAuth } from "@/lib/auth";
+import SyncBoot from "@/lib/sync/boot";
 
 export default function AppGroupLayout({ children }: { children: ReactNode }) {
   const { state } = useAuth();
@@ -17,7 +18,12 @@ export default function AppGroupLayout({ children }: { children: ReactNode }) {
   }, [state.status, router]);
 
   if (state.status === "authenticated") {
-    return <AppShell>{children}</AppShell>;
+    return (
+      <AppShell>
+        <SyncBoot />
+        {children}
+      </AppShell>
+    );
   }
 
   // Loading and anonymous both render the empty shell chrome (sidebar bg +

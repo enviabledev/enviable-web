@@ -55,3 +55,10 @@ export async function listCustomers(
   });
   return apiFetch<CustomerListResponse>(`/api/customers${qs}`, { signal });
 }
+
+export async function getCustomer(
+  id: string,
+  signal?: AbortSignal,
+): Promise<ApiResult<Customer>> {
+  return apiFetch<Customer>(`/api/customers/${id}`, { signal });
+}
