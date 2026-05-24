@@ -44,10 +44,10 @@ export async function loadCachedPrincipal(): Promise<Principal | null> {
       "readonly",
       (store) => reqToPromise(store.get(META_PRINCIPAL_KEY)),
     );
+    console.log("[auth] loadCachedPrincipal: raw row =", row);
     return row?.value ?? null;
-  } catch {
-    // IndexedDB unavailable (SSR, private mode quirks, etc.). Treat as
-    // "no cached principal" and let the normal auth flow proceed.
+  } catch (err) {
+    console.error("[auth] loadCachedPrincipal: threw", err);
     return null;
   }
 }
@@ -57,9 +57,9 @@ export async function saveCachedPrincipal(p: Principal): Promise<void> {
     await withStore(STORE_META, "readwrite", (store) =>
       reqToPromise(store.put({ key: META_PRINCIPAL_KEY, value: p })),
     );
-  } catch {
-    // Best-effort cache; a failure here doesn't break the auth flow,
-    // it only means offline reload won't see this principal.
+    console.log("[auth] saveCachedPrincipal: saved principal id =", p.id);
+  } catch (err) {
+    console.error("[auth] saveCachedPrincipal: threw", err);
   }
 }
 

@@ -81,12 +81,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      console.log("[auth] hydrate effect: loading cached principal…");
       const cached = await loadCachedPrincipal();
-      if (cancelled) return;
+      console.log("[auth] hydrate effect: loadCachedPrincipal returned", cached);
+      if (cancelled) {
+        console.log("[auth] hydrate effect: cancelled, skipping setState");
+        return;
+      }
       if (cached) {
-        // Hydrate optimistically. Background fetchMe will either confirm or
-        // clear this; offline, it remains until reconnection.
+        console.log("[auth] hydrate effect: setting state to authenticated from cache");
         setState({ status: "authenticated", principal: cached });
+      } else {
+        console.log("[auth] hydrate effect: no cached principal, staying in loading state");
       }
       void refresh();
     })();
