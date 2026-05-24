@@ -4,25 +4,37 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import OfflineNotice from "@/components/sync/OfflineNotice";
+import { isTransientFailure } from "@/lib/api/client";
 import { listCustomers, type Customer } from "@/lib/api";
 
 export default function CustomersListPage() {
   const router = useRouter();
   const [rows, setRows] = useState<Customer[] | null>(null);
   const [errMsg, setErrMsg] = useState<string>("");
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     const ctrl = new AbortController();
     listCustomers({ pageSize: 250 }, ctrl.signal).then((r) => {
       if (ctrl.signal.aborted) return;
-      if (r.kind === "ok") setRows(r.data.data);
-      else if (r.kind === "unauthorized") router.replace("/login");
-      else if (r.kind === "forbidden")
+      if (r.kind === "ok") {
+        setRows(r.data.data);
+        setOffline(false);
+      } else if (r.kind === "unauthorized") {
+        router.replace("/login");
+      } else if (r.kind === "forbidden") {
         setErrMsg("You do not have access to view customers.");
-      else if ("message" in r)
+      } else if (isTransientFailure(r)) {
+        // Calm offline placeholder, not a red error banner. An offline data
+        // fetch is an EXPECTED condition; the topbar indicator carries the
+        // connectivity signal.
+        setOffline(true);
+      } else if ("message" in r) {
         setErrMsg(
           typeof r.message === "string" ? r.message : r.message.join("; "),
         );
+      }
     });
     return () => ctrl.abort();
   }, [router]);
@@ -55,6 +67,11 @@ export default function CustomersListPage() {
         </div>
       )}
 
+      {offline && rows === null && (
+        <OfflineNotice body="The customer list will load when the connection returns. Phone edits queued on customer detail pages are saved locally and sync automatically once reconnected." />
+      )}
+
+      {!offline && (
       <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-hidden">
         <table className="w-full border-collapse">
           <thead>
@@ -133,6 +150,7 @@ export default function CustomersListPage() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

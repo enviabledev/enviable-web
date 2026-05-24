@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import OfflineNotice from "@/components/sync/OfflineNotice";
 import { getCustomer, type Customer } from "@/lib/api";
 import { syncEngine } from "@/lib/sync/engine";
 import { queueEntityUpdate } from "@/lib/sync/actions/entity-update";
@@ -130,15 +131,7 @@ export default function CustomerDetailPage() {
   if (!customer && offline) {
     return (
       <div className="max-w-[820px] mx-auto pb-10">
-        <div className="px-3.5 py-3 rounded-[4px] bg-[var(--color-ink-100)] border border-[var(--color-border-default)] text-[12.5px] text-[var(--color-ink-700)] leading-[1.5]">
-          <div className="font-semibold text-[var(--color-ink-900)] mb-1">
-            You&apos;re offline
-          </div>
-          This customer&apos;s data will load once you&apos;re back online.
-          Any phone edits you queue while offline are saved locally and sync
-          automatically when the connection returns. The sync indicator in
-          the topbar shows the current state.
-        </div>
+        <OfflineNotice body="This customer's details will load once you're back online. Phone edits queued while offline are saved locally and sync automatically when the connection returns." />
       </div>
     );
   }

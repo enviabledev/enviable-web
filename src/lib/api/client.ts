@@ -123,3 +123,16 @@ export async function apiFetch<T>(path: string, init?: ApiRequestInit): Promise<
     message: bodyText,
   };
 }
+
+/**
+ * "Transient" failures: the request didn't reach a responsive backend. Used by
+ * offline-capable screens to decide whether to show the calm "You're offline"
+ * card vs. a red error banner. network_error is a fetch throw (no backend at
+ * all); server_error covers 5xx (backend present but unreachable from the
+ * proxy's perspective, or genuinely broken). In an offline-capable flow these
+ * are EXPECTED conditions, not errors to alarm about; the topbar indicator is
+ * the canonical surface for connectivity state.
+ */
+export function isTransientFailure(r: ApiResult<unknown>): boolean {
+  return r.kind === "network_error" || r.kind === "server_error";
+}
