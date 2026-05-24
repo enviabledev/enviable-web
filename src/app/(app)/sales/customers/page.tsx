@@ -13,7 +13,7 @@ export default function CustomersListPage() {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    listCustomers({ pageSize: 200 }, ctrl.signal).then((r) => {
+    listCustomers({ pageSize: 250 }, ctrl.signal).then((r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") setRows(r.data.data);
       else if (r.kind === "unauthorized") router.replace("/login");
