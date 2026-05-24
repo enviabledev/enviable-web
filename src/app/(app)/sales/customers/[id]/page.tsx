@@ -8,7 +8,7 @@
  */
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getCustomer, type Customer } from "@/lib/api";
 import { syncEngine } from "@/lib/sync/engine";
@@ -20,12 +20,28 @@ export default function CustomerDetailPage() {
   const id = params.id;
 
   const [customer, setCustomer] = useState<Customer | null>(null);
+  // errMsg is for real, surfaceable errors only (forbidden, not_found,
+  // genuine validation failures). It renders in a danger banner.
   const [errMsg, setErrMsg] = useState<string>("");
+  // offline is for "we tried to fetch and the backend wasn't reachable AND
+  // we have no cached data yet to show." It renders in a calm gray notice,
+  // never a danger banner: an offline fetch is an EXPECTED condition in an
+  // offline-capable app, not an error to alarm about.
+  const [offline, setOffline] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [phoneDraft, setPhoneDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [lastQueuedAt, setLastQueuedAt] = useState<string>("");
+
+  // Track the loaded customer in a ref so the refresh handler can decide
+  // whether a transient fetch failure is worth surfacing. With a customer
+  // loaded, transient failures are silent (the topbar indicator already
+  // communicates connectivity). Without one, we show the calm offline state.
+  const customerRef = useRef<Customer | null>(null);
+  useEffect(() => {
+    customerRef.current = customer;
+  }, [customer]);
 
   const refresh = useCallback(
     (signal?: AbortSignal) => {
@@ -33,12 +49,20 @@ export default function CustomerDetailPage() {
         if (signal?.aborted) return;
         if (r.kind === "ok") {
           setCustomer(r.data);
+          setErrMsg("");
+          setOffline(false);
         } else if (r.kind === "unauthorized") {
           router.replace("/login");
         } else if (r.kind === "forbidden") {
           setErrMsg("You do not have access to view this customer.");
         } else if (r.kind === "not_found") {
           setErrMsg("Customer not found.");
+        } else if (r.kind === "network_error" || r.kind === "server_error") {
+          // Transient: silent if we have data, calm offline state if we
+          // don't. Never a red error.
+          if (!customerRef.current) {
+            setOffline(true);
+          }
         } else if ("message" in r) {
           setErrMsg(
             typeof r.message === "string" ? r.message : r.message.join("; "),
@@ -99,6 +123,22 @@ export default function CustomerDetailPage() {
         >
           Back to customers
         </Link>
+      </div>
+    );
+  }
+
+  if (!customer && offline) {
+    return (
+      <div className="max-w-[820px] mx-auto pb-10">
+        <div className="px-3.5 py-3 rounded-[4px] bg-[var(--color-ink-100)] border border-[var(--color-border-default)] text-[12.5px] text-[var(--color-ink-700)] leading-[1.5]">
+          <div className="font-semibold text-[var(--color-ink-900)] mb-1">
+            You&apos;re offline
+          </div>
+          This customer&apos;s data will load once you&apos;re back online.
+          Any phone edits you queue while offline are saved locally and sync
+          automatically when the connection returns. The sync indicator in
+          the topbar shows the current state.
+        </div>
       </div>
     );
   }

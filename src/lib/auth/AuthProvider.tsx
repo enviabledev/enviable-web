@@ -16,8 +16,10 @@ import type { AuthState, LoginInput, Principal } from "./types";
 
 type AuthContextValue = {
   state: AuthState;
-  login: (input: LoginInput) =>
-    Promise<{ ok: true; principal: Principal } | { ok: false; status: number }>;
+  login: (input: LoginInput) => Promise<
+    | { ok: true; principal: Principal }
+    | { ok: false; status: number; unreachable?: boolean }
+  >;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -35,11 +37,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const p = (async () => {
       const result = await fetchMe();
-      if (result.ok) {
+      if (result.kind === "ok") {
         setState({ status: "authenticated", principal: result.principal });
-      } else {
+      } else if (result.kind === "logged_out") {
+        // Confirmed 401: the backend is reachable and rejected the cookie.
+        // Flip to anonymous; the layout will redirect to /login.
         setState({ status: "anonymous", principal: null });
       }
+      // result.kind === "unreachable": the backend didn't answer (offline,
+      // 5xx, network throw). We don't know the auth state. KEEP whatever
+      // state we already have: an authenticated principal stays authenticated
+      // (the user keeps using the app and queueing offline edits), and a
+      // loading shell stays loading until the backend is reachable. Flipping
+      // to anonymous on transient errors would log the user out every time
+      // the network hiccupped, losing their queued offline work.
     })();
     inflight.current = p;
     try {

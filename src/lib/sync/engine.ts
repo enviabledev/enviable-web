@@ -27,6 +27,7 @@ import {
   markFailed,
   markSynced,
   markSyncing,
+  retryFailed,
 } from "./queue";
 import type {
   ActionResult,
@@ -126,12 +127,23 @@ class SyncEngine {
       });
 
       if (res.status === 401) {
-        // Session expired mid-drain. Treat as a transient failure on each
-        // action (still queued for re-drain after re-auth). The AuthProvider
-        // separately handles re-auth from elsewhere; connectivity stays online.
+        // Session expired mid-drain. Critical correctness point: session
+        // expiry must NOT discard queued work. Reset each in-flight action
+        // back to `queued` (not `failed`) so the next drain after re-auth
+        // re-attempts it. Idempotency on the backend ensures a retry is safe
+        // even if the original batch actually reached the server but the
+        // response was lost.
+        //
+        // Also fire sessionExpired so SyncBoot calls auth.refresh() and the
+        // layout redirects to login. Connection stays Online; only auth
+        // changes. After the user re-authenticates and the (app) shell
+        // remounts, SyncBoot's mount-time drain picks up the still-queued
+        // actions and syncs them.
+        connectivity.notifySessionExpired();
         for (const action of drainable) {
-          await markFailed(action.clientId, "Session expired during sync");
+          await retryFailed(action.clientId);
         }
+        this.notifyChange();
         return drainable.length;
       }
 

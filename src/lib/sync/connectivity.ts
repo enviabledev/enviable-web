@@ -26,9 +26,12 @@ import type { ConnectivityState } from "./types";
 
 type Listener = (state: ConnectivityState) => void;
 
+type SessionExpiredListener = () => void;
+
 class ConnectivityManager {
   private state: ConnectivityState = "unknown";
   private listeners = new Set<Listener>();
+  private sessionExpiredListeners = new Set<SessionExpiredListener>();
   private heartbeatAbort: AbortController | null = null;
 
   getState(): ConnectivityState {
@@ -41,6 +44,26 @@ class ConnectivityManager {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  /**
+   * Fired when the heartbeat (or a sync drain) gets back a 401: the connection
+   * is fine but the session is gone. SyncBoot listens for this and calls
+   * auth.refresh(), which flips the auth provider to anonymous and triggers
+   * the layout's redirect-to-login.
+   *
+   * Distinct from connectivity state: a 401 does NOT make the manager flip to
+   * "offline". The pill stays Online; only the auth state changes.
+   */
+  onSessionExpired(listener: SessionExpiredListener): () => void {
+    this.sessionExpiredListeners.add(listener);
+    return () => {
+      this.sessionExpiredListeners.delete(listener);
+    };
+  }
+
+  notifySessionExpired() {
+    this.sessionExpiredListeners.forEach((l) => l());
   }
 
   private setState(next: ConnectivityState) {
@@ -70,6 +93,9 @@ class ConnectivityManager {
         cache: "no-store",
         signal: controller.signal,
       });
+      if (res.status === 401) {
+        this.notifySessionExpired();
+      }
       if (res.status >= 500) {
         this.setState("offline");
         return "offline";

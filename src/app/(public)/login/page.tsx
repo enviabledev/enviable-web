@@ -30,6 +30,10 @@ export default function LoginPage() {
         router.replace("/");
       } else if (result.status === 401) {
         setError("Email or password is incorrect.");
+      } else if (result.unreachable) {
+        setError(
+          "Can't reach the server right now. Check your connection and try again.",
+        );
       } else {
         setError(`Unexpected response (${result.status}). Try again.`);
       }
