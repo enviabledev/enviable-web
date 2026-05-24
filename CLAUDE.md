@@ -45,6 +45,22 @@ The hard rules:
 - Always fetch from relative `/api/...` URLs with `credentials: "include"`. Never reference `BACKEND_API_URL` from client code; it is a server-only env var.
 - Treat HTTP 401 as the "logged out" signal, not an error.
 
+### Principal caching (offline reload), important distinction, do not "tidy"
+
+The principal (identity metadata: `id`, `fullName`, `email`, `roles`, `permissions`) is cached in IndexedDB to enable full offline app rendering across reloads. See `src/lib/auth/principal-cache.ts`. This is **NOT** caching the auth token; the httpOnly session cookie remains the sole credential, is never in JS, and is never stored here. The no-auth-artifact rule above is about the token (the credential that grants access). The principal does not grant access; it describes who the cookie belongs to, and so caching it does not violate the rule.
+
+The pattern is hydrate-then-revalidate: on boot, `AuthProvider` reads the cached principal from IDB and flips to `authenticated` immediately so a cold reload (including offline) renders the full app shell without waiting for the network. `fetchMe` then runs in the background to confirm against the backend. Three outcomes:
+
+- **200**: principal saved (refreshed if the backend's view has changed), state stays authenticated.
+- **401 (confirmed logged-out from a reachable backend)**: cached principal cleared, state flips to anonymous, layout redirects to `/login`.
+- **unreachable (network throw or 5xx)**: cached principal kept, state stays authenticated, the user keeps working offline.
+
+The hygiene rule is that the cache MUST be cleared on logout AND on confirmed-401. Both code paths exercise this and must keep working under refactor. The failure mode to avoid is a stale principal surviving after logout or session expiry (so a future user reopening the device offline sees the previous user's identity until reconnection).
+
+The cached principal is **rendering only**, NOT authorization enforcement. The backend's `PermissionsGuard` is the real check on every API call. The role-aware UI gating (`has(permissionKey)`) is fine to compute from the cached principal because it is convenience-mirroring-the-backend (see role-aware UI principle below); the worst case for a stale cached permission is the UI offering an action the backend then 403s on sync, which is the same graceful failure pattern that exists when online.
+
+**Do not "clean up" the principal cache thinking it violates the no-auth-artifact rule.** It does not. Caching the principal (identity metadata) is distinct from caching the credential (the cookie), and this distinction is what makes offline reload actually work in a warehouse / field-device context. A removal would silently break cold-offline reload (full app -> empty loading shell).
+
 ## Design system constraints
 
 NetSuite/Odoo enterprise density, not consumer SaaS. Read the `frontend-design` skill before building any UI.

@@ -12,6 +12,11 @@ import {
 } from "react";
 
 import { fetchMe, postLogin, postLogout } from "./api";
+import {
+  clearCachedPrincipal,
+  loadCachedPrincipal,
+  saveCachedPrincipal,
+} from "./principal-cache";
 import type { AuthState, LoginInput, Principal } from "./types";
 
 type AuthContextValue = {
@@ -27,9 +32,22 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({ status: "loading", principal: null });
+  const [state, setState] = useState<AuthState>({
+    status: "loading",
+    principal: null,
+  });
   const inflight = useRef<Promise<void> | null>(null);
 
+  // Hydrate-then-revalidate. On mount, read the cached principal from
+  // IndexedDB and flip to authenticated immediately if one exists, so the
+  // app shell renders without waiting for the network. Then fire fetchMe to
+  // confirm against the backend; the result either confirms (cache stays),
+  // refutes (cache cleared, redirect to login), or is unreachable (cache
+  // stays, user keeps using the app offline).
+  //
+  // See principal-cache.ts for the load-bearing distinction: the principal
+  // is identity metadata, not the auth token. The httpOnly session cookie
+  // remains the sole credential, never in JS.
   const refresh = useCallback(async () => {
     if (inflight.current) {
       await inflight.current;
@@ -38,19 +56,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const p = (async () => {
       const result = await fetchMe();
       if (result.kind === "ok") {
+        await saveCachedPrincipal(result.principal);
         setState({ status: "authenticated", principal: result.principal });
       } else if (result.kind === "logged_out") {
         // Confirmed 401: the backend is reachable and rejected the cookie.
-        // Flip to anonymous; the layout will redirect to /login.
+        // Clear the cached principal (hygiene: a logged-out user's identity
+        // must not linger offline) and flip to anonymous.
+        await clearCachedPrincipal();
         setState({ status: "anonymous", principal: null });
       }
-      // result.kind === "unreachable": the backend didn't answer (offline,
-      // 5xx, network throw). We don't know the auth state. KEEP whatever
-      // state we already have: an authenticated principal stays authenticated
-      // (the user keeps using the app and queueing offline edits), and a
-      // loading shell stays loading until the backend is reachable. Flipping
-      // to anonymous on transient errors would log the user out every time
-      // the network hiccupped, losing their queued offline work.
+      // result.kind === "unreachable": keep whatever state we have. If we
+      // hydrated from cache we stay authenticated and the user keeps
+      // working offline; their queued edits sit in IDB and drain when the
+      // backend returns.
     })();
     inflight.current = p;
     try {
@@ -61,18 +79,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    let cancelled = false;
+    (async () => {
+      const cached = await loadCachedPrincipal();
+      if (cancelled) return;
+      if (cached) {
+        // Hydrate optimistically. Background fetchMe will either confirm or
+        // clear this; offline, it remains until reconnection.
+        setState({ status: "authenticated", principal: cached });
+      }
+      void refresh();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [refresh]);
 
   const login = useCallback(async (input: LoginInput) => {
     const result = await postLogin(input);
     if (result.ok) {
+      await saveCachedPrincipal(result.principal);
       setState({ status: "authenticated", principal: result.principal });
     }
     return result;
   }, []);
 
   const logout = useCallback(async () => {
+    // Clear the cache FIRST so a race (someone re-reading principal mid-
+    // logout) doesn't catch the stale value. Then call the backend logout
+    // endpoint to invalidate the session server-side.
+    await clearCachedPrincipal();
     await postLogout();
     setState({ status: "anonymous", principal: null });
   }, []);
