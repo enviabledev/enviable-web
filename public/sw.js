@@ -39,7 +39,7 @@
  *   navigation.
  */
 
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const CACHE_NAME = `enviable-shell-${CACHE_VERSION}`;
 const CACHE_PREFIX = "enviable-shell-";
 
@@ -75,14 +75,39 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(networkFirstWithCacheFallback(req));
 });
 
+/**
+ * Normalize the cache key for Next's RSC client-side-navigation requests.
+ *
+ * Next App Router doesn't full-reload on client navigation. It fetches a
+ * binary RSC payload from /<path>?_rsc=<hash>. The _rsc value varies per
+ * request, so caching under the literal URL means later offline navigations
+ * miss even when the same route was visited online before. We strip _rsc
+ * and suffix the path with __rsc__ so:
+ *
+ *   /<path>          stays the cache key for full-HTML navigations
+ *   /<path>__rsc__   becomes the stable key for RSC payloads at that path
+ *
+ * The suffix prevents collisions: an RSC payload and a full HTML page at
+ * the same path have different content-types and serving one as the other
+ * would break the navigation. Each gets its own stable key.
+ */
+function cacheKeyFor(req) {
+  const url = new URL(req.url);
+  if (!url.searchParams.has("_rsc")) return req;
+  url.searchParams.delete("_rsc");
+  url.pathname = url.pathname + "__rsc__";
+  return url.toString();
+}
+
 async function networkFirstWithCacheFallback(req) {
   const cache = await caches.open(CACHE_NAME);
+  const key = cacheKeyFor(req);
   try {
     const fresh = await fetch(req);
-    if (fresh.ok) cache.put(req, fresh.clone());
+    if (fresh.ok) cache.put(key, fresh.clone());
     return fresh;
   } catch (err) {
-    const cached = await cache.match(req);
+    const cached = await cache.match(key);
     if (cached) return cached;
     // For top-level navigations with no cache, fall back to whatever shell HTML
     // we may have cached at the root path. Better than a blank "no connection"
