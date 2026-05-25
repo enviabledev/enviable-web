@@ -14,7 +14,7 @@
  * Renders null. Lives in src/app/(app)/layout.tsx where it is loaded only for
  * authenticated routes (the login screen does not need the engine).
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { useAuth } from "@/lib/auth";
 
@@ -25,7 +25,17 @@ import { downloadHistory } from "./mirror/downloader";
 import { reconcile } from "./mirror/reconciler";
 
 export default function SyncBoot() {
-  const { refresh: refreshAuth } = useAuth();
+  const { state, refresh: refreshAuth } = useAuth();
+
+  // Live auth status the triggerOnline closure reads at call time. Without
+  // this, the closure captures the auth state from the effect-mount moment,
+  // which is stale by the time the periodic tick or connectivity event fires
+  // it. A ref keeps the read live without re-running the effect (which would
+  // churn the interval and listeners on every auth state change).
+  const authStatusRef = useRef(state.status);
+  useEffect(() => {
+    authStatusRef.current = state.status;
+  }, [state.status]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -42,16 +52,25 @@ export default function SyncBoot() {
     void loadAllConflictPlugins();
 
     const triggerOnline = async () => {
-      const state = await connectivity.heartbeat();
-      if (state === "online") {
-        void syncEngine.drain();
-        // Drive the read mirror. Both are single-flight + idempotent: the
-        // downloader bails when history is complete; the reconciler bails
-        // when history is incomplete. Calling both on every online tick is
-        // the simplest correct trigger.
-        void downloadHistory();
-        void reconcile();
-      }
+      const connState = await connectivity.heartbeat();
+      if (connState !== "online") return;
+      // Gate heavy backend pulls on confirmed auth. The hydrate-then-revalidate
+      // pattern means a stale cached principal can put auth state at
+      // "authenticated" while the actual session cookie has expired. Firing
+      // downloads / drains / reconciles before AuthProvider's background
+      // revalidation completes leads to 401s that the downloader correctly
+      // bails on, but it pollutes the log and wastes a download attempt.
+      // Reading the ref lets us check the LATEST auth state at call time,
+      // not the captured-at-mount state. After re-auth, the next tick (60s
+      // periodic, online event, or connectivity transition) picks up cleanly.
+      if (authStatusRef.current !== "authenticated") return;
+      void syncEngine.drain();
+      // Drive the read mirror. Both are single-flight + idempotent: the
+      // downloader bails when history is complete; the reconciler bails
+      // when history is incomplete. Calling both on every online tick is
+      // the simplest correct trigger.
+      void downloadHistory();
+      void reconcile();
     };
 
     const onOnline = () => {
@@ -109,6 +128,21 @@ export default function SyncBoot() {
       unsubConn();
     };
   }, [refreshAuth]);
+
+  // When auth transitions to authenticated (whether via fresh login or via
+  // a successful revalidation), kick the trigger immediately rather than
+  // waiting for the next 60s tick. Avoids a minute-long blank window where
+  // the user is logged in but the mirror hasn't started downloading.
+  useEffect(() => {
+    if (state.status !== "authenticated") return;
+    void (async () => {
+      const connState = await connectivity.heartbeat();
+      if (connState !== "online") return;
+      void syncEngine.drain();
+      void downloadHistory();
+      void reconcile();
+    })();
+  }, [state.status]);
 
   return null;
 }
