@@ -21,36 +21,46 @@ export default function CustomersListPage() {
 
   useEffect(() => {
     const ctrl = new AbortController();
+    console.log("[customers] effect run, calling listCustomers(pageSize=250)");
     listCustomers({ pageSize: 250 }, ctrl.signal).then(async (r) => {
-      if (ctrl.signal.aborted) return;
+      if (ctrl.signal.aborted) {
+        console.log("[customers] aborted before result");
+        return;
+      }
+      console.log("[customers] listCustomers result kind:", r.kind);
       if (r.kind === "ok") {
         setRows(r.data.data);
         setOffline(false);
         setFromMirror(false);
+        console.log("[customers] online path: rendered", r.data.data.length, "rows");
       } else if (r.kind === "unauthorized") {
         router.replace("/login");
       } else if (r.kind === "forbidden") {
         setErrMsg("You do not have access to view customers.");
       } else if (isTransientFailure(r)) {
-        // Network unreachable. Fall back to the local mirror so the clerk
-        // sees their cached customers with a freshness disclosure, instead
-        // of an empty notice where data exists.
+        console.log("[customers] transient failure (kind=" + r.kind + "), attempting mirror fallback");
         try {
           const mirrored = await listByType<Customer>("customer");
-          if (ctrl.signal.aborted) return;
+          if (ctrl.signal.aborted) {
+            console.log("[customers] aborted after mirror read");
+            return;
+          }
+          console.log("[customers] mirror returned", mirrored.length, "customer records");
           if (mirrored.length > 0) {
             setRows(mirrored.map((m) => m.body));
             setFromMirror(true);
             setOffline(false);
+            console.log("[customers] fallback path: rendered", mirrored.length, "rows from mirror");
           } else {
-            // No mirror data yet (first run, never synced). Honest empty
-            // offline notice.
             setOffline(true);
+            console.log("[customers] mirror was empty, falling back to OfflineNotice");
           }
-        } catch {
+        } catch (err) {
+          console.error("[customers] mirror read threw:", err);
           setOffline(true);
         }
       } else if ("message" in r) {
+        console.log("[customers] catchall message branch, setting errMsg");
         setErrMsg(
           typeof r.message === "string" ? r.message : r.message.join("; "),
         );
