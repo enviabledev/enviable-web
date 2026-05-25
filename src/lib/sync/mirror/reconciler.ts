@@ -196,6 +196,10 @@ export async function reconcile(
     // is maintained without requiring a separate scheduler.
     const evicted = await evictOlderThan(evictionCutoffIso());
 
+    console.log(
+      `[mirror] reconcile: ${buffered.length} merged, ${evicted} evicted, since advanced to ${nextSinceFromServer}`,
+    );
+
     return { merged: buffered.length, evicted, skipped: false };
   } finally {
     inFlight = false;

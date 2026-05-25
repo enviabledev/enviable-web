@@ -87,9 +87,22 @@ export default function SyncBoot() {
     window.addEventListener("offline", onOffline);
     const unsubSession = connectivity.onSessionExpired(onSessionExpired);
 
+    // Periodic-while-online tick. Without this, downloader and reconciler
+    // only fire on mount + on offline->online transitions; a user who sits
+    // online for an hour without a state change would get no ongoing pull.
+    // Every 60s we re-trigger; downloader bails fast if history is complete
+    // (single-flight + watermark check), reconciler bails fast if history is
+    // incomplete. The cost is one heartbeat-plus-maybe-pull per minute,
+    // which is negligible.
+    const PERIODIC_MS = 60_000;
+    const interval = window.setInterval(() => {
+      void triggerOnline();
+    }, PERIODIC_MS);
+
     void triggerOnline();
 
     return () => {
+      window.clearInterval(interval);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       unsubSession();

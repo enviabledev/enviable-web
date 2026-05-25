@@ -206,6 +206,10 @@ async function downloadAndCommitWindow(
     },
   );
 
+  console.log(
+    `[mirror] window ${from.slice(0, 10)} -> ${to.slice(0, 10)} committed: ${buffer.rows.length} rows`,
+  );
+
   emitProgress(nextWatermark);
   return true;
 }
@@ -217,16 +221,44 @@ async function downloadAndCommitWindow(
  * concurrent invocations and the watermark resumes mid-history.
  */
 export async function downloadHistory(signal?: AbortSignal): Promise<void> {
-  if (inFlight) return;
+  if (inFlight) {
+    console.log("[mirror] history download already in flight, skip");
+    return;
+  }
   inFlight = true;
   try {
     let watermark = await ensureWatermark();
 
+    if (
+      new Date(watermark.nextWindowFrom) >= new Date(watermark.historyTargetTo)
+    ) {
+      console.log(
+        "[mirror] history already complete (watermark at",
+        watermark.nextWindowFrom,
+        ")",
+      );
+      return;
+    }
+
+    console.log(
+      "[mirror] history download starting from",
+      watermark.nextWindowFrom,
+      "to",
+      watermark.historyTargetTo,
+    );
+
+    let windowIndex = 0;
     while (
       new Date(watermark.nextWindowFrom) < new Date(watermark.historyTargetTo)
     ) {
-      if (signal?.aborted) return;
-      if (connectivity.getState() === "offline") return;
+      if (signal?.aborted) {
+        console.log("[mirror] history download aborted by signal");
+        return;
+      }
+      if (connectivity.getState() === "offline") {
+        console.log("[mirror] history download paused: offline");
+        return;
+      }
 
       const from = watermark.nextWindowFrom;
       const fromDate = new Date(from);
@@ -236,18 +268,31 @@ export async function downloadHistory(signal?: AbortSignal): Promise<void> {
         proposedToDate > targetToDate ? targetToDate : proposedToDate;
       const to = toDate.toISOString();
 
+      windowIndex += 1;
+      console.log(
+        `[mirror] window ${windowIndex}: ${from.slice(0, 10)} -> ${to.slice(0, 10)} downloading`,
+      );
+
       const committed = await downloadAndCommitWindow(
         from,
         to,
         watermark,
         signal,
       );
-      if (!committed) return;
+      if (!committed) {
+        console.log(
+          `[mirror] window ${windowIndex} did NOT commit (offline / non-ok pull); will retry on next online tick`,
+        );
+        return;
+      }
 
       const refreshed = await loadWatermark();
       if (!refreshed) return;
       watermark = refreshed;
     }
+    console.log(
+      "[mirror] history download complete; reconciler takes over from here",
+    );
   } finally {
     inFlight = false;
   }
