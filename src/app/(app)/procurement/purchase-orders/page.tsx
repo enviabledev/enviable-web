@@ -93,22 +93,41 @@ export default function PurchaseOrdersListPage() {
       } else if (r.kind === "forbidden") {
         setErrMsg("You do not have access to view purchase orders.");
       } else if (isTransientFailure(r)) {
+        // Fall back to mirror: purchaseOrder bucket has only supplierId
+        // (flat); look up supplier name from the counterparty bucket and
+        // graft the nested {id, name, type, status} so the same row
+        // renderer works unchanged.
         try {
-          const mirrored = await listByType<PoListRow>("purchaseOrder");
+          type MirroredPo = Omit<PoListRow, "supplier">;
+          const [poRows, counterpartyRows] = await Promise.all([
+            listByType<MirroredPo>("purchaseOrder"),
+            listByType<Counterparty>("counterparty"),
+          ]);
           if (ctrl.signal.aborted) return;
-          const filtered = mirrored
+          if (poRows.length === 0) {
+            setOffline(true);
+            return;
+          }
+          const counterpartyById = new Map<string, Counterparty>();
+          for (const c of counterpartyRows) counterpartyById.set(c.body.id, c.body);
+          const filtered = poRows
             .map((m) => m.body)
             .filter((po) => {
               if (params.status && po.status !== params.status) return false;
               if (params.supplierId && po.supplierId !== params.supplierId) return false;
               return true;
+            })
+            .map<PoListRow>((po) => {
+              const c = counterpartyById.get(po.supplierId);
+              return {
+                ...po,
+                supplier: c
+                  ? { id: c.id, name: c.name, type: c.type, status: c.status }
+                  : { id: po.supplierId, name: po.supplierId, type: "SUPPLIER", status: "ACTIVE" },
+              };
             });
-          if (filtered.length > 0 || mirrored.length > 0) {
-            setRows(filtered);
-            setFromMirror(true);
-          } else {
-            setOffline(true);
-          }
+          setRows(filtered);
+          setFromMirror(true);
         } catch {
           setOffline(true);
         }

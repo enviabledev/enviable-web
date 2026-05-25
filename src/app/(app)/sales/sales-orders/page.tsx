@@ -92,24 +92,52 @@ export default function SalesOrdersListPage() {
       } else if (r.kind === "forbidden") {
         setErrMsg("You do not have access to view sales orders.");
       } else if (isTransientFailure(r)) {
-        // Fall back to the mirror. Apply the same filters (customerId,
-        // status) client-side against the salesOrder bucket.
+        // Fall back to mirror: SO bucket carries flat customerId only (the
+        // online row has customer joined); look it up from the customer
+        // bucket and graft the nested {id, name} onto each row. Also
+        // compute the _count.lines (online-only convenience) from the
+        // salesOrderLine bucket so the column renders.
         try {
-          const mirrored = await listByType<SalesOrderListRow>("salesOrder");
+          type MirroredSo = Omit<SalesOrderListRow, "customer" | "_count">;
+          type MirroredSoLine = { id: string; salesOrderId: string };
+          const [soRows, customerRows, lineRows] = await Promise.all([
+            listByType<MirroredSo>("salesOrder"),
+            listByType<Customer>("customer"),
+            listByType<MirroredSoLine>("salesOrderLine"),
+          ]);
           if (ctrl.signal.aborted) return;
-          const filtered = mirrored
+          if (soRows.length === 0) {
+            setOffline(true);
+            return;
+          }
+          const customerById = new Map<string, Customer>();
+          for (const c of customerRows) customerById.set(c.body.id, c.body);
+          const lineCountBySo = new Map<string, number>();
+          for (const l of lineRows) {
+            lineCountBySo.set(
+              l.body.salesOrderId,
+              (lineCountBySo.get(l.body.salesOrderId) ?? 0) + 1,
+            );
+          }
+          const filtered = soRows
             .map((m) => m.body)
             .filter((so) => {
               if (params.customerId && so.customerId !== params.customerId) return false;
               if (params.status && so.status !== params.status) return false;
               return true;
+            })
+            .map<SalesOrderListRow>((so) => {
+              const c = customerById.get(so.customerId);
+              return {
+                ...so,
+                customer: c
+                  ? { id: c.id, name: c.name }
+                  : { id: so.customerId, name: so.customerId },
+                _count: { lines: lineCountBySo.get(so.id) ?? 0 },
+              };
             });
-          if (filtered.length > 0 || mirrored.length > 0) {
-            setRows(filtered);
-            setFromMirror(true);
-          } else {
-            setOffline(true);
-          }
+          setRows(filtered);
+          setFromMirror(true);
         } catch {
           setOffline(true);
         }
