@@ -21,6 +21,8 @@ import { useAuth } from "@/lib/auth";
 import { loadAllConflictPlugins } from "./conflicts-registry";
 import { connectivity } from "./connectivity";
 import { syncEngine } from "./engine";
+import { downloadHistory } from "./mirror/downloader";
+import { reconcile } from "./mirror/reconciler";
 
 export default function SyncBoot() {
   const { refresh: refreshAuth } = useAuth();
@@ -43,6 +45,12 @@ export default function SyncBoot() {
       const state = await connectivity.heartbeat();
       if (state === "online") {
         void syncEngine.drain();
+        // Drive the read mirror. Both are single-flight + idempotent: the
+        // downloader bails when history is complete; the reconciler bails
+        // when history is incomplete. Calling both on every online tick is
+        // the simplest correct trigger.
+        void downloadHistory();
+        void reconcile();
       }
     };
 

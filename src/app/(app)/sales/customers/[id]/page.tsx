@@ -10,10 +10,13 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import { getCustomer, type Customer } from "@/lib/api";
+import { isTransientFailure } from "@/lib/api/client";
 import { syncEngine } from "@/lib/sync/engine";
 import { queueEntityUpdate } from "@/lib/sync/actions/entity-update";
+import { getById } from "@/lib/sync/mirror/store";
 
 export default function CustomerDetailPage() {
   const router = useRouter();
@@ -29,6 +32,9 @@ export default function CustomerDetailPage() {
   // never a danger banner: an offline fetch is an EXPECTED condition in an
   // offline-capable app, not an error to alarm about.
   const [offline, setOffline] = useState(false);
+  // When true, the customer rendered came from the mirror. Drives the
+  // FreshnessBadge so the clerk knows it's cached, not live.
+  const [fromMirror, setFromMirror] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [phoneDraft, setPhoneDraft] = useState("");
@@ -46,23 +52,39 @@ export default function CustomerDetailPage() {
 
   const refresh = useCallback(
     (signal?: AbortSignal) => {
-      getCustomer(id, signal).then((r) => {
+      getCustomer(id, signal).then(async (r) => {
         if (signal?.aborted) return;
         if (r.kind === "ok") {
           setCustomer(r.data);
           setErrMsg("");
           setOffline(false);
+          setFromMirror(false);
         } else if (r.kind === "unauthorized") {
           router.replace("/login");
         } else if (r.kind === "forbidden") {
           setErrMsg("You do not have access to view this customer.");
         } else if (r.kind === "not_found") {
           setErrMsg("Customer not found.");
-        } else if (r.kind === "network_error" || r.kind === "server_error") {
-          // Transient: silent if we have data, calm offline state if we
-          // don't. Never a red error.
+        } else if (isTransientFailure(r)) {
+          // Network unreachable. If we already have a customer rendered
+          // (e.g. from a prior online fetch in this session), stay quiet;
+          // the indicator carries the connectivity signal. Otherwise fall
+          // back to the local mirror so the page renders the cached
+          // customer with a freshness disclosure.
           if (!customerRef.current) {
-            setOffline(true);
+            try {
+              const mirrored = await getById<Customer>("customer", id);
+              if (signal?.aborted) return;
+              if (mirrored) {
+                setCustomer(mirrored.body);
+                setFromMirror(true);
+                setOffline(false);
+              } else {
+                setOffline(true);
+              }
+            } catch {
+              setOffline(true);
+            }
           }
         } else if ("message" in r) {
           setErrMsg(
@@ -160,8 +182,9 @@ export default function CustomerDetailPage() {
               {customer.name}
             </span>
           </div>
-          <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em]">
+          <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em] flex items-center gap-3">
             {customer.name}
+            {fromMirror && <FreshnessBadge />}
           </h1>
         </div>
       </header>

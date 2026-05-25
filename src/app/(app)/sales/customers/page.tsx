@@ -4,32 +4,52 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import { isTransientFailure } from "@/lib/api/client";
 import { listCustomers, type Customer } from "@/lib/api";
+import { listByType } from "@/lib/sync/mirror/store";
 
 export default function CustomersListPage() {
   const router = useRouter();
   const [rows, setRows] = useState<Customer[] | null>(null);
   const [errMsg, setErrMsg] = useState<string>("");
   const [offline, setOffline] = useState(false);
+  // When true, the rows came from the mirror, not the network. Drives the
+  // FreshnessBadge so the clerk knows it's cached data, not live.
+  const [fromMirror, setFromMirror] = useState(false);
 
   useEffect(() => {
     const ctrl = new AbortController();
-    listCustomers({ pageSize: 250 }, ctrl.signal).then((r) => {
+    listCustomers({ pageSize: 250 }, ctrl.signal).then(async (r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") {
         setRows(r.data.data);
         setOffline(false);
+        setFromMirror(false);
       } else if (r.kind === "unauthorized") {
         router.replace("/login");
       } else if (r.kind === "forbidden") {
         setErrMsg("You do not have access to view customers.");
       } else if (isTransientFailure(r)) {
-        // Calm offline placeholder, not a red error banner. An offline data
-        // fetch is an EXPECTED condition; the topbar indicator carries the
-        // connectivity signal.
-        setOffline(true);
+        // Network unreachable. Fall back to the local mirror so the clerk
+        // sees their cached customers with a freshness disclosure, instead
+        // of an empty notice where data exists.
+        try {
+          const mirrored = await listByType<Customer>("customer");
+          if (ctrl.signal.aborted) return;
+          if (mirrored.length > 0) {
+            setRows(mirrored.map((m) => m.body));
+            setFromMirror(true);
+            setOffline(false);
+          } else {
+            // No mirror data yet (first run, never synced). Honest empty
+            // offline notice.
+            setOffline(true);
+          }
+        } catch {
+          setOffline(true);
+        }
       } else if ("message" in r) {
         setErrMsg(
           typeof r.message === "string" ? r.message : r.message.join("; "),
@@ -57,6 +77,7 @@ export default function CustomersListPage() {
                 {rows.length} total
               </span>
             )}
+            {fromMirror && <FreshnessBadge />}
           </h1>
         </div>
       </header>
