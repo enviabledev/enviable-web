@@ -3,18 +3,23 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import ComputedDisclosure from "@/components/sync/ComputedDisclosure";
+import OfflineNotice from "@/components/sync/OfflineNotice";
 import { getStocksReport, type ApiResult, type StocksReport } from "@/lib/api";
+import { isTransientFailure } from "@/lib/api/client";
 import {
   formatCount,
   formatDateTime,
   formatNGN,
   formatNGNCompact,
 } from "@/lib/format";
+import { recomputeStocksFromMirror } from "@/lib/sync/mirror/recompute/stocks";
 
 type LoadState =
   | { status: "loading" }
-  | { status: "ok"; data: StocksReport }
+  | { status: "ok"; data: StocksReport; fromMirror?: boolean }
   | { status: "forbidden" }
+  | { status: "offline" }
   | { status: "error"; message: string };
 
 export default function StocksReportPage() {
@@ -23,12 +28,30 @@ export default function StocksReportPage() {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    getStocksReport({}, ctrl.signal).then((r: ApiResult<StocksReport>) => {
+    getStocksReport({}, ctrl.signal).then(async (r: ApiResult<StocksReport>) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") setState({ status: "ok", data: r.data });
       else if (r.kind === "unauthorized") router.replace("/login");
       else if (r.kind === "forbidden") setState({ status: "forbidden" });
-      else setState({ status: "error", message: "message" in r ? String(r.message) : "Error" });
+      else if (isTransientFailure(r)) {
+        // Recompute from the mirror: same partition logic, same valuation,
+        // same partition assertion as the backend. Fidelity guarantee: same
+        // calculation over the cached data, "less accurate" means only
+        // "possibly stale" never "computed differently."
+        try {
+          const recomputed = await recomputeStocksFromMirror({});
+          if (ctrl.signal.aborted) return;
+          setState({ status: "ok", data: recomputed, fromMirror: true });
+        } catch (err) {
+          // Partition mismatch or empty mirror: surface as offline rather
+          // than show a wrong figure.
+          if (err instanceof Error && err.message.includes("partition mismatch")) {
+            setState({ status: "error", message: err.message });
+          } else {
+            setState({ status: "offline" });
+          }
+        }
+      } else setState({ status: "error", message: "message" in r ? String(r.message) : "Error" });
     });
     return () => ctrl.abort();
   }, [router]);
@@ -54,8 +77,16 @@ export default function StocksReportPage() {
       </div>
     );
   }
+  if (state.status === "offline") {
+    return (
+      <div className="max-w-[820px] mx-auto py-10">
+        <OfflineNotice body="The stocks report needs cached unit and variant data to recompute offline. Come back online or wait for the mirror to populate, and the report will compute from cached data with a freshness disclosure." />
+      </div>
+    );
+  }
 
   const r = state.data;
+  const isFromMirror = state.fromMirror === true;
   const showSpareCosts = r.spareParts.totalLandedCostValue !== undefined;
 
   // Per-variant totals for the tfoot row.
@@ -99,6 +130,8 @@ export default function StocksReportPage() {
           </div>
         </div>
       </header>
+
+      {isFromMirror && <ComputedDisclosure className="mb-4" />}
 
       <section className="grid grid-cols-3 gap-3 mb-5">
         <KpiCard label="Total Units">

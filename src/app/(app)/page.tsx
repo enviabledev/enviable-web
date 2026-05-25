@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import ComputedDisclosure from "@/components/sync/ComputedDisclosure";
 import {
   countPurchaseOrders,
   countShipments,
@@ -10,13 +11,16 @@ import {
   listUnits,
   type StocksReport,
 } from "@/lib/api";
+import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions, usePrincipal } from "@/lib/auth";
 import { formatCount, formatNGN, formatNGNCompact } from "@/lib/format";
 import { NAV, type NavGroup } from "@/lib/nav/config";
+import { listByType } from "@/lib/sync/mirror/store";
+import { recomputeStocksFromMirror } from "@/lib/sync/mirror/recompute/stocks";
 
 type AsyncValue<T> =
   | { status: "loading" }
-  | { status: "ok"; value: T }
+  | { status: "ok"; value: T; fromMirror?: boolean }
   | { status: "skipped" }
   | { status: "error" };
 
@@ -41,39 +45,81 @@ export default function DashboardPage() {
     const ctrl = new AbortController();
 
     if (has("unit.read")) {
-      listUnits({ pageSize: 25 }, ctrl.signal).then((r) => {
+      listUnits({ pageSize: 25 }, ctrl.signal).then(async (r) => {
         if (ctrl.signal.aborted) return;
         if (r.kind === "ok") setUnitsTotal({ status: "ok", value: r.data.total });
         else if (r.kind === "forbidden") setUnitsTotal({ status: "skipped" });
-        else setUnitsTotal({ status: "error" });
+        else if (isTransientFailure(r)) {
+          try {
+            const mirroredUnits = await listByType<{ id: string }>("unit");
+            if (ctrl.signal.aborted) return;
+            setUnitsTotal({ status: "ok", value: mirroredUnits.length, fromMirror: true });
+          } catch {
+            setUnitsTotal({ status: "error" });
+          }
+        } else setUnitsTotal({ status: "error" });
       });
     }
     if (has("report.stocks")) {
-      getStocksReport({}, ctrl.signal).then((r) => {
+      getStocksReport({}, ctrl.signal).then(async (r) => {
         if (ctrl.signal.aborted) return;
         if (r.kind === "ok") setStocks({ status: "ok", value: r.data });
         else if (r.kind === "forbidden") setStocks({ status: "skipped" });
-        else setStocks({ status: "error" });
+        else if (isTransientFailure(r)) {
+          try {
+            const recomputed = await recomputeStocksFromMirror({});
+            if (ctrl.signal.aborted) return;
+            setStocks({ status: "ok", value: recomputed, fromMirror: true });
+          } catch {
+            setStocks({ status: "error" });
+          }
+        } else setStocks({ status: "error" });
       });
     }
     if (has("po.read")) {
-      countPurchaseOrders(ctrl.signal).then((r) => {
+      countPurchaseOrders(ctrl.signal).then(async (r) => {
         if (ctrl.signal.aborted) return;
         if (r.kind === "ok") setPoCount({ status: "ok", value: r.data });
         else if (r.kind === "forbidden") setPoCount({ status: "skipped" });
-        else setPoCount({ status: "error" });
+        else if (isTransientFailure(r)) {
+          try {
+            const mirroredPos = await listByType<{ id: string }>("purchaseOrder");
+            if (ctrl.signal.aborted) return;
+            setPoCount({ status: "ok", value: mirroredPos.length, fromMirror: true });
+          } catch {
+            setPoCount({ status: "error" });
+          }
+        } else setPoCount({ status: "error" });
       });
     }
     if (has("shipment.read")) {
-      countShipments(ctrl.signal).then((r) => {
+      countShipments(ctrl.signal).then(async (r) => {
         if (ctrl.signal.aborted) return;
         if (r.kind === "ok") setShipCount({ status: "ok", value: r.data });
         else if (r.kind === "forbidden") setShipCount({ status: "skipped" });
-        else setShipCount({ status: "error" });
+        else if (isTransientFailure(r)) {
+          try {
+            const mirroredShips = await listByType<{ id: string }>("shipment");
+            if (ctrl.signal.aborted) return;
+            setShipCount({ status: "ok", value: mirroredShips.length, fromMirror: true });
+          } catch {
+            setShipCount({ status: "error" });
+          }
+        } else setShipCount({ status: "error" });
       });
     }
     return () => ctrl.abort();
   }, [has]);
+
+  // Surface a single dashboard-level disclosure when any card recomputed
+  // from the mirror, rather than badging each card individually. A stale
+  // aggregation across cards is the kind of decision risk the accuracy
+  // warning specifically addresses (multiple staleness compounding).
+  const anyFromMirror =
+    (unitsTotal.status === "ok" && unitsTotal.fromMirror) ||
+    (stocks.status === "ok" && stocks.fromMirror) ||
+    (poCount.status === "ok" && poCount.fromMirror) ||
+    (shipCount.status === "ok" && shipCount.fromMirror);
 
   if (!principal) return null;
   const firstName = principal.fullName.split(" ")[0];
@@ -112,6 +158,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </header>
+
+      {anyFromMirror && <ComputedDisclosure className="mb-4" />}
 
       <section className="grid grid-cols-4 gap-3 mb-6">
         {has("unit.read") && (

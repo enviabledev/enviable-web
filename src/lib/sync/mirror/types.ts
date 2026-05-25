@@ -6,6 +6,7 @@
 
 export const ENTITY_TYPES = [
   // Reference data (small, full per window)
+  "product",
   "productVariant",
   "customerTier",
   "priceListEntry",
@@ -29,6 +30,11 @@ export const ENTITY_TYPES = [
   "salesOrderLine",
   "invoice",
   "payment",
+  "releaseAuthorisation",
+  // Movements + audit (report inputs, the prompt-12 additions)
+  "stockMovement",
+  "sparePartMovement",
+  "auditLogEntry",
   // Large set, paged
   "unit",
 ] as const;
@@ -45,6 +51,7 @@ export type EntityType = (typeof ENTITY_TYPES)[number];
  * absence-not-stripping pattern.
  */
 export type ReferenceData = {
+  products: unknown[];
   productVariants: unknown[];
   customerTiers: unknown[];
   priceListEntries: unknown[];
@@ -66,10 +73,15 @@ export type ReferenceData = {
   salesOrderLines: unknown[];
   invoices: unknown[];
   payments: unknown[];
+  releaseAuthorisations: unknown[];
+  stockMovements: unknown[];
+  sparePartMovements: unknown[];
+  auditLogEntries: unknown[];
 };
 
 /** Map from reference-data plural key to its singular EntityType. */
 export const REF_KEY_TO_ENTITY: Record<keyof ReferenceData, EntityType> = {
+  products: "product",
   productVariants: "productVariant",
   customerTiers: "customerTier",
   priceListEntries: "priceListEntry",
@@ -91,6 +103,10 @@ export const REF_KEY_TO_ENTITY: Record<keyof ReferenceData, EntityType> = {
   salesOrderLines: "salesOrderLine",
   invoices: "invoice",
   payments: "payment",
+  releaseAuthorisations: "releaseAuthorisation",
+  stockMovements: "stockMovement",
+  sparePartMovements: "sparePartMovement",
+  auditLogEntries: "auditLogEntry",
 };
 
 export type PullMode = "since" | "windowed";
