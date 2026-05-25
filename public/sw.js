@@ -39,7 +39,7 @@
  *   navigation.
  */
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const CACHE_NAME = `enviable-shell-${CACHE_VERSION}`;
 const CACHE_PREFIX = "enviable-shell-";
 

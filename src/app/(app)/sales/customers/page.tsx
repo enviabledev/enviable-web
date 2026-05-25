@@ -10,6 +10,12 @@ import { isTransientFailure } from "@/lib/api/client";
 import { listCustomers, type Customer } from "@/lib/api";
 import { listByType } from "@/lib/sync/mirror/store";
 
+// Module-level version stamp: fires the moment this chunk loads, BEFORE
+// any component renders. If the offline reload's console does not show
+// "[customers] module v3 loaded" we know definitively the SW served a
+// stale chunk, regardless of what the in-memory HMR-patched code is.
+console.log("[customers] module v3 loaded (mirror+diagnostics)");
+
 export default function CustomersListPage() {
   const router = useRouter();
   const [rows, setRows] = useState<Customer[] | null>(null);
