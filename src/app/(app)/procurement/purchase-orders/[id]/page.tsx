@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import PoStatusPill from "@/components/purchase-orders/PoStatusPill";
+import FreshnessBadge from "@/components/sync/FreshnessBadge";
+import OfflineNotice from "@/components/sync/OfflineNotice";
 import {
   approvePurchaseOrder,
   flattenVariantOptions,
@@ -13,19 +15,28 @@ import {
   poIsEditable,
   submitPurchaseOrder,
   type ApiResult,
+  type Counterparty,
   type PoDetail,
   type PoLine,
+  type PoListRow,
   type ProductWithVariants,
 } from "@/lib/api";
+import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatDateTime, formatNGN } from "@/lib/format";
+import { getById, listByType } from "@/lib/sync/mirror/store";
 
 type LoadState =
   | { status: "loading" }
-  | { status: "ok"; po: PoDetail }
+  | { status: "ok"; po: PoDetail; fromMirror?: boolean }
   | { status: "not_found" }
   | { status: "forbidden" }
+  | { status: "offline" }
   | { status: "error"; message: string };
+
+// Mirror bucket shapes for PO detail reconstruction.
+type MirroredPo = Omit<PoListRow, "supplier">;
+type MirroredPoLine = PoLine & { purchaseOrderId: string };
 
 type ActionState =
   | { status: "idle" }
@@ -45,19 +56,93 @@ export default function PurchaseOrderDetailPage() {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    getPurchaseOrder(id, ctrl.signal).then((r: ApiResult<PoDetail>) => {
+    getPurchaseOrder(id, ctrl.signal).then(async (r: ApiResult<PoDetail>) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") setState({ status: "ok", po: r.data });
       else if (r.kind === "not_found") setState({ status: "not_found" });
       else if (r.kind === "unauthorized") router.replace("/login");
       else if (r.kind === "forbidden") setState({ status: "forbidden" });
-      else setState({ status: "error", message: "message" in r ? String(r.message) : "Error loading PO" });
+      else if (isTransientFailure(r)) {
+        // Offline: assemble PoDetail from the mirror. PO + supplier (counterparty by supplierId) + lines (purchaseOrderLine by purchaseOrderId).
+        try {
+          const [poRow, lineRows] = await Promise.all([
+            getById<MirroredPo>("purchaseOrder", id),
+            listByType<MirroredPoLine>("purchaseOrderLine"),
+          ]);
+          if (ctrl.signal.aborted) return;
+          if (!poRow) {
+            setState({ status: "offline" });
+            return;
+          }
+          const supplierRow = await getById<Counterparty>(
+            "counterparty",
+            poRow.body.supplierId,
+          );
+          if (ctrl.signal.aborted) return;
+          const lines = lineRows
+            .map((l) => l.body)
+            .filter((l) => l.purchaseOrderId === id);
+          const supplier = supplierRow?.body ?? {
+            id: poRow.body.supplierId,
+            name: poRow.body.supplierId,
+            type: "SUPPLIER",
+            status: "ACTIVE",
+          };
+          const reconstructed: PoDetail = {
+            ...poRow.body,
+            supplier: {
+              id: supplier.id,
+              name: supplier.name,
+              type: supplier.type,
+              status: supplier.status,
+            },
+            lines,
+          };
+          setState({ status: "ok", po: reconstructed, fromMirror: true });
+        } catch {
+          setState({ status: "offline" });
+        }
+      } else setState({ status: "error", message: "message" in r ? String(r.message) : "Error loading PO" });
     });
     // Products are best-effort, used to show variant names on lines. If the
     // user lacks pricelist.read, lines fall back to the variant id only.
-    listProducts(ctrl.signal).then((r) => {
+    listProducts(ctrl.signal).then(async (r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") setProducts(r.data);
+      else if (isTransientFailure(r)) {
+        // Offline: variants aren't in a structured "product with variants"
+        // shape in the mirror. Fall back to a synthetic list built from the
+        // productVariant bucket so the line variant labels still render.
+        try {
+          const mirroredVariants = await listByType<{
+            id: string;
+            productId: string;
+            supplierSkuCode: string;
+            variantAttributes: Record<string, string | undefined>;
+          }>("productVariant");
+          if (ctrl.signal.aborted) return;
+          // Each variant goes into a single-variant Product; the
+          // flattenVariantOptions helper will read it the same way.
+          const synthetic: ProductWithVariants[] = mirroredVariants.map((v) => ({
+            id: v.body.productId,
+            name: v.body.productId,
+            category: "PASSENGER",
+            manufacturer: { id: "", name: "", type: "" },
+            variants: [
+              {
+                id: v.body.id,
+                supplierSkuCode: v.body.supplierSkuCode,
+                variantAttributes: v.body.variantAttributes,
+                currentMarketPrice: "",
+                status: "ACTIVE",
+              },
+            ],
+          }));
+          setProducts(synthetic);
+        } catch {
+          // Best-effort; lines will fall back to variant id.
+        }
+      }
     });
     return () => ctrl.abort();
   }, [id, router]);
@@ -109,8 +194,24 @@ export default function PurchaseOrderDetailPage() {
       </div>
     );
   }
+  if (state.status === "offline") {
+    return (
+      <div className="max-w-[820px] mx-auto pb-10">
+        <OfflineNotice body="This purchase order's details will load when the connection returns. If this PO was visited online before, it should be in the local mirror; otherwise come back online to load it." />
+        <div className="text-center mt-3">
+          <Link
+            href="/procurement/purchase-orders"
+            className="text-[12px] text-[var(--color-navy-700)] hover:underline"
+          >
+            Back to Purchase Orders
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const po = state.po;
+  const isFromMirror = state.fromMirror === true;
   const canEdit = has("po.create") && poIsEditable(po.status);
   const canSubmit = has("po.submit") && po.status === "DRAFT";
   const canApprove = has("po.approve") && po.status === "PENDING_APPROVAL";
@@ -159,6 +260,7 @@ export default function PurchaseOrderDetailPage() {
               <span className="font-mono">{po.poNumber}</span>
             </h1>
             <PoStatusPill status={po.status} />
+            {isFromMirror && <FreshnessBadge />}
           </div>
           <div className="text-[13px] text-[var(--color-ink-500)]">
             Supplier: <span className="text-[var(--color-ink-900)] font-medium">{po.supplier?.name ?? po.supplierId}</span>

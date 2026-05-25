@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import SoStatusPill from "@/components/sales-orders/SoStatusPill";
+import FreshnessBadge from "@/components/sync/FreshnessBadge";
+import OfflineNotice from "@/components/sync/OfflineNotice";
 import {
   listCustomers,
   listSalesOrders,
@@ -13,8 +15,10 @@ import {
   type SalesOrderListRow,
   type SoStatus,
 } from "@/lib/api";
+import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
+import { listByType } from "@/lib/sync/mirror/store";
 
 function readParams(sp: URLSearchParams): { customerId: string; status: SoStatus | "" } {
   const statusRaw = sp.get("status") ?? "";
@@ -42,13 +46,26 @@ export default function SalesOrdersListPage() {
   const [rows, setRows] = useState<SalesOrderListRow[] | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [errMsg, setErrMsg] = useState<string>("");
+  const [offline, setOffline] = useState(false);
+  const [fromMirror, setFromMirror] = useState(false);
 
   useEffect(() => {
     const ctrl = new AbortController();
     if (has("customer.read")) {
-      listCustomers({ status: "ACTIVE", pageSize: 100 }, ctrl.signal).then((r) => {
+      listCustomers({ status: "ACTIVE", pageSize: 100 }, ctrl.signal).then(async (r) => {
         if (ctrl.signal.aborted) return;
         if (r.kind === "ok") setCustomers(r.data.data);
+        else if (isTransientFailure(r)) {
+          // Offline filter dropdown: try the mirror so the dropdown still
+          // populates and filters work offline against cached data.
+          try {
+            const mirrored = await listByType<Customer>("customer");
+            if (ctrl.signal.aborted) return;
+            setCustomers(mirrored.map((m) => m.body).filter((c) => c.status === "ACTIVE"));
+          } catch {
+            // Best-effort; empty dropdown is fine offline.
+          }
+        }
       });
     }
     return () => ctrl.abort();
@@ -58,18 +75,47 @@ export default function SalesOrdersListPage() {
     const ctrl = new AbortController();
     setRows(null);
     setErrMsg("");
+    setOffline(false);
+    setFromMirror(false);
     listSalesOrders(
       {
         customerId: params.customerId || undefined,
         status: params.status || undefined,
       },
       ctrl.signal,
-    ).then((r) => {
+    ).then(async (r) => {
       if (ctrl.signal.aborted) return;
-      if (r.kind === "ok") setRows(r.data);
-      else if (r.kind === "unauthorized") router.replace("/login");
-      else if (r.kind === "forbidden") setErrMsg("You do not have access to view sales orders.");
-      else if ("message" in r) setErrMsg(typeof r.message === "string" ? r.message : r.message.join("; "));
+      if (r.kind === "ok") {
+        setRows(r.data);
+      } else if (r.kind === "unauthorized") {
+        router.replace("/login");
+      } else if (r.kind === "forbidden") {
+        setErrMsg("You do not have access to view sales orders.");
+      } else if (isTransientFailure(r)) {
+        // Fall back to the mirror. Apply the same filters (customerId,
+        // status) client-side against the salesOrder bucket.
+        try {
+          const mirrored = await listByType<SalesOrderListRow>("salesOrder");
+          if (ctrl.signal.aborted) return;
+          const filtered = mirrored
+            .map((m) => m.body)
+            .filter((so) => {
+              if (params.customerId && so.customerId !== params.customerId) return false;
+              if (params.status && so.status !== params.status) return false;
+              return true;
+            });
+          if (filtered.length > 0 || mirrored.length > 0) {
+            setRows(filtered);
+            setFromMirror(true);
+          } else {
+            setOffline(true);
+          }
+        } catch {
+          setOffline(true);
+        }
+      } else if ("message" in r) {
+        setErrMsg(typeof r.message === "string" ? r.message : r.message.join("; "));
+      }
     });
     return () => ctrl.abort();
   }, [params, router]);
@@ -97,6 +143,7 @@ export default function SalesOrdersListPage() {
                 {rows.length} total
               </span>
             )}
+            {fromMirror && <FreshnessBadge />}
           </h1>
           <div className="text-[13px] text-[var(--color-ink-500)] mt-1">
             Allocating a unit to a line is a soft reservation: the unit stays in the warehouse with
@@ -177,10 +224,17 @@ export default function SalesOrdersListPage() {
             </tr>
           </thead>
           <tbody>
-            {rows === null && !errMsg && (
+            {rows === null && !errMsg && !offline && (
               <tr>
                 <td colSpan={7} className="px-3.5 py-12 text-center text-[var(--color-ink-500)]">
                   Loading sales orders...
+                </td>
+              </tr>
+            )}
+            {offline && (
+              <tr>
+                <td colSpan={7} className="px-3.5 py-8">
+                  <OfflineNotice body="The sales orders list will load when the connection returns. Any sales orders cached during a prior online visit appear when present in the local mirror." />
                 </td>
               </tr>
             )}

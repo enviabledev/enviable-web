@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import FreshnessBadge from "@/components/sync/FreshnessBadge";
+import OfflineNotice from "@/components/sync/OfflineNotice";
 import StatusPill from "@/components/units/StatusPill";
 import {
   getUnit,
@@ -11,7 +13,11 @@ import {
   type MovementType,
   type StockMovementEntry,
   type UnitDetail,
+  type UnitStatus,
+  type VariantAttributes,
 } from "@/lib/api";
+import { isTransientFailure } from "@/lib/api/client";
+import { listByType } from "@/lib/sync/mirror/store";
 import {
   formatDateShort,
   formatDateTime,
@@ -25,10 +31,43 @@ import {
 
 type LoadState =
   | { status: "loading" }
-  | { status: "ok"; unit: UnitDetail }
+  | { status: "ok"; unit: UnitDetail; fromMirror?: boolean }
   | { status: "not_found" }
   | { status: "forbidden" }
+  | { status: "offline" }
   | { status: "error"; message: string };
+
+// Mirror shapes for unit-detail reconstruction.
+type MirroredUnitFull = {
+  id: string;
+  engineNumber: string;
+  chassisNumber: string;
+  status: UnitStatus;
+  createdAt: string;
+  assembledAt: string | null;
+  assembledById: string | null;
+  soldAt: string | null;
+  currentWarehouseId: string | null;
+  landedCost?: string;
+  productVariantId: string;
+  shipmentId: string | null;
+};
+type MirroredVariantFull = {
+  id: string;
+  productId: string;
+  supplierSkuCode: string;
+  variantAttributes: VariantAttributes;
+};
+type MirroredShipmentForUnit = {
+  id: string;
+  shipmentReference: string;
+  status: string;
+  isHistoricalImport: boolean;
+};
+type MirroredWarehouse = {
+  id: string;
+  name: string;
+};
 
 export default function UnitDetailPage() {
   const params = useParams<{ idOrEngineNumber: string }>();
@@ -38,13 +77,93 @@ export default function UnitDetailPage() {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    getUnit(idOrEngineNumber, ctrl.signal).then((r: ApiResult<UnitDetail>) => {
+    getUnit(idOrEngineNumber, ctrl.signal).then(async (r: ApiResult<UnitDetail>) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") setState({ status: "ok", unit: r.data });
       else if (r.kind === "not_found") setState({ status: "not_found" });
       else if (r.kind === "unauthorized") router.replace("/login");
       else if (r.kind === "forbidden") setState({ status: "forbidden" });
-      else setState({ status: "error", message: "message" in r ? String(r.message) : "Error" });
+      else if (isTransientFailure(r)) {
+        // Reconstruct UnitDetail offline from the unit, productVariant,
+        // shipment, and warehouse buckets. The page accepts either an id or
+        // an engineNumber; match by either against the mirror.
+        // FINDING: stockMovement is not in the mirror's referenceData
+        // buckets, so the movement timeline cannot be reconstructed offline.
+        // It renders empty with a calm offline notice for the timeline
+        // section; the rest of the detail (identity, variant, shipment,
+        // warehouse, cost) renders normally.
+        try {
+          const units = await listByType<MirroredUnitFull>("unit");
+          if (ctrl.signal.aborted) return;
+          const hit = units.find(
+            (u) =>
+              u.body.id === idOrEngineNumber ||
+              u.body.engineNumber === idOrEngineNumber,
+          );
+          if (!hit) {
+            setState({ status: "offline" });
+            return;
+          }
+          const u = hit.body;
+          const [variant, shipment, warehouse] = await Promise.all([
+            listByType<MirroredVariantFull>("productVariant").then((vs) =>
+              vs.map((v) => v.body).find((v) => v.id === u.productVariantId),
+            ),
+            u.shipmentId
+              ? listByType<MirroredShipmentForUnit>("shipment").then((ss) =>
+                  ss.map((s) => s.body).find((s) => s.id === u.shipmentId),
+                )
+              : Promise.resolve(undefined),
+            u.currentWarehouseId
+              ? listByType<MirroredWarehouse>("warehouse").then((ws) =>
+                  ws
+                    .map((w) => w.body)
+                    .find((w) => w.id === u.currentWarehouseId),
+                )
+              : Promise.resolve(undefined),
+          ]);
+          if (ctrl.signal.aborted) return;
+          const reconstructed: UnitDetail = {
+            id: u.id,
+            engineNumber: u.engineNumber,
+            chassisNumber: u.chassisNumber,
+            status: u.status,
+            createdAt: u.createdAt,
+            assembledAt: u.assembledAt,
+            soldAt: u.soldAt,
+            currentWarehouseId: u.currentWarehouseId,
+            landedCost: u.landedCost,
+            productVariant: variant
+              ? {
+                  id: variant.id,
+                  supplierSkuCode: variant.supplierSkuCode,
+                  variantAttributes: variant.variantAttributes,
+                  product: { id: variant.productId, name: variant.productId },
+                }
+              : {
+                  id: u.productVariantId,
+                  supplierSkuCode: u.productVariantId,
+                  variantAttributes: {},
+                  product: { id: "", name: "" },
+                },
+            shipment: shipment
+              ? {
+                  id: shipment.id,
+                  shipmentReference: shipment.shipmentReference,
+                  status: shipment.status,
+                  isHistoricalImport: shipment.isHistoricalImport,
+                }
+              : null,
+            currentWarehouse: warehouse
+              ? { id: warehouse.id, name: warehouse.name }
+              : null,
+            movements: [],
+          };
+          setState({ status: "ok", unit: reconstructed, fromMirror: true });
+        } catch {
+          setState({ status: "offline" });
+        }
+      } else setState({ status: "error", message: "message" in r ? String(r.message) : "Error" });
     });
     return () => ctrl.abort();
   }, [idOrEngineNumber, router]);
@@ -73,8 +192,24 @@ export default function UnitDetailPage() {
       </div>
     );
   }
+  if (state.status === "offline") {
+    return (
+      <div className="max-w-[820px] mx-auto pb-10">
+        <OfflineNotice body="This unit's details will load when the connection returns. If this unit was visited online before, it should be in the local mirror; otherwise come back online to load it." />
+        <div className="text-center mt-3">
+          <Link
+            href="/inventory/units"
+            className="text-[12px] text-[var(--color-navy-700)] hover:underline"
+          >
+            Back to Units
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const unit = state.unit;
+  const isFromMirror = state.fromMirror === true;
   const variantFull = formatVariantName(unit.productVariant, unit.productVariant.product.name);
 
   return (
@@ -97,6 +232,7 @@ export default function UnitDetailPage() {
               <span className="font-mono">{unit.engineNumber}</span>
             </h1>
             <StatusPill status={unit.status} />
+            {isFromMirror && <FreshnessBadge />}
           </div>
           <div className="text-[13px] text-[var(--color-ink-500)] flex items-center gap-2.5 flex-wrap">
             <span>{variantFull}</span>
@@ -109,7 +245,11 @@ export default function UnitDetailPage() {
       </header>
 
       <SummaryCard unit={unit} />
-      <TimelineCard movements={unit.movements} currentStatus={unit.status} />
+      <TimelineCard
+        movements={unit.movements}
+        currentStatus={unit.status}
+        offlineMode={isFromMirror}
+      />
     </div>
   );
 }
@@ -206,10 +346,30 @@ function SummaryCard({ unit }: { unit: UnitDetail }) {
 function TimelineCard({
   movements,
   currentStatus,
+  offlineMode = false,
 }: {
   movements: readonly StockMovementEntry[];
   currentStatus: string;
+  offlineMode?: boolean;
 }) {
+  // Mirror foundation does not include the stockMovement bucket; the
+  // movement timeline cannot be reconstructed from cached data. Show a
+  // calm offline notice for this section while the rest of the unit
+  // detail renders normally from the mirror. Backend-pull finding noted.
+  if (offlineMode) {
+    return (
+      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
+        <header className="px-5 py-3.5 border-b border-[var(--color-border-default)]">
+          <h2 className="m-0 text-[14px] font-semibold text-[var(--color-ink-900)]">
+            Movement timeline
+          </h2>
+        </header>
+        <div className="px-6 py-8">
+          <OfflineNotice body="The movement timeline is not available offline yet. The mirror does not currently include stock movements; the timeline will load when the connection returns." />
+        </div>
+      </section>
+    );
+  }
   if (movements.length === 0) {
     return (
       <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">

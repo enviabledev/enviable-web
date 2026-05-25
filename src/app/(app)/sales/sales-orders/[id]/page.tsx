@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import SoStatusPill from "@/components/sales-orders/SoStatusPill";
+import FreshnessBadge from "@/components/sync/FreshnessBadge";
+import OfflineNotice from "@/components/sync/OfflineNotice";
 import StatusPill from "@/components/units/StatusPill";
 import {
   authoriseRelease,
@@ -25,22 +27,70 @@ import {
   soIsEditable,
   submitSalesOrder,
   type ApiResult,
+  type Customer,
   type Invoice,
   type Payment,
   type RecordPaymentBody,
+  type SaleForm,
   type SalesOrderDetail,
   type SalesOrderLine,
+  type SoStatus,
   type UnitStatus,
 } from "@/lib/api";
+import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime, formatNGN } from "@/lib/format";
+import { getById, listByType } from "@/lib/sync/mirror/store";
 
 type LoadState =
   | { status: "loading" }
-  | { status: "ok"; so: SalesOrderDetail }
+  | { status: "ok"; so: SalesOrderDetail; fromMirror?: boolean }
   | { status: "not_found" }
   | { status: "forbidden" }
+  | { status: "offline" }
   | { status: "error"; message: string };
+
+// Mirror shapes for SO detail reconstruction.
+type MirroredSo = {
+  id: string;
+  soNumber: string;
+  customerId: string;
+  channel: string;
+  status: SoStatus;
+  subtotal: string;
+  discountTotal: string;
+  vatAmount: string;
+  total: string;
+  paymentReceivedTotal: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  createdById: string | null;
+  dispatchedAt: string | null;
+  deliveredAt: string | null;
+  cancellationReason: string | null;
+  cancelledAt: string | null;
+  cancelledById: string | null;
+};
+type MirroredSoLine = {
+  id: string;
+  salesOrderId: string;
+  productVariantId: string;
+  unitId: string | null;
+  saleForm: SaleForm;
+  unitPrice: string;
+  discountAmount: string;
+  lineTotal: string;
+};
+type MirroredVariantForSo = {
+  id: string;
+  supplierSkuCode: string;
+};
+type MirroredUnitForSo = {
+  id: string;
+  engineNumber: string;
+  status: string;
+};
 
 type ActionBanner =
   | { kind: "idle" }
@@ -93,7 +143,77 @@ export default function SalesOrderDetailPage() {
     else if (soR.kind === "not_found") setState({ status: "not_found" });
     else if (soR.kind === "unauthorized") router.replace("/login");
     else if (soR.kind === "forbidden") setState({ status: "forbidden" });
-    else setState({ status: "error", message: "message" in soR ? String(soR.message) : "Error" });
+    else if (isTransientFailure(soR)) {
+      // Reconstruct SalesOrderDetail offline from the mirror: SO + customer
+      // (by customerId) + lines (filtered by salesOrderId, nesting variant
+      // and unit summaries by FK). Invoice and payments come from their own
+      // mirror buckets filtered by salesOrderId.
+      try {
+        const [soRow, lineRows, variantRows, unitRows, invRows, payRows] =
+          await Promise.all([
+            getById<MirroredSo>("salesOrder", id),
+            listByType<MirroredSoLine>("salesOrderLine"),
+            listByType<MirroredVariantForSo>("productVariant"),
+            listByType<MirroredUnitForSo>("unit"),
+            listByType<Invoice>("invoice"),
+            listByType<Payment>("payment"),
+          ]);
+        if (!soRow) {
+          setState({ status: "offline" });
+          return;
+        }
+        const so = soRow.body;
+        const customerRow = await getById<Customer>("customer", so.customerId);
+        const variantById = new Map(variantRows.map((v) => [v.body.id, v.body]));
+        const unitById = new Map(unitRows.map((u) => [u.body.id, u.body]));
+        const lines: SalesOrderLine[] = lineRows
+          .map((l) => l.body)
+          .filter((l) => l.salesOrderId === id)
+          .map((l) => {
+            const v = variantById.get(l.productVariantId);
+            const u = l.unitId ? unitById.get(l.unitId) : undefined;
+            return {
+              id: l.id,
+              salesOrderId: l.salesOrderId,
+              productVariantId: l.productVariantId,
+              unitId: l.unitId,
+              saleForm: l.saleForm,
+              unitPrice: l.unitPrice,
+              discountAmount: l.discountAmount,
+              lineTotal: l.lineTotal,
+              productVariant: v
+                ? { id: v.id, supplierSkuCode: v.supplierSkuCode }
+                : { id: l.productVariantId, supplierSkuCode: l.productVariantId },
+              unit: u
+                ? { id: u.id, engineNumber: u.engineNumber, status: u.status }
+                : null,
+            };
+          });
+        const c = customerRow?.body;
+        const reconstructed: SalesOrderDetail = {
+          ...so,
+          channel: so.channel as SalesOrderDetail["channel"],
+          customer: c
+            ? { id: c.id, name: c.name, tierId: c.tierId, type: c.type }
+            : { id: so.customerId, name: so.customerId, tierId: null, type: "" },
+          lines,
+        };
+        setState({ status: "ok", so: reconstructed, fromMirror: true });
+        // Surface invoice + payments from the mirror too.
+        const matchingInvoice = invRows
+          .map((i) => i.body)
+          .find((i) => i.salesOrderId === id);
+        setInvoice(matchingInvoice ?? null);
+        setInvoiceChecked(true);
+        setPayments(payRows.map((p) => p.body).filter((p) => p.salesOrderId === id));
+        return;
+      } catch {
+        setState({ status: "offline" });
+        return;
+      }
+    } else {
+      setState({ status: "error", message: "message" in soR ? String(soR.message) : "Error" });
+    }
 
     if (invR.kind === "ok") setInvoice(invR.data);
     else if (invR.kind === "not_found") setInvoice(null);
@@ -115,8 +235,23 @@ export default function SalesOrderDetailPage() {
     return <div className="max-w-[1080px] mx-auto py-10 text-center text-[var(--color-ink-500)]">You do not have access to view this sales order.</div>;
   if (state.status === "error")
     return <div className="max-w-[1080px] mx-auto py-10 text-center text-[var(--color-danger-700)]">{state.message}</div>;
+  if (state.status === "offline")
+    return (
+      <div className="max-w-[820px] mx-auto pb-10">
+        <OfflineNotice body="This sales order's details will load when the connection returns. If this SO was visited online before, it should be in the local mirror; otherwise come back online to load it." />
+        <div className="text-center mt-3">
+          <Link
+            href="/sales/sales-orders"
+            className="text-[12px] text-[var(--color-navy-700)] hover:underline"
+          >
+            Back to Sales Orders
+          </Link>
+        </div>
+      </div>
+    );
 
   const so = state.so;
+  const isFromMirror = state.fromMirror === true;
   const canEditSo = has("salesorder.create") && soIsEditable(so.status);
   const canSubmit = has("salesorder.create") && so.status === "DRAFT";
   const canGenerateInvoice = has("salesorder.create") && invoiceChecked && !invoice &&
@@ -210,6 +345,7 @@ export default function SalesOrderDetailPage() {
               <span className="font-mono">{so.soNumber}</span>
             </h1>
             <SoStatusPill status={so.status} />
+            {isFromMirror && <FreshnessBadge />}
           </div>
           <div className="text-[13px] text-[var(--color-ink-500)]">
             Customer: <span className="text-[var(--color-ink-900)] font-medium">{so.customer.name}</span>

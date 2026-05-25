@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SearchIcon, UnitsIcon } from "@/components/icons";
+import FreshnessBadge from "@/components/sync/FreshnessBadge";
+import OfflineNotice from "@/components/sync/OfflineNotice";
 import MultiSelectFilter, {
   type MultiSelectOption,
 } from "@/components/units/MultiSelectFilter";
@@ -17,7 +19,31 @@ import {
   type UnitListResponse,
   type UnitListRow,
   type UnitStatus,
+  type VariantAttributes,
 } from "@/lib/api";
+import { listByType } from "@/lib/sync/mirror/store";
+
+// Mirror shape: the unit bucket stores the unit's flat fields (productVariantId,
+// shipmentId, currentWarehouseId, etc.) per the server's syncPull contract; the
+// online UnitListRow carries a nested productVariant object. Reconstruct the
+// nested object client-side from the productVariant bucket so the list code
+// renders identically on both paths.
+type MirroredUnit = {
+  id: string;
+  engineNumber: string;
+  chassisNumber: string;
+  status: UnitStatus;
+  createdAt: string;
+  currentWarehouseId: string | null;
+  landedCost?: string;
+  productVariantId: string;
+  shipmentId: string | null;
+};
+type MirroredVariant = {
+  id: string;
+  supplierSkuCode: string;
+  variantAttributes: VariantAttributes;
+};
 import {
   formatDateShort,
   formatNGN,
@@ -100,9 +126,13 @@ export default function UnitsListingPage() {
     setSearchDraft(params.search);
   }, [params.search]);
 
+  const [fromMirror, setFromMirror] = useState(false);
+  const [offline, setOffline] = useState(false);
   useEffect(() => {
     const ctrl = new AbortController();
     setResult("idle");
+    setFromMirror(false);
+    setOffline(false);
     listUnits(
       {
         page: params.page,
@@ -115,7 +145,7 @@ export default function UnitsListingPage() {
         search: params.search || undefined,
       },
       ctrl.signal,
-    ).then((r) => {
+    ).then(async (r) => {
       if (ctrl.signal.aborted) return;
       setResult(r.kind);
       if (r.kind === "ok") {
@@ -125,10 +155,82 @@ export default function UnitsListingPage() {
         router.replace("/login");
       } else if (r.kind === "forbidden") {
         setErrMsg("You do not have access to view units.");
-      } else if (r.kind === "validation" || r.kind === "server_error") {
+      } else if (r.kind === "network_error" || r.kind === "server_error") {
+        // Mirror fallback: assemble a paged list from the unit bucket. The
+        // mirror stores the full unit row including the FKs needed for the
+        // existing display, so the same UnitListRow shape (id, engineNumber,
+        // chassisNumber, status, productVariantId, shipmentId,
+        // currentWarehouseId, landedCost, createdAt) can be re-used; offline
+        // filtering happens against those fields.
+        try {
+          const [mirroredUnits, mirroredVariants] = await Promise.all([
+            listByType<MirroredUnit>("unit"),
+            listByType<MirroredVariant>("productVariant"),
+          ]);
+          if (ctrl.signal.aborted) return;
+          if (mirroredUnits.length === 0) {
+            setOffline(true);
+            return;
+          }
+          const variantById = new Map<string, MirroredVariant>();
+          for (const v of mirroredVariants) variantById.set(v.body.id, v.body);
+
+          const filtered = mirroredUnits
+            .map((m) => m.body)
+            .filter((u) => {
+              if (params.variantId.length > 0 && !params.variantId.includes(u.productVariantId)) return false;
+              if (params.status.length > 0 && !params.status.includes(u.status)) return false;
+              if (params.warehouseId && u.currentWarehouseId !== params.warehouseId) return false;
+              if (params.search) {
+                const q = params.search.toUpperCase();
+                if (
+                  !u.engineNumber.toUpperCase().includes(q) &&
+                  !u.chassisNumber.toUpperCase().includes(q)
+                ) {
+                  return false;
+                }
+              }
+              return true;
+            })
+            .map<UnitListRow>((u) => {
+              const variant = variantById.get(u.productVariantId);
+              return {
+                id: u.id,
+                engineNumber: u.engineNumber,
+                chassisNumber: u.chassisNumber,
+                status: u.status,
+                createdAt: u.createdAt,
+                currentWarehouseId: u.currentWarehouseId,
+                landedCost: u.landedCost,
+                productVariant: variant
+                  ? {
+                      id: variant.id,
+                      supplierSkuCode: variant.supplierSkuCode,
+                      variantAttributes: variant.variantAttributes,
+                    }
+                  : {
+                      id: u.productVariantId,
+                      supplierSkuCode: u.productVariantId,
+                      variantAttributes: {},
+                    },
+              };
+            });
+          const start = (params.page - 1) * params.pageSize;
+          const slice = filtered.slice(start, start + params.pageSize);
+          setData({
+            data: slice,
+            page: params.page,
+            pageSize: params.pageSize,
+            total: filtered.length,
+          });
+          setFromMirror(true);
+          setResult("ok");
+          setErrMsg("");
+        } catch {
+          setOffline(true);
+        }
+      } else if (r.kind === "validation") {
         setErrMsg(typeof r.message === "string" ? r.message : r.message.join("; "));
-      } else if (r.kind === "network_error") {
-        setErrMsg(r.message);
       }
     });
     return () => ctrl.abort();
@@ -182,6 +284,7 @@ export default function UnitsListingPage() {
                 {data.total.toLocaleString()} total
               </span>
             )}
+            {fromMirror && <FreshnessBadge />}
           </h1>
           <div className="text-[13px] text-[var(--color-ink-500)] mt-1">
             Individually-tracked tricycle units with engine and chassis serials. Each unit has its
@@ -274,7 +377,17 @@ export default function UnitsListingPage() {
                   </td>
                 </tr>
               )}
-              {(result === "validation" ||
+              {offline && (
+                <tr>
+                  <td
+                    colSpan={showLandedCost ? 7 : 6}
+                    className="px-3.5 py-8"
+                  >
+                    <OfflineNotice body="The units list will load when the connection returns. Any units cached during a prior online visit appear here when present in the local mirror." />
+                  </td>
+                </tr>
+              )}
+              {!offline && (result === "validation" ||
                 result === "server_error" ||
                 result === "network_error") && (
                 <tr>

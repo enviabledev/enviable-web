@@ -5,15 +5,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import ShipmentStatusPill from "@/components/shipments/ShipmentStatusPill";
+import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import {
   listShipments,
   SHIPMENT_STATUS,
+  type ManifestLine,
   type ShipmentListRow,
   type ShipmentStatus,
 } from "@/lib/api";
 import { isTransientFailure } from "@/lib/api/client";
 import { formatDateShort } from "@/lib/format";
+import { listByType } from "@/lib/sync/mirror/store";
+
+// Mirror's shipment bucket stores the flat row (no nested manifestLines);
+// the online ShipmentListRow includes manifestLines for the per-row count.
+// Look up manifestLines from its own bucket and reconstruct the array per
+// shipmentId so the existing render logic works unchanged.
+type MirroredShipment = Omit<ShipmentListRow, "manifestLines">;
+type MirroredManifestLine = ManifestLine & { shipmentId: string };
 
 function readParams(sp: URLSearchParams): { status: ShipmentStatus | ""; purchaseOrderId: string } {
   const statusRaw = sp.get("status") ?? "";
@@ -39,19 +49,21 @@ export default function ShipmentsListPage() {
   const [rows, setRows] = useState<ShipmentListRow[] | null>(null);
   const [errMsg, setErrMsg] = useState<string>("");
   const [offline, setOffline] = useState(false);
+  const [fromMirror, setFromMirror] = useState(false);
 
   useEffect(() => {
     const ctrl = new AbortController();
     setRows(null);
     setErrMsg("");
     setOffline(false);
+    setFromMirror(false);
     listShipments(
       {
         status: params.status || undefined,
         purchaseOrderId: params.purchaseOrderId || undefined,
       },
       ctrl.signal,
-    ).then((r) => {
+    ).then(async (r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") {
         setRows(r.data);
@@ -60,7 +72,40 @@ export default function ShipmentsListPage() {
       } else if (r.kind === "forbidden") {
         setErrMsg("You do not have access to view shipments.");
       } else if (isTransientFailure(r)) {
-        setOffline(true);
+        // Fall back to mirror: shipment + manifestLines (joined by shipmentId).
+        try {
+          const [mirroredShipments, mirroredLines] = await Promise.all([
+            listByType<MirroredShipment>("shipment"),
+            listByType<MirroredManifestLine>("manifestLine"),
+          ]);
+          if (ctrl.signal.aborted) return;
+          if (mirroredShipments.length === 0) {
+            setOffline(true);
+            return;
+          }
+          const linesByShipment = new Map<string, ManifestLine[]>();
+          for (const l of mirroredLines) {
+            const sid = l.body.shipmentId;
+            if (!sid) continue;
+            const arr = linesByShipment.get(sid) ?? [];
+            arr.push(l.body);
+            linesByShipment.set(sid, arr);
+          }
+          const reconstructed: ShipmentListRow[] = mirroredShipments
+            .map((m) => ({
+              ...m.body,
+              manifestLines: linesByShipment.get(m.body.id) ?? [],
+            }))
+            .filter((s) => {
+              if (params.status && s.status !== params.status) return false;
+              if (params.purchaseOrderId && s.purchaseOrderId !== params.purchaseOrderId) return false;
+              return true;
+            });
+          setRows(reconstructed);
+          setFromMirror(true);
+        } catch {
+          setOffline(true);
+        }
       } else if ("message" in r) {
         setErrMsg(typeof r.message === "string" ? r.message : r.message.join("; "));
       }
@@ -91,6 +136,7 @@ export default function ShipmentsListPage() {
                 {rows.length} total
               </span>
             )}
+            {fromMirror && <FreshnessBadge />}
           </h1>
           <div className="text-[13px] text-[var(--color-ink-500)] mt-1">
             Inbound containers from suppliers. Once a shipment clears customs, units are received against its manifest.
