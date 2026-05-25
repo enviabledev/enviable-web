@@ -5,12 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import ShipmentStatusPill from "@/components/shipments/ShipmentStatusPill";
+import OfflineNotice from "@/components/sync/OfflineNotice";
 import {
   listShipments,
   SHIPMENT_STATUS,
   type ShipmentListRow,
   type ShipmentStatus,
 } from "@/lib/api";
+import { isTransientFailure } from "@/lib/api/client";
 import { formatDateShort } from "@/lib/format";
 
 function readParams(sp: URLSearchParams): { status: ShipmentStatus | ""; purchaseOrderId: string } {
@@ -36,11 +38,13 @@ export default function ShipmentsListPage() {
   const params = useMemo(() => readParams(new URLSearchParams(sp.toString())), [sp]);
   const [rows, setRows] = useState<ShipmentListRow[] | null>(null);
   const [errMsg, setErrMsg] = useState<string>("");
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     const ctrl = new AbortController();
     setRows(null);
     setErrMsg("");
+    setOffline(false);
     listShipments(
       {
         status: params.status || undefined,
@@ -49,10 +53,17 @@ export default function ShipmentsListPage() {
       ctrl.signal,
     ).then((r) => {
       if (ctrl.signal.aborted) return;
-      if (r.kind === "ok") setRows(r.data);
-      else if (r.kind === "unauthorized") router.replace("/login");
-      else if (r.kind === "forbidden") setErrMsg("You do not have access to view shipments.");
-      else if ("message" in r) setErrMsg(typeof r.message === "string" ? r.message : r.message.join("; "));
+      if (r.kind === "ok") {
+        setRows(r.data);
+      } else if (r.kind === "unauthorized") {
+        router.replace("/login");
+      } else if (r.kind === "forbidden") {
+        setErrMsg("You do not have access to view shipments.");
+      } else if (isTransientFailure(r)) {
+        setOffline(true);
+      } else if ("message" in r) {
+        setErrMsg(typeof r.message === "string" ? r.message : r.message.join("; "));
+      }
     });
     return () => ctrl.abort();
   }, [params, router]);
@@ -146,10 +157,17 @@ export default function ShipmentsListPage() {
             </tr>
           </thead>
           <tbody>
-            {rows === null && !errMsg && (
+            {rows === null && !errMsg && !offline && (
               <tr>
                 <td colSpan={8} className="px-3.5 py-12 text-center text-[var(--color-ink-500)]">
                   Loading shipments...
+                </td>
+              </tr>
+            )}
+            {offline && (
+              <tr>
+                <td colSpan={8} className="px-3.5 py-8">
+                  <OfflineNotice body="The shipments list will load when the connection returns. Any offline receipts you've already queued are saved locally and sync automatically once reconnected; see Sync Conflicts in the sidebar if any need your attention." />
                 </td>
               </tr>
             )}

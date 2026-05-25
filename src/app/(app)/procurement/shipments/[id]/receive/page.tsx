@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
+import OfflineNotice from "@/components/sync/OfflineNotice";
 import {
   flattenVariantOptions,
   getShipment,
@@ -16,6 +17,7 @@ import {
   type ReceiptDuplicateViolation,
   type ShipmentDetail,
 } from "@/lib/api";
+import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { queueUnitReceipt } from "@/lib/sync/actions/unit-receipt";
 import { useConnectivity } from "@/lib/sync/connectivity";
@@ -38,6 +40,7 @@ type LoadState =
   | { status: "ok"; shipment: ShipmentDetail }
   | { status: "not_found" }
   | { status: "forbidden" }
+  | { status: "offline" }
   | { status: "error"; message: string };
 
 type SubmitState =
@@ -144,6 +147,7 @@ export default function ReceiveUnitsPage() {
       } else if (r.kind === "not_found") setState({ status: "not_found" });
       else if (r.kind === "unauthorized") router.replace("/login");
       else if (r.kind === "forbidden") setState({ status: "forbidden" });
+      else if (isTransientFailure(r)) setState({ status: "offline" });
       else setState({ status: "error", message: "message" in r ? String(r.message) : "Error" });
     });
     listProducts(ctrl.signal).then((r) => {
@@ -161,6 +165,21 @@ export default function ReceiveUnitsPage() {
 
   if (state.status === "loading") {
     return <div className="max-w-[1080px] mx-auto py-10 text-center text-[var(--color-ink-500)]">Loading shipment...</div>;
+  }
+  if (state.status === "offline") {
+    return (
+      <div className="max-w-[820px] mx-auto pb-10">
+        <OfflineNotice body="The shipment manifest will load when the connection returns. Receipts for this shipment that you've already queued offline are saved locally and sync automatically; see Sync Conflicts if any need your attention. To start a new receipt, come back online." />
+        <div className="text-center mt-3">
+          <Link
+            href="/procurement/shipments"
+            className="text-[12px] text-[var(--color-navy-700)] hover:underline"
+          >
+            Back to Shipments
+          </Link>
+        </div>
+      </div>
+    );
   }
   if (state.status === "not_found") {
     return <div className="max-w-[1080px] mx-auto py-10 text-center text-[var(--color-ink-500)]">Shipment not found.</div>;
