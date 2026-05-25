@@ -1,3 +1,5 @@
+import type { ReceiptDuplicateViolation } from "@/lib/api";
+
 /**
  * Client-side action types mirroring enviable-system/src/sync/dto/sync-batch.dto.ts.
  * Keep aligned with the backend SyncActionType enum; the wire value (the string
@@ -57,7 +59,28 @@ export type ReviewRef = {
  */
 export type SyncActionStatus = "processed" | "duplicate" | "error" | "conflict";
 
+/**
+ * Conflict kinds the sync intake surfaces. Each is routed differently:
+ *
+ *   constraint-violations  Clerk-resolvable conflict carrying the exhaustive
+ *                          named-violation array (the convention from prompt
+ *                          5.5, restored across the sync intake by the
+ *                          subsequent backend fix). The /sync/conflicts page
+ *                          renders the registered DetailRenderer + ReOpener
+ *                          for the action's type; the clerk re-opens the
+ *                          flow's form, fixes the offending cells against
+ *                          current state, and re-submits with the SAME
+ *                          clientId (safe-by-retry: conflicts are not
+ *                          recorded by idempotency, so corrected re-runs are
+ *                          clean).
+ *   unique                 Lower-level unique-constraint clash; pre-prompt-9
+ *                          shape, kept for compatibility.
+ *   field-review           High-stakes entity.update field collision; goes
+ *                          to the supervisor review queue, NOT the
+ *                          clerk-resolvable conflicts page. Distinct surface.
+ */
 export type SyncConflict =
+  | { kind: "constraint-violations"; violations: ReceiptDuplicateViolation[] }
   | { kind: "unique"; field: string; value: unknown }
   | { kind: "field-review"; reviews: ReviewRef[] };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
@@ -17,6 +17,14 @@ import {
   type ShipmentDetail,
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
+import { queueUnitReceipt } from "@/lib/sync/actions/unit-receipt";
+import { useConnectivity } from "@/lib/sync/connectivity";
+import { syncEngine } from "@/lib/sync/engine";
+import {
+  getByClientId,
+  resetForResubmit,
+} from "@/lib/sync/queue";
+import type { QueuedAction } from "@/lib/sync/types";
 
 type Row = { key: string; engineNumber: string; chassisNumber: string };
 type LinesDraft = Record<string, Row[]>; // manifestLineId -> rows
@@ -45,6 +53,8 @@ type SubmitState =
       // to the single-serial extraction.
       violations?: ReceiptDuplicateViolation[];
     }
+  | { status: "queued-offline" }
+  | { status: "queued-resolved" }
   | { status: "error"; message: string };
 
 const cellKey = (manifestLineId: string, unitIndex: number, field: "engineNumber" | "chassisNumber") =>
@@ -52,28 +62,85 @@ const cellKey = (manifestLineId: string, unitIndex: number, field: "engineNumber
 
 export default function ReceiveUnitsPage() {
   const params = useParams<{ id: string }>();
+  const sp = useSearchParams();
   const router = useRouter();
   const { has } = usePermissions();
   const id = decodeURIComponent(params.id);
+  const { state: connState } = useConnectivity();
+
+  // Resolve mode: the clerk re-opened a conflicted offline receipt from
+  // /sync/conflicts. Loads the queued action and re-hydrates the draft from
+  // its payload; submission updates the queued action with the corrected
+  // payload (same clientId) and drains.
+  const resolveClientId = sp.get("resolveClientId");
 
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [products, setProducts] = useState<ProductWithVariants[]>([]);
   const [draft, setDraft] = useState<LinesDraft>({});
   const [submit, setSubmit] = useState<SubmitState>({ status: "idle" });
+  const [resolveAction, setResolveAction] = useState<QueuedAction | null>(null);
+  // The conflict's structured violations carried on the queued action when
+  // we're resolving. Drives the initial cell highlighting; replaced by a
+  // fresh submit's violations if the corrected batch is still wrong.
+  const [resolveViolations, setResolveViolations] = useState<
+    ReceiptDuplicateViolation[] | null
+  >(null);
 
   useEffect(() => {
     const ctrl = new AbortController();
-    getShipment(id, ctrl.signal).then((r: ApiResult<ShipmentDetail>) => {
+    getShipment(id, ctrl.signal).then(async (r: ApiResult<ShipmentDetail>) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") {
         setState({ status: "ok", shipment: r.data });
-        // Initialize one empty row per manifest line that has outstanding to receive.
-        const init: LinesDraft = {};
-        for (const line of r.data.manifestLines) {
-          const outstanding = line.quantityDeclared - line.quantityReceived;
-          init[line.id] = outstanding > 0 ? [emptyRow()] : [];
+        if (resolveClientId) {
+          // Re-hydrate from the queued action. Fetch the queue row, pre-fill
+          // rows from action.payload.lines (the original serial pairs the
+          // clerk submitted offline), surface the conflict's violations for
+          // initial cell highlighting. The form below uses the CURRENT
+          // manifest state from the shipment fetch we just did, so the
+          // re-validation runs against reality-now, not the offline-captured
+          // manifest from hours ago.
+          const action = await getByClientId(resolveClientId);
+          if (!action || action.type !== "unit.receipt") {
+            setResolveAction(null);
+          } else {
+            setResolveAction(action);
+            const body = action.conflictBody as
+              | { kind?: string; violations?: ReceiptDuplicateViolation[] }
+              | undefined;
+            setResolveViolations(body?.violations ?? null);
+            const payload = action.payload as {
+              shipmentId: string;
+              lines: { manifestLineId: string; units: { engineNumber: string; chassisNumber: string }[] }[];
+            };
+            const init: LinesDraft = {};
+            // Seed every CURRENT manifest line with an empty draft (so each
+            // line block renders), then overlay rows from the queued payload
+            // where the manifestLineId is still present. Lines that vanished
+            // (rare: another clerk's concurrent receipt closed the line)
+            // simply have no pre-filled rows; the clerk sees the new state.
+            for (const line of r.data.manifestLines) {
+              init[line.id] = [];
+            }
+            for (const pl of payload.lines) {
+              if (!(pl.manifestLineId in init)) continue;
+              init[pl.manifestLineId] = pl.units.map((u) => ({
+                key: k(),
+                engineNumber: u.engineNumber,
+                chassisNumber: u.chassisNumber,
+              }));
+            }
+            setDraft(init);
+          }
+        } else {
+          // Normal (non-resolve) entry: one empty row per outstanding line.
+          const init: LinesDraft = {};
+          for (const line of r.data.manifestLines) {
+            const outstanding = line.quantityDeclared - line.quantityReceived;
+            init[line.id] = outstanding > 0 ? [emptyRow()] : [];
+          }
+          setDraft(init);
         }
-        setDraft(init);
       } else if (r.kind === "not_found") setState({ status: "not_found" });
       else if (r.kind === "unauthorized") router.replace("/login");
       else if (r.kind === "forbidden") setState({ status: "forbidden" });
@@ -84,7 +151,7 @@ export default function ReceiveUnitsPage() {
       if (r.kind === "ok") setProducts(r.data);
     });
     return () => ctrl.abort();
-  }, [id, router]);
+  }, [id, router, resolveClientId]);
 
   const variantsById = useMemo(() => {
     const m = new Map<string, ReturnType<typeof flattenVariantOptions>[number]>();
@@ -120,11 +187,19 @@ export default function ReceiveUnitsPage() {
   // ordered to match unitIndex on the submitted payload (we strip blank rows
   // when building the payload; only filled rows get an index), so we have to
   // walk each line's rows in the same order to recover the index. The Set
-  // membership check is O(1) per render of a row.
+  // membership check is O(1) per render of a row. In resolve mode the
+  // initial highlights come from the conflict carried on the queued action;
+  // they're cleared once the clerk submits a corrected batch.
   const highlightedCellsSet = (() => {
     const set = new Set<string>();
-    if (submit.status !== "rejected" || !submit.violations) return set;
-    for (const v of submit.violations) {
+    const violations =
+      submit.status === "rejected" && submit.violations
+        ? submit.violations
+        : submit.status === "idle" && resolveViolations
+          ? resolveViolations
+          : null;
+    if (!violations) return set;
+    for (const v of violations) {
       for (const row of v.rows) {
         set.add(cellKey(row.manifestLineId, row.unitIndex, v.field));
       }
@@ -169,66 +244,131 @@ export default function ReceiveUnitsPage() {
   const hasPartialRow = totalRowsAny > totalRowsWithBoth;
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (submit.status === "submitting") return;
-    setSubmit({ status: "submitting" });
+      e.preventDefault();
+      if (submit.status === "submitting") return;
+      setSubmit({ status: "submitting" });
 
-    // Collect only fully-filled rows; group by manifest line.
-    const linesPayload: { manifestLineId: string; units: { engineNumber: string; chassisNumber: string }[] }[] = [];
-    for (const [manifestLineId, rows] of Object.entries(draft)) {
-      const units = rows
-        .filter((r) => r.engineNumber.trim() && r.chassisNumber.trim())
-        .map((r) => ({
-          engineNumber: r.engineNumber.trim(),
-          chassisNumber: r.chassisNumber.trim(),
-        }));
-      if (units.length > 0) linesPayload.push({ manifestLineId, units });
-    }
+      // Collect only fully-filled rows; group by manifest line.
+      const linesPayload: {
+        manifestLineId: string;
+        units: { engineNumber: string; chassisNumber: string }[];
+      }[] = [];
+      for (const [manifestLineId, rows] of Object.entries(draft)) {
+        const units = rows
+          .filter((r) => r.engineNumber.trim() && r.chassisNumber.trim())
+          .map((r) => ({
+            engineNumber: r.engineNumber.trim(),
+            chassisNumber: r.chassisNumber.trim(),
+          }));
+        if (units.length > 0) linesPayload.push({ manifestLineId, units });
+      }
 
-    if (linesPayload.length === 0) {
-      setSubmit({
-        status: "rejected",
-        classification: "validation",
-        message: "Enter at least one engine/chassis pair before submitting.",
-      });
-      return;
-    }
+      if (linesPayload.length === 0) {
+        setSubmit({
+          status: "rejected",
+          classification: "validation",
+          message: "Enter at least one engine/chassis pair before submitting.",
+        });
+        return;
+      }
 
-    const r = await receiveUnits(shipment.id, { lines: linesPayload });
-    if (r.kind === "ok") {
-      // Route back to detail; the user sees updated manifest counts and the new units.
-      router.replace(`/procurement/shipments/${shipment.id}`);
-      return;
-    }
-    if (r.kind === "conflict") {
-      // Prefer the structured exhaustive-pre-flight payload when present; it
-      // names every offending value, field, and row(s). The legacy/fallback
-      // single-message path (race-window catch on the DB constraint) still
-      // renders correctly via the panel's extracted-serial branch.
-      const violations = parseReceiptConflict(r.body) ?? undefined;
-      const lower = r.message.toLowerCase();
-      const isDup =
-        (violations && violations.length > 0) ||
-        lower.includes("duplicate") ||
-        lower.includes("already exists");
-      const classification: "duplicate" | "conflict" = isDup ? "duplicate" : "conflict";
-      setSubmit({ status: "rejected", classification, message: r.message, violations });
-      return;
-    }
-    if (r.kind === "validation") {
-      const msg = typeof r.message === "string" ? r.message : r.message.join("; ");
-      setSubmit({ status: "rejected", classification: "validation", message: msg });
-      return;
-    }
-    if (r.kind === "forbidden") {
-      setSubmit({ status: "error", message: "You do not have permission to receive units." });
-      return;
-    }
-    if (r.kind === "network_error") {
-      setSubmit({ status: "error", message: r.message });
-      return;
-    }
-    setSubmit({ status: "error", message: "Unexpected response from the server." });
+      // Mode A: resolve a previously-conflicted offline receipt. Update the
+      // queued action with the corrected payload, reset its status to
+      // queued, drain. The SAME clientId is preserved (safe-by-retry).
+      if (resolveAction) {
+        await resetForResubmit(resolveAction.clientId, {
+          shipmentId: shipment.id,
+          lines: linesPayload,
+        });
+        syncEngine.notifyChange();
+        await syncEngine.drain();
+        const after = await getByClientId(resolveAction.clientId);
+        if (!after) {
+          setSubmit({ status: "error", message: "Queued action vanished." });
+          return;
+        }
+        if (after.status === "synced") {
+          // Server confirmed (processed or duplicate). Conflict cleared.
+          router.replace("/sync/conflicts");
+          return;
+        }
+        if (after.status === "conflict") {
+          const body = after.conflictBody as
+            | { kind?: string; violations?: ReceiptDuplicateViolation[] }
+            | undefined;
+          const violations = body?.violations ?? [];
+          setResolveViolations(violations);
+          setSubmit({
+            status: "rejected",
+            classification: "duplicate",
+            message: "Corrected batch still has duplicates against the current state.",
+            violations,
+          });
+          return;
+        }
+        if (after.status === "queued" || after.status === "syncing") {
+          // Offline mid-drain (or no connectivity at all). The corrected
+          // payload is queued; it will drain when connectivity returns.
+          setSubmit({ status: "queued-resolved" });
+          return;
+        }
+        setSubmit({
+          status: "error",
+          message: after.errorMessage ?? "Sync failed.",
+        });
+        return;
+      }
+
+      // Mode B: fresh receipt, offline. Enqueue and tell the clerk it's
+      // saved locally and will sync. Honest wording: NOT "received."
+      if (connState === "offline") {
+        await queueUnitReceipt({
+          payload: { shipmentId: shipment.id, lines: linesPayload },
+          description: `Receive ${linesPayload.reduce((s, l) => s + l.units.length, 0)} units against ${shipment.shipmentReference}`,
+        });
+        setSubmit({ status: "queued-offline" });
+        return;
+      }
+
+      // Mode C: fresh receipt, online. Direct POST (unchanged from
+      // prompt 5/5.5 to avoid any regression on the proven path).
+      const r = await receiveUnits(shipment.id, { lines: linesPayload });
+      if (r.kind === "ok") {
+        router.replace(`/procurement/shipments/${shipment.id}`);
+        return;
+      }
+      if (r.kind === "conflict") {
+        const violations = parseReceiptConflict(r.body) ?? undefined;
+        const lower = r.message.toLowerCase();
+        const isDup =
+          (violations && violations.length > 0) ||
+          lower.includes("duplicate") ||
+          lower.includes("already exists");
+        const classification: "duplicate" | "conflict" = isDup ? "duplicate" : "conflict";
+        setSubmit({ status: "rejected", classification, message: r.message, violations });
+        return;
+      }
+      if (r.kind === "validation") {
+        const msg = typeof r.message === "string" ? r.message : r.message.join("; ");
+        setSubmit({ status: "rejected", classification: "validation", message: msg });
+        return;
+      }
+      if (r.kind === "forbidden") {
+        setSubmit({ status: "error", message: "You do not have permission to receive units." });
+        return;
+      }
+      if (r.kind === "network_error") {
+        // Connectivity flipped between the connState check and the POST.
+        // Fall through to the offline-enqueue path so the clerk's work is
+        // not lost.
+        await queueUnitReceipt({
+          payload: { shipmentId: shipment.id, lines: linesPayload },
+          description: `Receive ${linesPayload.reduce((s, l) => s + l.units.length, 0)} units against ${shipment.shipmentReference}`,
+        });
+        setSubmit({ status: "queued-offline" });
+        return;
+      }
+      setSubmit({ status: "error", message: "Unexpected response from the server." });
   };
 
   return (
@@ -251,7 +391,11 @@ export default function ReceiveUnitsPage() {
             <span className="text-[var(--color-ink-900)] font-medium">Receive Units</span>
           </div>
           <h1 className="text-[24px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em]">
-            Receive units against <span className="font-mono">{shipment.shipmentReference}</span>
+            {resolveAction ? (
+              <>Resolve receipt conflict against <span className="font-mono">{shipment.shipmentReference}</span></>
+            ) : (
+              <>Receive units against <span className="font-mono">{shipment.shipmentReference}</span></>
+            )}
           </h1>
           <div className="text-[13px] text-[var(--color-ink-500)] mt-1 max-w-[820px]">
             Enter the engine and chassis number for each unit you received against each manifest
@@ -261,6 +405,125 @@ export default function ReceiveUnitsPage() {
           </div>
         </div>
       </header>
+
+      {resolveAction && (
+        <div
+          role="status"
+          className="mb-4 px-3.5 py-2.5 rounded-[3px] border"
+          style={{
+            background: "var(--color-warning-100)",
+            borderColor: "var(--color-warning-700)",
+            color: "var(--color-warning-700)",
+          }}
+        >
+          <div className="text-[12.5px] leading-[1.5]">
+            <span className="font-semibold">Resolving a queued conflict.</span>{" "}
+            Your original serial pairs from{" "}
+            <span className="font-mono">
+              {new Date(resolveAction.createdAt).toLocaleString(undefined, {
+                month: "short",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>{" "}
+            are pre-filled below against the current manifest state. Offending cells are outlined
+            in red; fix them and resubmit. The same client id is reused so the corrected work is
+            applied exactly once.
+          </div>
+        </div>
+      )}
+
+      {connState === "offline" && submit.status === "idle" && !resolveAction && (
+        <div
+          role="status"
+          className="mb-4 px-3.5 py-2.5 rounded-[3px] border"
+          style={{
+            background: "var(--color-warning-100)",
+            borderColor: "var(--color-warning-700)",
+            color: "var(--color-warning-700)",
+          }}
+        >
+          <div className="text-[12.5px] leading-[1.5]">
+            <span className="font-semibold">You are offline.</span>{" "}
+            Submitting will save the batch locally; the units are not received until the connection
+            returns and the server processes the queued action. If the server rejects the batch as
+            a duplicate, the conflict will appear at <span className="font-mono">/sync/conflicts</span>{" "}
+            so you can re-open and fix it.
+          </div>
+        </div>
+      )}
+
+      {submit.status === "queued-offline" && (
+        <div
+          role="status"
+          className="mb-4 px-3.5 py-2.5 rounded-[3px] border"
+          style={{
+            background: "var(--color-success-100)",
+            borderColor: "var(--color-success-700)",
+            color: "var(--color-success-700)",
+          }}
+        >
+          <div className="text-[12.5px] leading-[1.5]">
+            <span className="font-semibold">Saved locally, will sync.</span>{" "}
+            The receipt is queued and will be processed by the server when the connection returns.
+            The units are not received yet; you will see them on the shipment once the queued
+            action syncs. The sync indicator in the topbar shows the current state.
+          </div>
+          <div className="mt-2 flex gap-2">
+            <Link
+              href={`/procurement/shipments/${shipment.id}`}
+              className="h-7 px-3 inline-flex items-center rounded-[3px] text-[12px] font-medium text-white"
+              style={{ background: "var(--color-success-700)" }}
+            >
+              Back to shipment
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                // Reset form for another offline entry.
+                const init: LinesDraft = {};
+                for (const line of shipment.manifestLines) {
+                  const outstanding = line.quantityDeclared - line.quantityReceived;
+                  init[line.id] = outstanding > 0 ? [emptyRow()] : [];
+                }
+                setDraft(init);
+                setSubmit({ status: "idle" });
+              }}
+              className="h-7 px-3 rounded-[3px] text-[12px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-700)] hover:bg-[var(--color-ink-100)]"
+            >
+              Receive more
+            </button>
+          </div>
+        </div>
+      )}
+
+      {submit.status === "queued-resolved" && (
+        <div
+          role="status"
+          className="mb-4 px-3.5 py-2.5 rounded-[3px] border"
+          style={{
+            background: "var(--color-success-100)",
+            borderColor: "var(--color-success-700)",
+            color: "var(--color-success-700)",
+          }}
+        >
+          <div className="text-[12.5px] leading-[1.5]">
+            <span className="font-semibold">Correction saved locally.</span>{" "}
+            The corrected batch is queued under the same client id and will re-sync when the
+            connection returns. The conflict will clear once the server processes it.
+          </div>
+          <div className="mt-2">
+            <Link
+              href="/sync/conflicts"
+              className="h-7 px-3 inline-flex items-center rounded-[3px] text-[12px] font-medium text-white"
+              style={{ background: "var(--color-success-700)" }}
+            >
+              Back to conflicts
+            </Link>
+          </div>
+        </div>
+      )}
 
       {submit.status === "rejected" && (
         <RejectedPanel
@@ -315,20 +578,33 @@ export default function ReceiveUnitsPage() {
           </div>
           <div className="flex gap-2">
             <Link
-              href={`/procurement/shipments/${shipment.id}`}
+              href={resolveAction ? "/sync/conflicts" : `/procurement/shipments/${shipment.id}`}
               className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] hover:bg-[var(--color-ink-100)] inline-flex items-center"
             >
               Cancel
             </Link>
             <button
               type="submit"
-              disabled={submit.status === "submitting" || totalRowsWithBoth === 0}
+              disabled={
+                submit.status === "submitting" ||
+                submit.status === "queued-offline" ||
+                submit.status === "queued-resolved" ||
+                totalRowsWithBoth === 0
+              }
               className="h-8 px-4 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center"
               style={{ background: "var(--color-navy-700)" }}
             >
               {submit.status === "submitting"
-                ? "Submitting..."
-                : `Submit ${totalRowsWithBoth} unit${totalRowsWithBoth === 1 ? "" : "s"}`}
+                ? resolveAction
+                  ? "Resubmitting..."
+                  : connState === "offline"
+                    ? "Saving locally..."
+                    : "Submitting..."
+                : resolveAction
+                  ? `Resubmit ${totalRowsWithBoth} unit${totalRowsWithBoth === 1 ? "" : "s"}`
+                  : connState === "offline"
+                    ? `Save ${totalRowsWithBoth} unit${totalRowsWithBoth === 1 ? "" : "s"} locally`
+                    : `Submit ${totalRowsWithBoth} unit${totalRowsWithBoth === 1 ? "" : "s"}`}
             </button>
           </div>
         </div>

@@ -8,6 +8,7 @@ import { ChevronDownIcon } from "@/components/icons";
 import SidebarUser from "@/components/shell/SidebarUser";
 import { usePermissions } from "@/lib/auth";
 import { NAV, type NavGroup, type NavItem } from "@/lib/nav/config";
+import { useSyncSnapshot } from "@/lib/sync/state";
 
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -90,6 +91,14 @@ export default function Sidebar() {
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
+  const snapshot = useSyncSnapshot();
+  // Only one entry currently shows a count badge; render conditionally to
+  // avoid pulling the snapshot for every nav row's render. Keeping the
+  // count source in one place (the snapshot) so future flows can adopt.
+  const badge =
+    item.href === "/sync/conflicts" && snapshot.counts.conflict > 0
+      ? snapshot.counts.conflict
+      : null;
   return (
     <Link
       href={item.href}
@@ -107,7 +116,21 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
         />
       )}
       <Icon width={13} height={13} className={active ? "opacity-100" : "opacity-85"} />
-      <span>{item.label}</span>
+      <span className="flex-1">{item.label}</span>
+      {badge !== null && (
+        <span
+          aria-label={`${badge} conflicts need resolution`}
+          className="text-[10px] font-mono font-semibold px-1.5 rounded-full"
+          style={{
+            background: "var(--color-danger-700)",
+            color: "white",
+            minWidth: "18px",
+            textAlign: "center",
+          }}
+        >
+          {badge}
+        </span>
+      )}
     </Link>
   );
 }

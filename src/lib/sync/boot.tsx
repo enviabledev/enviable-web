@@ -18,6 +18,7 @@ import { useEffect } from "react";
 
 import { useAuth } from "@/lib/auth";
 
+import { loadAllConflictPlugins } from "./conflicts-registry";
 import { connectivity } from "./connectivity";
 import { syncEngine } from "./engine";
 
@@ -32,6 +33,11 @@ export default function SyncBoot() {
         console.warn("Sync SW registration failed:", err);
       });
     }
+
+    // Pull every conflict plugin into the bundle so the /sync/conflicts pages
+    // can render them. Each plugin registers itself on import; this just
+    // touches them. Per-flow plugins live under lib/sync/conflicts/.
+    void loadAllConflictPlugins();
 
     const triggerOnline = async () => {
       const state = await connectivity.heartbeat();

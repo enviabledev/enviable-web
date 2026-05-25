@@ -14,6 +14,7 @@ import type { ComponentType, SVGProps } from "react";
 import {
   AssemblyIcon,
   AuditIcon,
+  BellIcon,
   CustomersIcon,
   DashboardIcon,
   DeliveriesIcon,
@@ -53,6 +54,10 @@ export const NAV: readonly NavGroup[] = [
     label: "Overview",
     items: [
       { label: "Dashboard", href: "/", icon: DashboardIcon, permissions: [] },
+      // Visible to all authenticated users: any clerk can have offline-queued
+      // conflicts. The Sidebar renders a red badge next to this entry when
+      // the conflict count > 0; absent badges keep the entry visually quiet.
+      { label: "Sync Conflicts", href: "/sync/conflicts", icon: BellIcon, permissions: [] },
     ],
   },
   {

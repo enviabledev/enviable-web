@@ -20,6 +20,7 @@
  * `duplicate` and the action flips back to synced. Demonstrates that a replay
  * produces zero additional server effect, the foundation's core guarantee.
  */
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { syncEngine } from "@/lib/sync/engine";
@@ -234,6 +235,20 @@ export default function SyncStatusIndicator() {
               </span>
             )}
           </div>
+
+          {snapshot.counts.conflict > 0 && (
+            <Link
+              href="/sync/conflicts"
+              onClick={() => setOpen(false)}
+              className="block px-3.5 py-2 border-b border-[var(--color-border-default)] text-[12px] hover:bg-[var(--color-danger-50)]"
+              style={{ color: "var(--color-danger-700)" }}
+            >
+              <span className="font-semibold">
+                {snapshot.counts.conflict} need{snapshot.counts.conflict === 1 ? "s" : ""} resolution.
+              </span>{" "}
+              Open conflicts page &rarr;
+            </Link>
+          )}
 
           <div className="max-h-[280px] overflow-y-auto">
             {snapshot.recent.length === 0 ? (

@@ -234,3 +234,26 @@ export function resetForReplay(clientId: string) {
     syncedAt: undefined,
   }));
 }
+
+/**
+ * Reset a CONFLICTED action with a corrected payload so the next drain re-runs
+ * it with the same clientId. Used by the /sync/conflicts flow's ReOpener
+ * after the clerk fixes the offending inputs. Safe-by-retry: the backend's
+ * idempotency does NOT record conflicts (only successes), so the same
+ * clientId re-runs the corrected work; on success it gets recorded and
+ * subsequent accidental replays return duplicate without double-apply.
+ */
+export function resetForResubmit(
+  clientId: string,
+  newPayload: Record<string, unknown>,
+) {
+  return patch(clientId, (a) => ({
+    ...a,
+    payload: newPayload,
+    status: "queued",
+    clientTimestamp: new Date().toISOString(),
+    conflictBody: undefined,
+    errorMessage: undefined,
+    syncedAt: undefined,
+  }));
+}
