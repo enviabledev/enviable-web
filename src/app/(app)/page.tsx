@@ -11,7 +11,6 @@ import {
   listUnits,
   type StocksReport,
 } from "@/lib/api";
-import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions, usePrincipal } from "@/lib/auth";
 import { formatCount, formatNGN, formatNGNCompact } from "@/lib/format";
 import { NAV, type NavGroup } from "@/lib/nav/config";
@@ -41,90 +40,85 @@ export default function DashboardPage() {
     has("shipment.read") ? { status: "loading" } : { status: "skipped" },
   );
 
+  // Mirror-first, revalidate-with-network. Paint optimistically from the
+  // mirror so cards have data immediately (including offline, where the
+  // network attempt will fail anyway). Then fire the network calls in the
+  // background: on success, replace with the fresh value and drop the
+  // fromMirror flag; on transient failure, keep the mirror render; on
+  // forbidden, mark skipped. This pattern is more robust than
+  // fetch-then-fallback because the card is never gated on the .then
+  // completing: even a stuck or aborted fetch leaves the card showing the
+  // mirror figure, which is the honest offline UX.
   useEffect(() => {
     const ctrl = new AbortController();
-    const log = (card: string, msg: string, extra?: unknown) => {
-      console.info(`[dashboard:${card}] ${msg}`, extra ?? "");
-    };
 
+    // Phase 1: paint from the mirror, eagerly.
     if (has("unit.read")) {
-      log("units", "fetching");
-      listUnits({ pageSize: 25 }, ctrl.signal).then(async (r) => {
-        if (ctrl.signal.aborted) { log("units", "aborted before result"); return; }
-        log("units", `fetch result kind=${r.kind}`);
+      listByType<{ id: string }>("unit")
+        .then((rows) => {
+          if (ctrl.signal.aborted) return;
+          setUnitsTotal({ status: "ok", value: rows.length, fromMirror: true });
+        })
+        .catch(() => {
+          // mirror read failed (rare); leave state as it was and let the
+          // network revalidation drive the final state.
+        });
+    }
+    if (has("report.stocks")) {
+      recomputeStocksFromMirror({})
+        .then((report) => {
+          if (ctrl.signal.aborted) return;
+          setStocks({ status: "ok", value: report, fromMirror: true });
+        })
+        .catch(() => {});
+    }
+    if (has("po.read")) {
+      listByType<{ id: string }>("purchaseOrder")
+        .then((rows) => {
+          if (ctrl.signal.aborted) return;
+          setPoCount({ status: "ok", value: rows.length, fromMirror: true });
+        })
+        .catch(() => {});
+    }
+    if (has("shipment.read")) {
+      listByType<{ id: string }>("shipment")
+        .then((rows) => {
+          if (ctrl.signal.aborted) return;
+          setShipCount({ status: "ok", value: rows.length, fromMirror: true });
+        })
+        .catch(() => {});
+    }
+
+    // Phase 2: revalidate against the network. Each .then either upgrades
+    // the optimistic mirror value to fresh (drop fromMirror flag) or leaves
+    // it alone on transient failure (offline keeps the mirror render).
+    if (has("unit.read")) {
+      listUnits({ pageSize: 25 }, ctrl.signal).then((r) => {
+        if (ctrl.signal.aborted) return;
         if (r.kind === "ok") setUnitsTotal({ status: "ok", value: r.data.total });
         else if (r.kind === "forbidden") setUnitsTotal({ status: "skipped" });
-        else if (isTransientFailure(r)) {
-          try {
-            const mirroredUnits = await listByType<{ id: string }>("unit");
-            if (ctrl.signal.aborted) { log("units", "aborted after listByType"); return; }
-            log("units", `mirror fallback length=${mirroredUnits.length}`);
-            setUnitsTotal({ status: "ok", value: mirroredUnits.length, fromMirror: true });
-          } catch (err) {
-            log("units", "mirror fallback threw", err);
-            setUnitsTotal({ status: "error" });
-          }
-        } else { log("units", `unhandled kind ${r.kind}`); setUnitsTotal({ status: "error" }); }
+        // transient failure: keep the mirror render from phase 1.
       });
     }
     if (has("report.stocks")) {
-      log("stocks", "fetching");
-      getStocksReport({}, ctrl.signal).then(async (r) => {
-        if (ctrl.signal.aborted) { log("stocks", "aborted before result"); return; }
-        log("stocks", `fetch result kind=${r.kind}`);
+      getStocksReport({}, ctrl.signal).then((r) => {
+        if (ctrl.signal.aborted) return;
         if (r.kind === "ok") setStocks({ status: "ok", value: r.data });
         else if (r.kind === "forbidden") setStocks({ status: "skipped" });
-        else if (isTransientFailure(r)) {
-          try {
-            const recomputed = await recomputeStocksFromMirror({});
-            if (ctrl.signal.aborted) { log("stocks", "aborted after recompute"); return; }
-            log("stocks", `mirror recompute totalUnits=${recomputed.kpis.totalUnits}`);
-            setStocks({ status: "ok", value: recomputed, fromMirror: true });
-          } catch (err) {
-            log("stocks", "mirror recompute threw", err);
-            setStocks({ status: "error" });
-          }
-        } else { log("stocks", `unhandled kind ${r.kind}`); setStocks({ status: "error" }); }
       });
     }
     if (has("po.read")) {
-      log("po", "fetching");
-      countPurchaseOrders(ctrl.signal).then(async (r) => {
-        if (ctrl.signal.aborted) { log("po", "aborted before result"); return; }
-        log("po", `fetch result kind=${r.kind}`);
+      countPurchaseOrders(ctrl.signal).then((r) => {
+        if (ctrl.signal.aborted) return;
         if (r.kind === "ok") setPoCount({ status: "ok", value: r.data });
         else if (r.kind === "forbidden") setPoCount({ status: "skipped" });
-        else if (isTransientFailure(r)) {
-          try {
-            const mirroredPos = await listByType<{ id: string }>("purchaseOrder");
-            if (ctrl.signal.aborted) { log("po", "aborted after listByType"); return; }
-            log("po", `mirror fallback length=${mirroredPos.length}`);
-            setPoCount({ status: "ok", value: mirroredPos.length, fromMirror: true });
-          } catch (err) {
-            log("po", "mirror fallback threw", err);
-            setPoCount({ status: "error" });
-          }
-        } else { log("po", `unhandled kind ${r.kind}`); setPoCount({ status: "error" }); }
       });
     }
     if (has("shipment.read")) {
-      log("ship", "fetching");
-      countShipments(ctrl.signal).then(async (r) => {
-        if (ctrl.signal.aborted) { log("ship", "aborted before result"); return; }
-        log("ship", `fetch result kind=${r.kind}`);
+      countShipments(ctrl.signal).then((r) => {
+        if (ctrl.signal.aborted) return;
         if (r.kind === "ok") setShipCount({ status: "ok", value: r.data });
         else if (r.kind === "forbidden") setShipCount({ status: "skipped" });
-        else if (isTransientFailure(r)) {
-          try {
-            const mirroredShips = await listByType<{ id: string }>("shipment");
-            if (ctrl.signal.aborted) { log("ship", "aborted after listByType"); return; }
-            log("ship", `mirror fallback length=${mirroredShips.length}`);
-            setShipCount({ status: "ok", value: mirroredShips.length, fromMirror: true });
-          } catch (err) {
-            log("ship", "mirror fallback threw", err);
-            setShipCount({ status: "error" });
-          }
-        } else { log("ship", `unhandled kind ${r.kind}`); setShipCount({ status: "error" }); }
       });
     }
     return () => ctrl.abort();

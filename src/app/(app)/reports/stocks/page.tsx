@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import ComputedDisclosure from "@/components/sync/ComputedDisclosure";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import { getStocksReport, type ApiResult, type StocksReport } from "@/lib/api";
-import { isTransientFailure } from "@/lib/api/client";
 import {
   formatCount,
   formatDateTime,
@@ -26,31 +25,47 @@ export default function StocksReportPage() {
   const router = useRouter();
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
+  // Mirror-first, revalidate-with-network. Same pattern as the dashboard:
+  // paint from the mirror immediately so the report is never gated on the
+  // network attempt's .then completing, then upgrade to fresh in the
+  // background. On a partition mismatch the mirror is honestly broken and
+  // we surface that as an error (the recompute would lie if we showed the
+  // figure); on any other mirror failure we leave state at loading and let
+  // the network result drive (the only outcome there is a successful
+  // network, since the mirror would have to be working for the offline
+  // case to make sense).
   useEffect(() => {
     const ctrl = new AbortController();
-    getStocksReport({}, ctrl.signal).then(async (r: ApiResult<StocksReport>) => {
+
+    recomputeStocksFromMirror({})
+      .then((recomputed) => {
+        if (ctrl.signal.aborted) return;
+        setState((prev) => {
+          if (prev.status === "ok" && !prev.fromMirror) return prev;
+          return { status: "ok", data: recomputed, fromMirror: true };
+        });
+      })
+      .catch((err) => {
+        if (ctrl.signal.aborted) return;
+        if (err instanceof Error && err.message.includes("partition mismatch")) {
+          setState({ status: "error", message: err.message });
+        }
+      });
+
+    getStocksReport({}, ctrl.signal).then((r: ApiResult<StocksReport>) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") setState({ status: "ok", data: r.data });
       else if (r.kind === "unauthorized") router.replace("/login");
       else if (r.kind === "forbidden") setState({ status: "forbidden" });
-      else if (isTransientFailure(r)) {
-        // Recompute from the mirror: same partition logic, same valuation,
-        // same partition assertion as the backend. Fidelity guarantee: same
-        // calculation over the cached data, "less accurate" means only
-        // "possibly stale" never "computed differently."
-        try {
-          const recomputed = await recomputeStocksFromMirror({});
-          if (ctrl.signal.aborted) return;
-          setState({ status: "ok", data: recomputed, fromMirror: true });
-        } catch (err) {
-          // Partition mismatch or empty mirror: surface as offline rather
-          // than show a wrong figure.
-          if (err instanceof Error && err.message.includes("partition mismatch")) {
-            setState({ status: "error", message: err.message });
-          } else {
-            setState({ status: "offline" });
-          }
-        }
+      else if (r.kind === "network_error" || r.kind === "server_error") {
+        // Keep whatever the mirror revalidation produced. If the mirror
+        // came back empty/successful, the report is showing the cached
+        // figures with the disclosure banner; if the mirror is still
+        // pending, the loading state stays until it resolves. Either way
+        // a transient network failure does not regress the screen.
+        setState((prev) =>
+          prev.status === "loading" ? { status: "offline" } : prev,
+        );
       } else setState({ status: "error", message: "message" in r ? String(r.message) : "Error" });
     });
     return () => ctrl.abort();
