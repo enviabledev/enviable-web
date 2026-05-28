@@ -35,6 +35,12 @@ export const ENTITY_TYPES = [
   "stockMovement",
   "sparePartMovement",
   "auditLogEntry",
+  // Inventory workflow (prompt-13 addition). NOTE: the backend sync-pull's
+  // ALL_TYPES does not yet emit assemblyJob, so this bucket is empty until
+  // that backend change ships. The downloader tolerates the missing
+  // referenceData key (ref[refKey] ?? []); once the backend includes it,
+  // assembly-job offline reads light up with zero further frontend change.
+  "assemblyJob",
   // Large set, paged
   "unit",
 ] as const;
@@ -77,6 +83,7 @@ export type ReferenceData = {
   stockMovements: unknown[];
   sparePartMovements: unknown[];
   auditLogEntries: unknown[];
+  assemblyJobs: unknown[];
 };
 
 /** Map from reference-data plural key to its singular EntityType. */
@@ -107,6 +114,7 @@ export const REF_KEY_TO_ENTITY: Record<keyof ReferenceData, EntityType> = {
   stockMovements: "stockMovement",
   sparePartMovements: "sparePartMovement",
   auditLogEntries: "auditLogEntry",
+  assemblyJobs: "assemblyJob",
 };
 
 export type PullMode = "since" | "windowed";

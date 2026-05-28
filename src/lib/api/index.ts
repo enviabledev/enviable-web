@@ -1,5 +1,20 @@
 export { apiFetch, buildQuery, type ApiResult } from "./client";
 export { listUnits, getUnit } from "./units";
+export {
+  listAssemblyJobs,
+  getAssemblyJob,
+  startAssembly,
+  completeAssembly,
+  failAssembly,
+  assemblyJobIsActionable,
+  ASSEMBLY_JOB_STATUS,
+} from "./assembly";
+export type {
+  AssemblyJob,
+  AssemblyJobStatus,
+  AssemblyJobUnitSummary,
+  AssemblyJobSupervisor,
+} from "./assembly";
 export { getStocksReport } from "./reports";
 export { countPurchaseOrders, countShipments } from "./counts";
 export {
