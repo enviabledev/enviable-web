@@ -25,6 +25,8 @@ npm run typecheck  # tsc --noEmit (strict)
 
 No test framework is wired up yet. Dev runs on port 3100 because port 3000 is the backend.
 
+**Never run `npm run build` while `npm run dev` is running.** Both write the same `.next` directory, so a production build clobbers the dev server's incremental cache, including the `next/font/google` fonts (Inter, JetBrains Mono) that Next downloads at compile time. On a healthy network the dev server silently re-downloads them and you never notice the cost; if `fonts.gstatic.com` is unreachable (a blocked CDN, an offline test session), the re-fetch fails and the dev server dies with `Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'`. Treat build and dev as mutually exclusive in this directory: to verify a build, stop the dev server first (or build in a separate clone / with a separate `.next`). Prefer `npm run typecheck` + `npm run lint` for routine validation and let the running dev server compile routes on demand.
+
 ## Backend relationship: API is the source of truth
 
 The backend is a separate, complete, tagged NestJS API at `enviable-op/enviable-system` (repo `enviabledev/enviable-system`, tag `v0.1.0-backend-complete`). It serves under the `/api` prefix and is the canonical contract for everything this frontend renders.
