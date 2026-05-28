@@ -15,6 +15,10 @@ export const ENTITY_TYPES = [
   "warehouse",
   "customer",
   "sparePart",
+  // Minimal user directory (id + fullName), for offline staff attribution
+  // (e.g. assembly-job supervisor names). The backend emits a non-sensitive
+  // subset only; no auth artifact, see principal-cache for the credential rule.
+  "user",
   // Procurement
   "purchaseOrder",
   "purchaseOrderLine",
@@ -66,6 +70,7 @@ export type ReferenceData = {
   warehouses: unknown[];
   customers: unknown[];
   spareParts: unknown[];
+  users: unknown[];
   purchaseOrders: unknown[];
   purchaseOrderLines: unknown[];
   lettersOfCredit: unknown[];
@@ -97,6 +102,7 @@ export const REF_KEY_TO_ENTITY: Record<keyof ReferenceData, EntityType> = {
   warehouses: "warehouse",
   customers: "customer",
   spareParts: "sparePart",
+  users: "user",
   purchaseOrders: "purchaseOrder",
   purchaseOrderLines: "purchaseOrderLine",
   lettersOfCredit: "letterOfCredit",

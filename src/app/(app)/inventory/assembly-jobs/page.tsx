@@ -58,6 +58,7 @@ function reconstruct(
   jobs: AssemblyJob[],
   unitById: Map<string, UnitInfo>,
   variantById: Map<string, VariantInfo>,
+  userById: Map<string, string>,
 ): AssemblyRow[] {
   return jobs.map((job) => {
     // Unit summary: prefer the API-embedded unit (online), fall back to the
@@ -72,9 +73,12 @@ function reconstruct(
     const variantLabel = variant
       ? [variant.model, variant.colour].filter(Boolean).join(" ") || variant.sku
       : null;
-    // Supervisor: embedded online; unavailable offline (users are not
-    // mirrored), rendered as a graceful fallback by the cell.
-    const supervisorName = job.supervisor?.fullName ?? null;
+    // Supervisor: embedded online; offline, resolved from the mirrored user
+    // directory by supervisorId (falls back to null if the directory has not
+    // synced the supervisor yet).
+    const supervisorName =
+      job.supervisor?.fullName ??
+      (job.supervisorId ? userById.get(job.supervisorId) ?? null : null);
     return {
       id: job.id,
       status: job.status,
@@ -107,10 +111,11 @@ export default function AssemblyJobsListPage() {
     // ships the bucket.
     (async () => {
       try {
-        const [jobRows, unitRows, variantRows] = await Promise.all([
+        const [jobRows, unitRows, variantRows, userRows] = await Promise.all([
           listByType<AssemblyJob>("assemblyJob"),
           listByType<UnitInfo>("unit"),
           listByType<{ id: string; supplierSkuCode: string; variantAttributes: { model?: string; colour?: string } }>("productVariant"),
+          listByType<{ id: string; fullName: string }>("user"),
         ]);
         if (ctrl.signal.aborted) return;
         const unitById = new Map(unitRows.map((u) => [u.body.id, u.body]));
@@ -124,10 +129,12 @@ export default function AssemblyJobsListPage() {
             },
           ]),
         );
+        const userById = new Map(userRows.map((u) => [u.body.id, u.body.fullName]));
         const rows = reconstruct(
           jobRows.map((r) => r.body),
           unitById,
           variantById,
+          userById,
         );
         setState((prev) =>
           prev.status === "ok" && !prev.fromMirror ? prev : { status: "ok", rows, fromMirror: true },
@@ -176,7 +183,8 @@ export default function AssemblyJobsListPage() {
           }
         }
       }
-      const rows = reconstruct(jobsRes.data, unitById, variantById);
+      // Online jobs carry the supervisor embedded, so no user map is needed.
+      const rows = reconstruct(jobsRes.data, unitById, variantById, new Map());
       setState({ status: "ok", rows, fromMirror: false });
     })();
 
@@ -315,9 +323,7 @@ export default function AssemblyJobsListPage() {
                     {row.supervisorName ? (
                       <span className="text-[12px] text-[var(--color-ink-700)]">{row.supervisorName}</span>
                     ) : (
-                      <span className="text-[11px] text-[var(--color-ink-400)]" title="Supervisor name is not available offline">
-                        {fromMirror ? "Unavailable offline" : "--"}
-                      </span>
+                      <span className="text-[var(--color-ink-400)]">--</span>
                     )}
                   </Td>
                 </tr>

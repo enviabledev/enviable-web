@@ -127,12 +127,19 @@ export default function AssemblyJobDetailPage() {
             };
           }
         }
+        // Supervisor: resolve from the mirrored user directory by id.
+        let supervisor: AssemblyJob["supervisor"] = null;
+        if (jobRow.body.supervisorId) {
+          const userRow = await getById<{ id: string; fullName: string }>("user", jobRow.body.supervisorId);
+          if (ctrl.signal.aborted) return;
+          if (userRow) supervisor = { id: userRow.body.id, fullName: userRow.body.fullName };
+        }
         const synthetic: AssemblyJob = {
           ...jobRow.body,
           unit: unitRow
             ? { id: unitRow.body.id, engineNumber: unitRow.body.engineNumber, status: unitRow.body.status }
             : null,
-          supervisor: null,
+          supervisor,
         };
         setState((prev) =>
           prev.status === "ok" && !prev.fromMirror
@@ -353,7 +360,7 @@ export default function AssemblyJobDetailPage() {
       )}
 
       <LifecycleCard unitStatus={d.unitStatus} jobStatus={d.status} />
-      <DetailCard d={d} fromMirror={isFromMirror} />
+      <DetailCard d={d} />
     </div>
   );
 }
@@ -468,7 +475,7 @@ function LifecycleCard({ unitStatus, jobStatus }: { unitStatus: UnitStatus | nul
   );
 }
 
-function DetailCard({ d, fromMirror }: { d: AssemblyDetail; fromMirror: boolean }) {
+function DetailCard({ d }: { d: AssemblyDetail }) {
   const rows: { label: string; value: React.ReactNode; mono?: boolean }[] = [
     { label: "Engine Number", value: d.engineNumber, mono: true },
     { label: "Variant", value: d.variant.label ?? <span className="text-[var(--color-ink-400)]">--</span> },
@@ -476,9 +483,7 @@ function DetailCard({ d, fromMirror }: { d: AssemblyDetail; fromMirror: boolean 
     { label: "Unit Status", value: d.unitStatus ? <StatusPill status={d.unitStatus} /> : <span className="text-[var(--color-ink-400)]">--</span> },
     {
       label: "Supervisor",
-      value: d.supervisorName ?? (
-        <span className="text-[var(--color-ink-400)]">{fromMirror ? "Unavailable offline" : "--"}</span>
-      ),
+      value: d.supervisorName ?? <span className="text-[var(--color-ink-400)]">--</span>,
     },
     { label: "Started", value: d.startedAt ? formatDateTime(d.startedAt) : <span className="text-[var(--color-ink-400)]">--</span> },
     { label: "Completed", value: d.completedAt ? formatDateTime(d.completedAt) : <span className="text-[var(--color-ink-400)]">--</span> },
