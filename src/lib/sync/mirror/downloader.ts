@@ -89,6 +89,35 @@ type WindowBuffer = {
   rows: MirrorRecord[];
 };
 
+/**
+ * Pick the spine timestamp for a row. The mirror record's `updatedAt` field is
+ * the abstract "last-modified" key the mirror stores under; different backend
+ * entities supply it under different field names depending on their lifecycle:
+ *
+ *   - Mutable entities (most reference data, the orders, units, jobs) carry a
+ *     real `updatedAt` (Prisma @updatedAt).
+ *   - Append-only event streams (StockMovement, SparePartMovement,
+ *     AuditLogEntry) have no `updatedAt` per I-9/I-10; the insert moment is
+ *     definitive, exposed as `occurredAt`.
+ *   - ReleaseAuthorisation is one-per-released-SO and never updated; insert
+ *     moment is exposed as `issuedAt`.
+ *
+ * Accepting all three keeps the storage layer in step with the backend's
+ * timestamp conventions. The earlier guard accepted only `updatedAt` and
+ * silently skipped any row missing it, which dropped 85 stockMovements and
+ * 173 auditLogEntries on the floor in the dev fixture (the silent-data-loss
+ * bug surfaced by the 2026-05 mirror audit).
+ */
+function rowSpineTimestamp(row: Record<string, unknown>): string | undefined {
+  const updated = row.updatedAt;
+  if (typeof updated === "string") return updated;
+  const occurred = row.occurredAt;
+  if (typeof occurred === "string") return occurred;
+  const issued = row.issuedAt;
+  if (typeof issued === "string") return issued;
+  return undefined;
+}
+
 function refRowsToMirrorRecords(
   ref: ReferenceData,
   mirroredAt: string,
@@ -101,9 +130,19 @@ function refRowsToMirrorRecords(
     const entityType = REF_KEY_TO_ENTITY[refKey];
     for (const row of rows) {
       const id = row.id as string | undefined;
-      const updatedAt = row.updatedAt as string | undefined;
-      if (typeof id !== "string" || typeof updatedAt !== "string") continue;
-      out.push({ entityType, id, updatedAt, mirroredAt, body: row });
+      const ts = rowSpineTimestamp(row);
+      if (typeof id !== "string" || typeof ts !== "string") {
+        // Loud skip: silent skips hide bugs (the silent-data-loss lesson
+        // from the storage-guard incident). If a future entity arrives with
+        // a fourth timestamp convention, the next session sees this immediately
+        // instead of discovering empty buckets in piecemeal frustration.
+        console.warn(
+          `[mirror] skipping ${entityType} row: missing id or recognised timestamp (updatedAt/occurredAt/issuedAt)`,
+          { hasId: typeof id === "string", id, knownKeys: Object.keys(row) },
+        );
+        continue;
+      }
+      out.push({ entityType, id, updatedAt: ts, mirroredAt, body: row });
     }
   }
   return out;
@@ -116,12 +155,18 @@ function unitRowsToMirrorRecords(
   const out: MirrorRecord[] = [];
   for (const u of units) {
     const id = u.id;
-    const updatedAt = u.updatedAt;
-    if (typeof id !== "string" || typeof updatedAt !== "string") continue;
+    const ts = rowSpineTimestamp(u as Record<string, unknown>);
+    if (typeof id !== "string" || typeof ts !== "string") {
+      console.warn(
+        "[mirror] skipping unit row: missing id or recognised timestamp",
+        { hasId: typeof id === "string", id, knownKeys: Object.keys(u) },
+      );
+      continue;
+    }
     out.push({
       entityType: "unit" as EntityType,
       id,
-      updatedAt,
+      updatedAt: ts,
       mirroredAt,
       body: u,
     });
