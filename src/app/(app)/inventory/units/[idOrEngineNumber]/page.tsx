@@ -2,21 +2,19 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import StatusPill from "@/components/units/StatusPill";
 import {
   getUnit,
-  type ApiResult,
   type MovementType,
   type StockMovementEntry,
   type UnitDetail,
   type UnitStatus,
   type VariantAttributes,
 } from "@/lib/api";
-import { isTransientFailure } from "@/lib/api/client";
 import { listByType } from "@/lib/sync/mirror/store";
 import {
   formatDateShort,
@@ -75,95 +73,102 @@ export default function UnitDetailPage() {
   const idOrEngineNumber = decodeURIComponent(params.idOrEngineNumber);
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
+  // Mirror-first paint, revalidate with network. Movements timeline
+  // reconstruction follows in the next change (D); for now it stays empty
+  // offline.
+  const mirrorPaintedRef = useRef(false);
   useEffect(() => {
     const ctrl = new AbortController();
-    getUnit(idOrEngineNumber, ctrl.signal).then(async (r: ApiResult<UnitDetail>) => {
+    mirrorPaintedRef.current = false;
+
+    // Phase 1: reconstruct UnitDetail from the mirror. The page accepts
+    // either an id or an engineNumber; match by either against the unit
+    // bucket. Movement timeline is empty here, see D for that wiring.
+    (async () => {
+      try {
+        const units = await listByType<MirroredUnitFull>("unit");
+        if (ctrl.signal.aborted) return;
+        const hit = units.find(
+          (u) =>
+            u.body.id === idOrEngineNumber ||
+            u.body.engineNumber === idOrEngineNumber,
+        );
+        if (!hit) return;
+        const u = hit.body;
+        const [variant, shipment, warehouse] = await Promise.all([
+          listByType<MirroredVariantFull>("productVariant").then((vs) =>
+            vs.map((v) => v.body).find((v) => v.id === u.productVariantId),
+          ),
+          u.shipmentId
+            ? listByType<MirroredShipmentForUnit>("shipment").then((ss) =>
+                ss.map((s) => s.body).find((s) => s.id === u.shipmentId),
+              )
+            : Promise.resolve(undefined),
+          u.currentWarehouseId
+            ? listByType<MirroredWarehouse>("warehouse").then((ws) =>
+                ws.map((w) => w.body).find((w) => w.id === u.currentWarehouseId),
+              )
+            : Promise.resolve(undefined),
+        ]);
+        if (ctrl.signal.aborted) return;
+        const reconstructed: UnitDetail = {
+          id: u.id,
+          engineNumber: u.engineNumber,
+          chassisNumber: u.chassisNumber,
+          status: u.status,
+          createdAt: u.createdAt,
+          assembledAt: u.assembledAt,
+          soldAt: u.soldAt,
+          currentWarehouseId: u.currentWarehouseId,
+          landedCost: u.landedCost,
+          productVariant: variant
+            ? {
+                id: variant.id,
+                supplierSkuCode: variant.supplierSkuCode,
+                variantAttributes: variant.variantAttributes,
+                product: { id: variant.productId, name: variant.productId },
+              }
+            : {
+                id: u.productVariantId,
+                supplierSkuCode: u.productVariantId,
+                variantAttributes: {},
+                product: { id: "", name: "" },
+              },
+          shipment: shipment
+            ? {
+                id: shipment.id,
+                shipmentReference: shipment.shipmentReference,
+                status: shipment.status,
+                isHistoricalImport: shipment.isHistoricalImport,
+              }
+            : null,
+          currentWarehouse: warehouse
+            ? { id: warehouse.id, name: warehouse.name }
+            : null,
+          movements: [],
+        };
+        mirrorPaintedRef.current = true;
+        setState((prev) =>
+          prev.status === "ok" && !prev.fromMirror
+            ? prev
+            : { status: "ok", unit: reconstructed, fromMirror: true },
+        );
+      } catch {
+        // Let network drive.
+      }
+    })();
+
+    // Phase 2: network revalidate.
+    getUnit(idOrEngineNumber, ctrl.signal).then((r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") setState({ status: "ok", unit: r.data });
       else if (r.kind === "not_found") setState({ status: "not_found" });
       else if (r.kind === "unauthorized") router.replace("/login");
       else if (r.kind === "forbidden") setState({ status: "forbidden" });
-      else if (isTransientFailure(r)) {
-        // Reconstruct UnitDetail offline from the unit, productVariant,
-        // shipment, and warehouse buckets. The page accepts either an id or
-        // an engineNumber; match by either against the mirror.
-        // FINDING: stockMovement is not in the mirror's referenceData
-        // buckets, so the movement timeline cannot be reconstructed offline.
-        // It renders empty with a calm offline notice for the timeline
-        // section; the rest of the detail (identity, variant, shipment,
-        // warehouse, cost) renders normally.
-        try {
-          const units = await listByType<MirroredUnitFull>("unit");
-          if (ctrl.signal.aborted) return;
-          const hit = units.find(
-            (u) =>
-              u.body.id === idOrEngineNumber ||
-              u.body.engineNumber === idOrEngineNumber,
-          );
-          if (!hit) {
-            setState({ status: "offline" });
-            return;
-          }
-          const u = hit.body;
-          const [variant, shipment, warehouse] = await Promise.all([
-            listByType<MirroredVariantFull>("productVariant").then((vs) =>
-              vs.map((v) => v.body).find((v) => v.id === u.productVariantId),
-            ),
-            u.shipmentId
-              ? listByType<MirroredShipmentForUnit>("shipment").then((ss) =>
-                  ss.map((s) => s.body).find((s) => s.id === u.shipmentId),
-                )
-              : Promise.resolve(undefined),
-            u.currentWarehouseId
-              ? listByType<MirroredWarehouse>("warehouse").then((ws) =>
-                  ws
-                    .map((w) => w.body)
-                    .find((w) => w.id === u.currentWarehouseId),
-                )
-              : Promise.resolve(undefined),
-          ]);
-          if (ctrl.signal.aborted) return;
-          const reconstructed: UnitDetail = {
-            id: u.id,
-            engineNumber: u.engineNumber,
-            chassisNumber: u.chassisNumber,
-            status: u.status,
-            createdAt: u.createdAt,
-            assembledAt: u.assembledAt,
-            soldAt: u.soldAt,
-            currentWarehouseId: u.currentWarehouseId,
-            landedCost: u.landedCost,
-            productVariant: variant
-              ? {
-                  id: variant.id,
-                  supplierSkuCode: variant.supplierSkuCode,
-                  variantAttributes: variant.variantAttributes,
-                  product: { id: variant.productId, name: variant.productId },
-                }
-              : {
-                  id: u.productVariantId,
-                  supplierSkuCode: u.productVariantId,
-                  variantAttributes: {},
-                  product: { id: "", name: "" },
-                },
-            shipment: shipment
-              ? {
-                  id: shipment.id,
-                  shipmentReference: shipment.shipmentReference,
-                  status: shipment.status,
-                  isHistoricalImport: shipment.isHistoricalImport,
-                }
-              : null,
-            currentWarehouse: warehouse
-              ? { id: warehouse.id, name: warehouse.name }
-              : null,
-            movements: [],
-          };
-          setState({ status: "ok", unit: reconstructed, fromMirror: true });
-        } catch {
-          setState({ status: "offline" });
-        }
-      } else setState({ status: "error", message: "message" in r ? String(r.message) : "Error" });
+      else if (r.kind === "network_error" || r.kind === "server_error") {
+        if (!mirrorPaintedRef.current) setState({ status: "offline" });
+      } else
+        setState({ status: "error", message: "message" in r ? String(r.message) : "Error" });
     });
     return () => ctrl.abort();
   }, [idOrEngineNumber, router]);

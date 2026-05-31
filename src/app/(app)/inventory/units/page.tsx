@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { SearchIcon, UnitsIcon } from "@/components/icons";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
@@ -128,11 +128,80 @@ export default function UnitsListingPage() {
 
   const [fromMirror, setFromMirror] = useState(false);
   const [offline, setOffline] = useState(false);
+  const mirrorPaintedRef = useRef(false);
   useEffect(() => {
     const ctrl = new AbortController();
-    setResult("idle");
-    setFromMirror(false);
+    mirrorPaintedRef.current = false;
     setOffline(false);
+
+    // Phase 1: paint a paged slice from the mirror immediately.
+    (async () => {
+      try {
+        const [mirroredUnits, mirroredVariants] = await Promise.all([
+          listByType<MirroredUnit>("unit"),
+          listByType<MirroredVariant>("productVariant"),
+        ]);
+        if (ctrl.signal.aborted || mirroredUnits.length === 0) return;
+        const variantById = new Map<string, MirroredVariant>();
+        for (const v of mirroredVariants) variantById.set(v.body.id, v.body);
+        const filtered = mirroredUnits
+          .map((m) => m.body)
+          .filter((u) => {
+            if (params.variantId.length > 0 && !params.variantId.includes(u.productVariantId)) return false;
+            if (params.status.length > 0 && !params.status.includes(u.status)) return false;
+            if (params.warehouseId && u.currentWarehouseId !== params.warehouseId) return false;
+            if (params.search) {
+              const q = params.search.toUpperCase();
+              if (
+                !u.engineNumber.toUpperCase().includes(q) &&
+                !u.chassisNumber.toUpperCase().includes(q)
+              ) {
+                return false;
+              }
+            }
+            return true;
+          })
+          .map<UnitListRow>((u) => {
+            const variant = variantById.get(u.productVariantId);
+            return {
+              id: u.id,
+              engineNumber: u.engineNumber,
+              chassisNumber: u.chassisNumber,
+              status: u.status,
+              createdAt: u.createdAt,
+              currentWarehouseId: u.currentWarehouseId,
+              landedCost: u.landedCost,
+              productVariant: variant
+                ? {
+                    id: variant.id,
+                    supplierSkuCode: variant.supplierSkuCode,
+                    variantAttributes: variant.variantAttributes,
+                  }
+                : {
+                    id: u.productVariantId,
+                    supplierSkuCode: u.productVariantId,
+                    variantAttributes: {},
+                  },
+            };
+          });
+        const start = (params.page - 1) * params.pageSize;
+        const slice = filtered.slice(start, start + params.pageSize);
+        mirrorPaintedRef.current = true;
+        setData({
+          data: slice,
+          page: params.page,
+          pageSize: params.pageSize,
+          total: filtered.length,
+        });
+        setFromMirror(true);
+        setResult("ok");
+        setErrMsg("");
+      } catch {
+        // Let network drive.
+      }
+    })();
+
+    // Phase 2: revalidate from the network.
     listUnits(
       {
         page: params.page,
@@ -145,92 +214,28 @@ export default function UnitsListingPage() {
         search: params.search || undefined,
       },
       ctrl.signal,
-    ).then(async (r) => {
+    ).then((r) => {
       if (ctrl.signal.aborted) return;
-      setResult(r.kind);
       if (r.kind === "ok") {
         setData(r.data);
+        setFromMirror(false);
+        setResult("ok");
         setErrMsg("");
       } else if (r.kind === "unauthorized") {
         router.replace("/login");
       } else if (r.kind === "forbidden") {
+        setResult("forbidden");
         setErrMsg("You do not have access to view units.");
       } else if (r.kind === "network_error" || r.kind === "server_error") {
-        // Mirror fallback: assemble a paged list from the unit bucket. The
-        // mirror stores the full unit row including the FKs needed for the
-        // existing display, so the same UnitListRow shape (id, engineNumber,
-        // chassisNumber, status, productVariantId, shipmentId,
-        // currentWarehouseId, landedCost, createdAt) can be re-used; offline
-        // filtering happens against those fields.
-        try {
-          const [mirroredUnits, mirroredVariants] = await Promise.all([
-            listByType<MirroredUnit>("unit"),
-            listByType<MirroredVariant>("productVariant"),
-          ]);
-          if (ctrl.signal.aborted) return;
-          if (mirroredUnits.length === 0) {
-            setOffline(true);
-            return;
-          }
-          const variantById = new Map<string, MirroredVariant>();
-          for (const v of mirroredVariants) variantById.set(v.body.id, v.body);
-
-          const filtered = mirroredUnits
-            .map((m) => m.body)
-            .filter((u) => {
-              if (params.variantId.length > 0 && !params.variantId.includes(u.productVariantId)) return false;
-              if (params.status.length > 0 && !params.status.includes(u.status)) return false;
-              if (params.warehouseId && u.currentWarehouseId !== params.warehouseId) return false;
-              if (params.search) {
-                const q = params.search.toUpperCase();
-                if (
-                  !u.engineNumber.toUpperCase().includes(q) &&
-                  !u.chassisNumber.toUpperCase().includes(q)
-                ) {
-                  return false;
-                }
-              }
-              return true;
-            })
-            .map<UnitListRow>((u) => {
-              const variant = variantById.get(u.productVariantId);
-              return {
-                id: u.id,
-                engineNumber: u.engineNumber,
-                chassisNumber: u.chassisNumber,
-                status: u.status,
-                createdAt: u.createdAt,
-                currentWarehouseId: u.currentWarehouseId,
-                landedCost: u.landedCost,
-                productVariant: variant
-                  ? {
-                      id: variant.id,
-                      supplierSkuCode: variant.supplierSkuCode,
-                      variantAttributes: variant.variantAttributes,
-                    }
-                  : {
-                      id: u.productVariantId,
-                      supplierSkuCode: u.productVariantId,
-                      variantAttributes: {},
-                    },
-              };
-            });
-          const start = (params.page - 1) * params.pageSize;
-          const slice = filtered.slice(start, start + params.pageSize);
-          setData({
-            data: slice,
-            page: params.page,
-            pageSize: params.pageSize,
-            total: filtered.length,
-          });
-          setFromMirror(true);
-          setResult("ok");
-          setErrMsg("");
-        } catch {
+        if (!mirrorPaintedRef.current) {
           setOffline(true);
+          setResult(r.kind);
         }
       } else if (r.kind === "validation") {
+        setResult("validation");
         setErrMsg(typeof r.message === "string" ? r.message : r.message.join("; "));
+      } else {
+        setResult(r.kind);
       }
     });
     return () => ctrl.abort();
