@@ -14,9 +14,11 @@
  * Renders null. Lives in src/app/(app)/layout.tsx where it is loaded only for
  * authenticated routes (the login screen does not need the engine).
  */
+import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-import { useAuth } from "@/lib/auth";
+import { useAuth, usePermissions } from "@/lib/auth";
+import { NAV } from "@/lib/nav/config";
 
 import { loadAllConflictPlugins } from "./conflicts-registry";
 import { connectivity } from "./connectivity";
@@ -26,6 +28,8 @@ import { reconcile } from "./mirror/reconciler";
 
 export default function SyncBoot() {
   const { state, refresh: refreshAuth } = useAuth();
+  const { hasAll } = usePermissions();
+  const router = useRouter();
 
   // Live auth status the triggerOnline closure reads at call time. Without
   // this, the closure captures the auth state from the effect-mount moment,
@@ -133,6 +137,15 @@ export default function SyncBoot() {
   // a successful revalidation), kick the trigger immediately rather than
   // waiting for the next 60s tick. Avoids a minute-long blank window where
   // the user is logged in but the mirror hasn't started downloading.
+  //
+  // Also warm the route assets here: fire router.prefetch for every NAV
+  // target the principal can access, so the JS chunks and RSC payloads land
+  // in the SW cache without the user having to open each page online first.
+  // This is the route-asset analog of the proactive mirror download for
+  // data, both fix the same "you have to open it first" half-PWA hole, one
+  // at the data layer, one at the route-asset layer. Prefetch failures are
+  // silently ignored by Next; the SW caches whatever responses do come back
+  // via its existing network-first behavior.
   useEffect(() => {
     if (state.status !== "authenticated") return;
     void (async () => {
@@ -141,8 +154,13 @@ export default function SyncBoot() {
       void syncEngine.drain();
       void downloadHistory();
       void reconcile();
+      for (const group of NAV) {
+        for (const item of group.items) {
+          if (hasAll(item.permissions)) router.prefetch(item.href);
+        }
+      }
     })();
-  }, [state.status]);
+  }, [state.status, hasAll, router]);
 
   return null;
 }
