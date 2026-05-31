@@ -24,6 +24,7 @@ import {
 } from "../db";
 import { pullSince } from "./api";
 import { evictionCutoffIso } from "./downloader";
+import { pickIdAndTimestamp } from "./spine";
 import {
   MIRROR_WATERMARK_KEY,
   evictOlderThan,
@@ -63,10 +64,9 @@ function refToRecords(ref: ReferenceData, mirroredAt: string): MirrorRecord[] {
     const rows = (ref[refKey] ?? []) as Array<Record<string, unknown>>;
     const entityType = REF_KEY_TO_ENTITY[refKey];
     for (const row of rows) {
-      const id = row.id as string | undefined;
-      const updatedAt = row.updatedAt as string | undefined;
-      if (typeof id !== "string" || typeof updatedAt !== "string") continue;
-      out.push({ entityType, id, updatedAt, mirroredAt, body: row });
+      const picked = pickIdAndTimestamp(row, entityType);
+      if (!picked) continue;
+      out.push({ entityType, id: picked.id, updatedAt: picked.ts, mirroredAt, body: row });
     }
   }
   return out;
@@ -78,11 +78,12 @@ function unitsToRecords(
 ): MirrorRecord[] {
   const out: MirrorRecord[] = [];
   for (const u of units) {
-    if (typeof u.id !== "string" || typeof u.updatedAt !== "string") continue;
+    const picked = pickIdAndTimestamp(u as Record<string, unknown>, "unit");
+    if (!picked) continue;
     out.push({
       entityType: "unit" as EntityType,
-      id: u.id,
-      updatedAt: u.updatedAt,
+      id: picked.id,
+      updatedAt: picked.ts,
       mirroredAt,
       body: u,
     });
