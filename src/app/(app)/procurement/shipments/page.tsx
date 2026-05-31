@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import ShipmentStatusPill from "@/components/shipments/ShipmentStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
@@ -14,7 +14,6 @@ import {
   type ShipmentListRow,
   type ShipmentStatus,
 } from "@/lib/api";
-import { isTransientFailure } from "@/lib/api/client";
 import { formatDateShort } from "@/lib/format";
 import { listByType } from "@/lib/sync/mirror/store";
 
@@ -51,61 +50,68 @@ export default function ShipmentsListPage() {
   const [offline, setOffline] = useState(false);
   const [fromMirror, setFromMirror] = useState(false);
 
+  // Mirror-first paint, revalidate with network.
+  const mirrorPaintedRef = useRef(false);
   useEffect(() => {
     const ctrl = new AbortController();
-    setRows(null);
+    mirrorPaintedRef.current = false;
     setErrMsg("");
     setOffline(false);
-    setFromMirror(false);
+
+    // Phase 1: paint from mirror.
+    (async () => {
+      try {
+        const [mirroredShipments, mirroredLines] = await Promise.all([
+          listByType<MirroredShipment>("shipment"),
+          listByType<MirroredManifestLine>("manifestLine"),
+        ]);
+        if (ctrl.signal.aborted) return;
+        const linesByShipment = new Map<string, ManifestLine[]>();
+        for (const l of mirroredLines) {
+          const sid = l.body.shipmentId;
+          if (!sid) continue;
+          const arr = linesByShipment.get(sid) ?? [];
+          arr.push(l.body);
+          linesByShipment.set(sid, arr);
+        }
+        const reconstructed: ShipmentListRow[] = mirroredShipments
+          .map((m) => ({
+            ...m.body,
+            manifestLines: linesByShipment.get(m.body.id) ?? [],
+          }))
+          .filter((s) => {
+            if (params.status && s.status !== params.status) return false;
+            if (params.purchaseOrderId && s.purchaseOrderId !== params.purchaseOrderId) return false;
+            return true;
+          });
+        if (reconstructed.length > 0 || mirroredShipments.length > 0) {
+          mirrorPaintedRef.current = true;
+          setRows(reconstructed);
+          setFromMirror(true);
+        }
+      } catch {
+        // Let the network phase drive.
+      }
+    })();
+
+    // Phase 2: revalidate.
     listShipments(
       {
         status: params.status || undefined,
         purchaseOrderId: params.purchaseOrderId || undefined,
       },
       ctrl.signal,
-    ).then(async (r) => {
+    ).then((r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") {
         setRows(r.data);
+        setFromMirror(false);
       } else if (r.kind === "unauthorized") {
         router.replace("/login");
       } else if (r.kind === "forbidden") {
         setErrMsg("You do not have access to view shipments.");
-      } else if (isTransientFailure(r)) {
-        // Fall back to mirror: shipment + manifestLines (joined by shipmentId).
-        try {
-          const [mirroredShipments, mirroredLines] = await Promise.all([
-            listByType<MirroredShipment>("shipment"),
-            listByType<MirroredManifestLine>("manifestLine"),
-          ]);
-          if (ctrl.signal.aborted) return;
-          if (mirroredShipments.length === 0) {
-            setOffline(true);
-            return;
-          }
-          const linesByShipment = new Map<string, ManifestLine[]>();
-          for (const l of mirroredLines) {
-            const sid = l.body.shipmentId;
-            if (!sid) continue;
-            const arr = linesByShipment.get(sid) ?? [];
-            arr.push(l.body);
-            linesByShipment.set(sid, arr);
-          }
-          const reconstructed: ShipmentListRow[] = mirroredShipments
-            .map((m) => ({
-              ...m.body,
-              manifestLines: linesByShipment.get(m.body.id) ?? [],
-            }))
-            .filter((s) => {
-              if (params.status && s.status !== params.status) return false;
-              if (params.purchaseOrderId && s.purchaseOrderId !== params.purchaseOrderId) return false;
-              return true;
-            });
-          setRows(reconstructed);
-          setFromMirror(true);
-        } catch {
-          setOffline(true);
-        }
+      } else if (r.kind === "network_error" || r.kind === "server_error") {
+        if (!mirrorPaintedRef.current) setOffline(true);
       } else if ("message" in r) {
         setErrMsg(typeof r.message === "string" ? r.message : r.message.join("; "));
       }

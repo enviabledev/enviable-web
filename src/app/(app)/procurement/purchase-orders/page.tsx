@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import PoStatusPill from "@/components/purchase-orders/PoStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
@@ -15,10 +15,33 @@ import {
   type PoListRow,
   type PoStatus,
 } from "@/lib/api";
-import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
 import { listByType } from "@/lib/sync/mirror/store";
+
+type MirroredPo = Omit<PoListRow, "supplier">;
+
+function reconstructPoRows(
+  poRows: MirroredPo[],
+  counterpartyById: Map<string, Counterparty>,
+  filter: { status: PoStatus | ""; supplierId: string },
+): PoListRow[] {
+  return poRows
+    .filter((po) => {
+      if (filter.status && po.status !== filter.status) return false;
+      if (filter.supplierId && po.supplierId !== filter.supplierId) return false;
+      return true;
+    })
+    .map<PoListRow>((po) => {
+      const c = counterpartyById.get(po.supplierId);
+      return {
+        ...po,
+        supplier: c
+          ? { id: c.id, name: c.name, type: c.type, status: c.status }
+          : { id: po.supplierId, name: po.supplierId, type: "SUPPLIER", status: "ACTIVE" },
+      };
+    });
+}
 
 function readParams(sp: URLSearchParams): { status: PoStatus | ""; supplierId: string } {
   const statusRaw = sp.get("status") ?? "";
@@ -50,87 +73,88 @@ export default function PurchaseOrdersListPage() {
   const [offline, setOffline] = useState(false);
   const [fromMirror, setFromMirror] = useState(false);
 
+  // Suppliers dropdown: mirror-first. Phase 1 reads the counterparty bucket,
+  // phase 2 revalidates from listCounterparties.
   useEffect(() => {
     const ctrl = new AbortController();
-    listCounterparties({ type: "SUPPLIER", status: "ACTIVE" }, ctrl.signal).then(async (r) => {
+    (async () => {
+      try {
+        const mirrored = await listByType<Counterparty>("counterparty");
+        if (ctrl.signal.aborted) return;
+        const filtered = mirrored
+          .map((m) => m.body)
+          .filter((c) => c.type === "SUPPLIER" && c.status === "ACTIVE");
+        if (filtered.length > 0) setSuppliers(filtered);
+      } catch {
+        // Network phase will drive.
+      }
+    })();
+    listCounterparties({ type: "SUPPLIER", status: "ACTIVE" }, ctrl.signal).then((r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") setSuppliers(r.data);
-      else if (isTransientFailure(r)) {
-        try {
-          const mirrored = await listByType<Counterparty>("counterparty");
-          if (ctrl.signal.aborted) return;
-          setSuppliers(
-            mirrored
-              .map((m) => m.body)
-              .filter((c) => c.type === "SUPPLIER" && c.status === "ACTIVE"),
-          );
-        } catch {
-          // Best-effort.
-        }
-      }
     });
     return () => ctrl.abort();
   }, []);
 
+  // Main list: mirror-first paint, revalidate with network. Phase 1 fires
+  // the mirror reads + reconstruction and paints ok-fromMirror immediately;
+  // phase 2 fires listPurchaseOrders and on success replaces with fresh
+  // (dropping fromMirror). The mirrorPaintedRef lets phase 2's transient
+  // branch know whether to set offline (mirror was empty) or stay quiet
+  // (mirror painted, the cached render is the answer).
+  const mirrorPaintedRef = useRef(false);
   useEffect(() => {
     const ctrl = new AbortController();
-    setRows(null);
+    mirrorPaintedRef.current = false;
     setErrMsg("");
     setOffline(false);
-    setFromMirror(false);
+
+    // Phase 1: paint from the mirror.
+    (async () => {
+      try {
+        const [poRows, counterpartyRows] = await Promise.all([
+          listByType<MirroredPo>("purchaseOrder"),
+          listByType<Counterparty>("counterparty"),
+        ]);
+        if (ctrl.signal.aborted) return;
+        const counterpartyById = new Map<string, Counterparty>();
+        for (const c of counterpartyRows) counterpartyById.set(c.body.id, c.body);
+        const reconstructed = reconstructPoRows(
+          poRows.map((m) => m.body),
+          counterpartyById,
+          params,
+        );
+        if (reconstructed.length > 0 || poRows.length > 0) {
+          mirrorPaintedRef.current = true;
+          setRows(reconstructed);
+          setFromMirror(true);
+        }
+      } catch {
+        // Let the network phase drive.
+      }
+    })();
+
+    // Phase 2: revalidate with the network.
     listPurchaseOrders(
       {
         status: params.status || undefined,
         supplierId: params.supplierId || undefined,
       },
       ctrl.signal,
-    ).then(async (r) => {
+    ).then((r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") {
         setRows(r.data);
+        setFromMirror(false);
       } else if (r.kind === "unauthorized") {
         router.replace("/login");
       } else if (r.kind === "forbidden") {
         setErrMsg("You do not have access to view purchase orders.");
-      } else if (isTransientFailure(r)) {
-        // Fall back to mirror: purchaseOrder bucket has only supplierId
-        // (flat); look up supplier name from the counterparty bucket and
-        // graft the nested {id, name, type, status} so the same row
-        // renderer works unchanged.
-        try {
-          type MirroredPo = Omit<PoListRow, "supplier">;
-          const [poRows, counterpartyRows] = await Promise.all([
-            listByType<MirroredPo>("purchaseOrder"),
-            listByType<Counterparty>("counterparty"),
-          ]);
-          if (ctrl.signal.aborted) return;
-          if (poRows.length === 0) {
-            setOffline(true);
-            return;
-          }
-          const counterpartyById = new Map<string, Counterparty>();
-          for (const c of counterpartyRows) counterpartyById.set(c.body.id, c.body);
-          const filtered = poRows
-            .map((m) => m.body)
-            .filter((po) => {
-              if (params.status && po.status !== params.status) return false;
-              if (params.supplierId && po.supplierId !== params.supplierId) return false;
-              return true;
-            })
-            .map<PoListRow>((po) => {
-              const c = counterpartyById.get(po.supplierId);
-              return {
-                ...po,
-                supplier: c
-                  ? { id: c.id, name: c.name, type: c.type, status: c.status }
-                  : { id: po.supplierId, name: po.supplierId, type: "SUPPLIER", status: "ACTIVE" },
-              };
-            });
-          setRows(filtered);
-          setFromMirror(true);
-        } catch {
-          setOffline(true);
-        }
+      } else if (r.kind === "network_error" || r.kind === "server_error") {
+        // Transient: keep the mirror render if phase 1 painted; otherwise
+        // surface the offline notice. Stale-true offline is harmless if
+        // phase 1 paints later (rows takes precedence in the renderer).
+        if (!mirrorPaintedRef.current) setOffline(true);
       } else if ("message" in r) {
         setErrMsg(typeof r.message === "string" ? r.message : r.message.join("; "));
       }

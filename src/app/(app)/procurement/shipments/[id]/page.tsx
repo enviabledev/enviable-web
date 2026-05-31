@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import ShipmentStatusPill from "@/components/shipments/ShipmentStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
@@ -23,7 +23,6 @@ import {
   type ShipmentListRow,
   type ShipmentUnit,
 } from "@/lib/api";
-import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { getById, listByType } from "@/lib/sync/mirror/store";
@@ -65,120 +64,119 @@ export default function ShipmentDetailPage() {
   // Variance resolution form local state: manifestLineId -> draft reason.
   const [varianceDrafts, setVarianceDrafts] = useState<Record<string, string>>({});
 
+  // Mirror-first paint. Phase 1 reconstructs ShipmentDetail from: shipment (by id)
+  // + manifestLines (filtered) + units (filtered) + counterparty FKs. Phase 2
+  // revalidates from getShipment.
+  const mirrorPaintedRef = useRef(false);
   useEffect(() => {
     const ctrl = new AbortController();
-    getShipment(id, ctrl.signal).then(async (r: ApiResult<ShipmentDetail>) => {
+    mirrorPaintedRef.current = false;
+
+    // Phase 1: mirror.
+    (async () => {
+      try {
+        const [shipRow, manifestRows, unitRows] = await Promise.all([
+          getById<MirroredShipment>("shipment", id),
+          listByType<ManifestLine>("manifestLine"),
+          listByType<MirroredUnit>("unit"),
+        ]);
+        if (ctrl.signal.aborted || !shipRow) return;
+        const ship = shipRow.body;
+        const [forwarder, clearing, insurance] = await Promise.all([
+          ship.freightForwarderId
+            ? getById<Counterparty>("counterparty", ship.freightForwarderId)
+            : Promise.resolve(undefined),
+          ship.clearingAgentId
+            ? getById<Counterparty>("counterparty", ship.clearingAgentId)
+            : Promise.resolve(undefined),
+          ship.insuranceCompanyId
+            ? getById<Counterparty>("counterparty", ship.insuranceCompanyId)
+            : Promise.resolve(undefined),
+        ]);
+        if (ctrl.signal.aborted) return;
+        const manifestLines = manifestRows
+          .map((m) => m.body)
+          .filter((m) => m.shipmentId === id);
+        const units: ShipmentUnit[] = unitRows
+          .map((u) => u.body)
+          .filter((u) => u.shipmentId === id)
+          .map((u) => ({
+            id: u.id,
+            engineNumber: u.engineNumber,
+            status: u.status,
+            landedCost: u.landedCost,
+          }));
+        const reconstructed: ShipmentDetail = {
+          ...ship,
+          manifestLines,
+          freightForwarder: forwarder?.body
+            ? { id: forwarder.body.id, name: forwarder.body.name, type: forwarder.body.type }
+            : null,
+          clearingAgent: clearing?.body
+            ? { id: clearing.body.id, name: clearing.body.name, type: clearing.body.type }
+            : null,
+          insuranceCompany: insurance?.body
+            ? { id: insurance.body.id, name: insurance.body.name, type: insurance.body.type }
+            : null,
+          units,
+        };
+        mirrorPaintedRef.current = true;
+        setState((prev) =>
+          prev.status === "ok" && !prev.fromMirror
+            ? prev
+            : { status: "ok", shipment: reconstructed, fromMirror: true },
+        );
+      } catch {
+        // Let network drive.
+      }
+    })();
+
+    // Phase 2: network revalidate.
+    getShipment(id, ctrl.signal).then((r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") setState({ status: "ok", shipment: r.data });
       else if (r.kind === "not_found") setState({ status: "not_found" });
       else if (r.kind === "unauthorized") router.replace("/login");
       else if (r.kind === "forbidden") setState({ status: "forbidden" });
-      else if (isTransientFailure(r)) {
-        // Reconstruct ShipmentDetail offline from: shipment (by id) +
-        // manifestLines (filtered by shipmentId) + units (filtered by
-        // shipmentId) + counterparties (by FK for freightForwarder,
-        // clearingAgent, insuranceCompany).
-        try {
-          const [shipRow, manifestRows, unitRows] = await Promise.all([
-            getById<MirroredShipment>("shipment", id),
-            listByType<ManifestLine>("manifestLine"),
-            listByType<MirroredUnit>("unit"),
-          ]);
-          if (ctrl.signal.aborted) return;
-          if (!shipRow) {
-            setState({ status: "offline" });
-            return;
-          }
-          const ship = shipRow.body;
-          const [forwarder, clearing, insurance] = await Promise.all([
-            ship.freightForwarderId
-              ? getById<Counterparty>("counterparty", ship.freightForwarderId)
-              : Promise.resolve(undefined),
-            ship.clearingAgentId
-              ? getById<Counterparty>("counterparty", ship.clearingAgentId)
-              : Promise.resolve(undefined),
-            ship.insuranceCompanyId
-              ? getById<Counterparty>("counterparty", ship.insuranceCompanyId)
-              : Promise.resolve(undefined),
-          ]);
-          if (ctrl.signal.aborted) return;
-          const manifestLines = manifestRows
-            .map((m) => m.body)
-            .filter((m) => m.shipmentId === id);
-          const units: ShipmentUnit[] = unitRows
-            .map((u) => u.body)
-            .filter((u) => u.shipmentId === id)
-            .map((u) => ({
-              id: u.id,
-              engineNumber: u.engineNumber,
-              status: u.status,
-              landedCost: u.landedCost,
-            }));
-          const reconstructed: ShipmentDetail = {
-            ...ship,
-            manifestLines,
-            freightForwarder: forwarder?.body
-              ? {
-                  id: forwarder.body.id,
-                  name: forwarder.body.name,
-                  type: forwarder.body.type,
-                }
-              : null,
-            clearingAgent: clearing?.body
-              ? {
-                  id: clearing.body.id,
-                  name: clearing.body.name,
-                  type: clearing.body.type,
-                }
-              : null,
-            insuranceCompany: insurance?.body
-              ? {
-                  id: insurance.body.id,
-                  name: insurance.body.name,
-                  type: insurance.body.type,
-                }
-              : null,
-            units,
-          };
-          setState({ status: "ok", shipment: reconstructed, fromMirror: true });
-        } catch {
-          setState({ status: "offline" });
-        }
-      } else setState({ status: "error", message: "message" in r ? String(r.message) : "Error" });
+      else if (r.kind === "network_error" || r.kind === "server_error") {
+        if (!mirrorPaintedRef.current) setState({ status: "offline" });
+      } else
+        setState({ status: "error", message: "message" in r ? String(r.message) : "Error" });
     });
-    listProducts(ctrl.signal).then(async (r) => {
+
+    // Products for variant labels: mirror-first, both phases best-effort.
+    (async () => {
+      try {
+        const mirroredVariants = await listByType<{
+          id: string;
+          productId: string;
+          supplierSkuCode: string;
+          variantAttributes: Record<string, string | undefined>;
+        }>("productVariant");
+        if (ctrl.signal.aborted || mirroredVariants.length === 0) return;
+        const synthetic: ProductWithVariants[] = mirroredVariants.map((v) => ({
+          id: v.body.productId,
+          name: v.body.productId,
+          category: "PASSENGER",
+          manufacturer: { id: "", name: "", type: "" },
+          variants: [
+            {
+              id: v.body.id,
+              supplierSkuCode: v.body.supplierSkuCode,
+              variantAttributes: v.body.variantAttributes,
+              currentMarketPrice: "",
+              status: "ACTIVE",
+            },
+          ],
+        }));
+        setProducts((prev) => (prev.length > 0 ? prev : synthetic));
+      } catch {
+        // Best-effort.
+      }
+    })();
+    listProducts(ctrl.signal).then((r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") setProducts(r.data);
-      else if (isTransientFailure(r)) {
-        // Same offline products synthesis pattern used in the PO detail.
-        try {
-          const mirroredVariants = await listByType<{
-            id: string;
-            productId: string;
-            supplierSkuCode: string;
-            variantAttributes: Record<string, string | undefined>;
-          }>("productVariant");
-          if (ctrl.signal.aborted) return;
-          const synthetic: ProductWithVariants[] = mirroredVariants.map((v) => ({
-            id: v.body.productId,
-            name: v.body.productId,
-            category: "PASSENGER",
-            manufacturer: { id: "", name: "", type: "" },
-            variants: [
-              {
-                id: v.body.id,
-                supplierSkuCode: v.body.supplierSkuCode,
-                variantAttributes: v.body.variantAttributes,
-                currentMarketPrice: "",
-                status: "ACTIVE",
-              },
-            ],
-          }));
-          setProducts(synthetic);
-        } catch {
-          // Best-effort.
-        }
-      }
     });
     return () => ctrl.abort();
   }, [id, router]);
