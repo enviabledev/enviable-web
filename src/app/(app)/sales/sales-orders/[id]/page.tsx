@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import SoStatusPill from "@/components/sales-orders/SoStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
@@ -37,7 +37,6 @@ import {
   type SoStatus,
   type UnitStatus,
 } from "@/lib/api";
-import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime, formatNGN } from "@/lib/format";
 import { getById, listByType } from "@/lib/sync/mirror/store";
@@ -133,6 +132,73 @@ export default function SalesOrderDetailPage() {
   const [dnId, setDnId] = useState<string | null>(null);
   const [hasWaybill, setHasWaybill] = useState(false);
 
+  const mirrorPaintedRef = useRef(false);
+
+  const loadFromMirror = async () => {
+    try {
+      const [soRow, lineRows, variantRows, unitRows, invRows, payRows] =
+        await Promise.all([
+          getById<MirroredSo>("salesOrder", id),
+          listByType<MirroredSoLine>("salesOrderLine"),
+          listByType<MirroredVariantForSo>("productVariant"),
+          listByType<MirroredUnitForSo>("unit"),
+          listByType<Invoice>("invoice"),
+          listByType<Payment>("payment"),
+        ]);
+      if (!soRow) return;
+      const so = soRow.body;
+      const customerRow = await getById<Customer>("customer", so.customerId);
+      const variantById = new Map(variantRows.map((v) => [v.body.id, v.body]));
+      const unitById = new Map(unitRows.map((u) => [u.body.id, u.body]));
+      const lines: SalesOrderLine[] = lineRows
+        .map((l) => l.body)
+        .filter((l) => l.salesOrderId === id)
+        .map((l) => {
+          const v = variantById.get(l.productVariantId);
+          const u = l.unitId ? unitById.get(l.unitId) : undefined;
+          return {
+            id: l.id,
+            salesOrderId: l.salesOrderId,
+            productVariantId: l.productVariantId,
+            unitId: l.unitId,
+            saleForm: l.saleForm,
+            unitPrice: l.unitPrice,
+            discountAmount: l.discountAmount,
+            lineTotal: l.lineTotal,
+            productVariant: v
+              ? { id: v.id, supplierSkuCode: v.supplierSkuCode }
+              : { id: l.productVariantId, supplierSkuCode: l.productVariantId },
+            unit: u
+              ? { id: u.id, engineNumber: u.engineNumber, status: u.status }
+              : null,
+          };
+        });
+      const c = customerRow?.body;
+      const reconstructed: SalesOrderDetail = {
+        ...so,
+        channel: so.channel as SalesOrderDetail["channel"],
+        customer: c
+          ? { id: c.id, name: c.name, tierId: c.tierId, type: c.type }
+          : { id: so.customerId, name: so.customerId, tierId: null, type: "" },
+        lines,
+      };
+      mirrorPaintedRef.current = true;
+      setState((prev) =>
+        prev.status === "ok" && !prev.fromMirror
+          ? prev
+          : { status: "ok", so: reconstructed, fromMirror: true },
+      );
+      const matchingInvoice = invRows
+        .map((i) => i.body)
+        .find((i) => i.salesOrderId === id);
+      setInvoice((prev) => prev ?? matchingInvoice ?? null);
+      setInvoiceChecked(true);
+      setPayments((prev) => (prev.length > 0 ? prev : payRows.map((p) => p.body).filter((p) => p.salesOrderId === id)));
+    } catch {
+      // Let the network phase drive.
+    }
+  };
+
   const refresh = async () => {
     const [soR, invR, payR] = await Promise.all([
       getSalesOrder(id),
@@ -143,86 +209,26 @@ export default function SalesOrderDetailPage() {
     else if (soR.kind === "not_found") setState({ status: "not_found" });
     else if (soR.kind === "unauthorized") router.replace("/login");
     else if (soR.kind === "forbidden") setState({ status: "forbidden" });
-    else if (isTransientFailure(soR)) {
-      // Reconstruct SalesOrderDetail offline from the mirror: SO + customer
-      // (by customerId) + lines (filtered by salesOrderId, nesting variant
-      // and unit summaries by FK). Invoice and payments come from their own
-      // mirror buckets filtered by salesOrderId.
-      try {
-        const [soRow, lineRows, variantRows, unitRows, invRows, payRows] =
-          await Promise.all([
-            getById<MirroredSo>("salesOrder", id),
-            listByType<MirroredSoLine>("salesOrderLine"),
-            listByType<MirroredVariantForSo>("productVariant"),
-            listByType<MirroredUnitForSo>("unit"),
-            listByType<Invoice>("invoice"),
-            listByType<Payment>("payment"),
-          ]);
-        if (!soRow) {
-          setState({ status: "offline" });
-          return;
-        }
-        const so = soRow.body;
-        const customerRow = await getById<Customer>("customer", so.customerId);
-        const variantById = new Map(variantRows.map((v) => [v.body.id, v.body]));
-        const unitById = new Map(unitRows.map((u) => [u.body.id, u.body]));
-        const lines: SalesOrderLine[] = lineRows
-          .map((l) => l.body)
-          .filter((l) => l.salesOrderId === id)
-          .map((l) => {
-            const v = variantById.get(l.productVariantId);
-            const u = l.unitId ? unitById.get(l.unitId) : undefined;
-            return {
-              id: l.id,
-              salesOrderId: l.salesOrderId,
-              productVariantId: l.productVariantId,
-              unitId: l.unitId,
-              saleForm: l.saleForm,
-              unitPrice: l.unitPrice,
-              discountAmount: l.discountAmount,
-              lineTotal: l.lineTotal,
-              productVariant: v
-                ? { id: v.id, supplierSkuCode: v.supplierSkuCode }
-                : { id: l.productVariantId, supplierSkuCode: l.productVariantId },
-              unit: u
-                ? { id: u.id, engineNumber: u.engineNumber, status: u.status }
-                : null,
-            };
-          });
-        const c = customerRow?.body;
-        const reconstructed: SalesOrderDetail = {
-          ...so,
-          channel: so.channel as SalesOrderDetail["channel"],
-          customer: c
-            ? { id: c.id, name: c.name, tierId: c.tierId, type: c.type }
-            : { id: so.customerId, name: so.customerId, tierId: null, type: "" },
-          lines,
-        };
-        setState({ status: "ok", so: reconstructed, fromMirror: true });
-        // Surface invoice + payments from the mirror too.
-        const matchingInvoice = invRows
-          .map((i) => i.body)
-          .find((i) => i.salesOrderId === id);
-        setInvoice(matchingInvoice ?? null);
-        setInvoiceChecked(true);
-        setPayments(payRows.map((p) => p.body).filter((p) => p.salesOrderId === id));
-        return;
-      } catch {
-        setState({ status: "offline" });
-        return;
-      }
+    else if (soR.kind === "network_error" || soR.kind === "server_error") {
+      if (!mirrorPaintedRef.current) setState({ status: "offline" });
     } else {
       setState({ status: "error", message: "message" in soR ? String(soR.message) : "Error" });
     }
 
-    if (invR.kind === "ok") setInvoice(invR.data);
-    else if (invR.kind === "not_found") setInvoice(null);
-    setInvoiceChecked(true);
+    if (invR.kind === "ok") {
+      setInvoice(invR.data);
+      setInvoiceChecked(true);
+    } else if (invR.kind === "not_found") {
+      setInvoice(null);
+      setInvoiceChecked(true);
+    }
 
     if (payR.kind === "ok") setPayments(payR.data);
   };
 
   useEffect(() => {
+    mirrorPaintedRef.current = false;
+    void loadFromMirror();
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);

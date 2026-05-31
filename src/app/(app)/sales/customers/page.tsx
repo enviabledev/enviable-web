@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
-import { isTransientFailure } from "@/lib/api/client";
 import { listCustomers, type Customer } from "@/lib/api";
 import { listByType } from "@/lib/sync/mirror/store";
 
@@ -19,37 +18,40 @@ export default function CustomersListPage() {
   // FreshnessBadge so the clerk knows it's cached data, not live.
   const [fromMirror, setFromMirror] = useState(false);
 
+  const mirrorPaintedRef = useRef(false);
   useEffect(() => {
     const ctrl = new AbortController();
-    listCustomers({ pageSize: 250 }, ctrl.signal).then(async (r) => {
+    mirrorPaintedRef.current = false;
+
+    // Phase 1: mirror.
+    (async () => {
+      try {
+        const mirrored = await listByType<Customer>("customer");
+        if (ctrl.signal.aborted) return;
+        if (mirrored.length > 0) {
+          mirrorPaintedRef.current = true;
+          setRows(mirrored.map((m) => m.body));
+          setFromMirror(true);
+          setOffline(false);
+        }
+      } catch {
+        // Let network drive.
+      }
+    })();
+
+    // Phase 2: network revalidate.
+    listCustomers({ pageSize: 250 }, ctrl.signal).then((r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") {
         setRows(r.data.data);
-        setOffline(false);
         setFromMirror(false);
+        setOffline(false);
       } else if (r.kind === "unauthorized") {
         router.replace("/login");
       } else if (r.kind === "forbidden") {
         setErrMsg("You do not have access to view customers.");
-      } else if (isTransientFailure(r)) {
-        // Network unreachable. Fall back to the local mirror so the clerk
-        // sees their cached customers with a freshness disclosure, instead
-        // of an empty notice where data exists.
-        try {
-          const mirrored = await listByType<Customer>("customer");
-          if (ctrl.signal.aborted) return;
-          if (mirrored.length > 0) {
-            setRows(mirrored.map((m) => m.body));
-            setFromMirror(true);
-            setOffline(false);
-          } else {
-            // No mirror data yet (first run, never synced). Honest empty
-            // offline notice.
-            setOffline(true);
-          }
-        } catch {
-          setOffline(true);
-        }
+      } else if (r.kind === "network_error" || r.kind === "server_error") {
+        if (!mirrorPaintedRef.current) setOffline(true);
       } else if ("message" in r) {
         setErrMsg(
           typeof r.message === "string" ? r.message : r.message.join("; "),
@@ -155,13 +157,13 @@ export default function CustomersListPage() {
                   {c.type === "RESELLER" ? "Reseller" : "End user"}
                 </td>
                 <td className="px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)]">
-                  {c.tier?.name ?? "—"}
+                  {c.tier?.name ?? "--"}
                 </td>
                 <td className="px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)] font-mono text-[12px]">
-                  {c.phone ?? "—"}
+                  {c.phone ?? "--"}
                 </td>
                 <td className="px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)]">
-                  {c.email ?? "—"}
+                  {c.email ?? "--"}
                 </td>
                 <td className="px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)]">
                   {c.status === "ACTIVE" ? "Active" : "Inactive"}

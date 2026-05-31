@@ -13,7 +13,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import { getCustomer, type Customer } from "@/lib/api";
-import { isTransientFailure } from "@/lib/api/client";
 import { syncEngine } from "@/lib/sync/engine";
 import { queueEntityUpdate } from "@/lib/sync/actions/entity-update";
 import { getById } from "@/lib/sync/mirror/store";
@@ -41,18 +40,34 @@ export default function CustomerDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [lastQueuedAt, setLastQueuedAt] = useState<string>("");
 
-  // Track the loaded customer in a ref so the refresh handler can decide
-  // whether a transient fetch failure is worth surfacing. With a customer
-  // loaded, transient failures are silent (the topbar indicator already
-  // communicates connectivity). Without one, we show the calm offline state.
-  const customerRef = useRef<Customer | null>(null);
-  useEffect(() => {
-    customerRef.current = customer;
-  }, [customer]);
+  // Mirror-painted tracker, separate from network state. Lets the network
+  // transient branch know whether to surface offline (mirror empty) or stay
+  // quiet (mirror painted, the cached render is the answer).
+  const mirrorPaintedRef = useRef(false);
 
-  const refresh = useCallback(
+  // Read from the mirror; paint if found.
+  const loadFromMirror = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const mirrored = await getById<Customer>("customer", id);
+        if (signal?.aborted) return;
+        if (mirrored) {
+          mirrorPaintedRef.current = true;
+          setCustomer(mirrored.body);
+          setFromMirror(true);
+          setOffline(false);
+        }
+      } catch {
+        // Let network drive.
+      }
+    },
+    [id],
+  );
+
+  // Read from the network; replace painted customer with fresh on ok.
+  const loadFromNetwork = useCallback(
     (signal?: AbortSignal) => {
-      getCustomer(id, signal).then(async (r) => {
+      getCustomer(id, signal).then((r) => {
         if (signal?.aborted) return;
         if (r.kind === "ok") {
           setCustomer(r.data);
@@ -65,27 +80,8 @@ export default function CustomerDetailPage() {
           setErrMsg("You do not have access to view this customer.");
         } else if (r.kind === "not_found") {
           setErrMsg("Customer not found.");
-        } else if (isTransientFailure(r)) {
-          // Network unreachable. If we already have a customer rendered
-          // (e.g. from a prior online fetch in this session), stay quiet;
-          // the indicator carries the connectivity signal. Otherwise fall
-          // back to the local mirror so the page renders the cached
-          // customer with a freshness disclosure.
-          if (!customerRef.current) {
-            try {
-              const mirrored = await getById<Customer>("customer", id);
-              if (signal?.aborted) return;
-              if (mirrored) {
-                setCustomer(mirrored.body);
-                setFromMirror(true);
-                setOffline(false);
-              } else {
-                setOffline(true);
-              }
-            } catch {
-              setOffline(true);
-            }
-          }
+        } else if (r.kind === "network_error" || r.kind === "server_error") {
+          if (!mirrorPaintedRef.current) setOffline(true);
         } else if ("message" in r) {
           setErrMsg(
             typeof r.message === "string" ? r.message : r.message.join("; "),
@@ -98,18 +94,20 @@ export default function CustomerDetailPage() {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    refresh(ctrl.signal);
+    mirrorPaintedRef.current = false;
+    void loadFromMirror(ctrl.signal);
+    loadFromNetwork(ctrl.signal);
     return () => ctrl.abort();
-  }, [refresh]);
+  }, [loadFromMirror, loadFromNetwork]);
 
-  // Re-read the customer whenever the engine signals a change (a drain
-  // landed). Cheap and correct: if the sync caused a server-side phone change,
-  // the re-read picks it up.
+  // Re-read from network whenever the engine signals a change (a drain
+  // landed). Cheap and correct: if the sync caused a server-side phone
+  // change, the re-read picks it up.
   useEffect(() => {
     return syncEngine.subscribe(() => {
-      refresh();
+      loadFromNetwork();
     });
-  }, [refresh]);
+  }, [loadFromNetwork]);
 
   const onSavePhone = async () => {
     if (!customer) return;
@@ -220,7 +218,7 @@ export default function CustomerDetailPage() {
                   className="h-[28px] w-full px-2 rounded-[3px] border border-[var(--color-navy-700)] bg-white text-[12.5px] font-mono text-[var(--color-ink-900)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(31,78,121,0.10)]"
                 />
               ) : (
-                <span>{customer.phone ?? "—"}</span>
+                <span>{customer.phone ?? "--"}</span>
               )}
             </dd>
             <dd className="m-0">
@@ -264,7 +262,7 @@ export default function CustomerDetailPage() {
           <div className="px-3.5 py-2.5 grid grid-cols-[140px_1fr] gap-3 items-center">
             <dt className="text-[var(--color-ink-600)] text-[13px]">Email</dt>
             <dd className="m-0 text-[var(--color-ink-900)]">
-              {customer.email ?? "—"}
+              {customer.email ?? "--"}
             </dd>
           </div>
 
@@ -278,7 +276,7 @@ export default function CustomerDetailPage() {
           <div className="px-3.5 py-2.5 grid grid-cols-[140px_1fr] gap-3 items-center">
             <dt className="text-[var(--color-ink-600)] text-[13px]">Tier</dt>
             <dd className="m-0 text-[var(--color-ink-700)]">
-              {customer.tier?.name ?? "—"}
+              {customer.tier?.name ?? "--"}
             </dd>
           </div>
 

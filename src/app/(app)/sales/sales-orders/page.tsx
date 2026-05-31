@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import SoStatusPill from "@/components/sales-orders/SoStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
@@ -15,7 +15,6 @@ import {
   type SalesOrderListRow,
   type SoStatus,
 } from "@/lib/api";
-import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
 import { listByType } from "@/lib/sync/mirror/store";
@@ -49,98 +48,100 @@ export default function SalesOrdersListPage() {
   const [offline, setOffline] = useState(false);
   const [fromMirror, setFromMirror] = useState(false);
 
+  // Customers dropdown: mirror-first.
   useEffect(() => {
+    if (!has("customer.read")) return;
     const ctrl = new AbortController();
-    if (has("customer.read")) {
-      listCustomers({ status: "ACTIVE", pageSize: 100 }, ctrl.signal).then(async (r) => {
+    (async () => {
+      try {
+        const mirrored = await listByType<Customer>("customer");
         if (ctrl.signal.aborted) return;
-        if (r.kind === "ok") setCustomers(r.data.data);
-        else if (isTransientFailure(r)) {
-          // Offline filter dropdown: try the mirror so the dropdown still
-          // populates and filters work offline against cached data.
-          try {
-            const mirrored = await listByType<Customer>("customer");
-            if (ctrl.signal.aborted) return;
-            setCustomers(mirrored.map((m) => m.body).filter((c) => c.status === "ACTIVE"));
-          } catch {
-            // Best-effort; empty dropdown is fine offline.
-          }
-        }
-      });
-    }
+        const filtered = mirrored.map((m) => m.body).filter((c) => c.status === "ACTIVE");
+        if (filtered.length > 0) setCustomers(filtered);
+      } catch {
+        // Let network drive.
+      }
+    })();
+    listCustomers({ status: "ACTIVE", pageSize: 100 }, ctrl.signal).then((r) => {
+      if (ctrl.signal.aborted) return;
+      if (r.kind === "ok") setCustomers(r.data.data);
+    });
     return () => ctrl.abort();
   }, [has]);
 
+  // Main list: mirror-first paint, network revalidate.
+  const mirrorPaintedRef = useRef(false);
   useEffect(() => {
     const ctrl = new AbortController();
-    setRows(null);
+    mirrorPaintedRef.current = false;
     setErrMsg("");
     setOffline(false);
-    setFromMirror(false);
+
+    // Phase 1: mirror.
+    (async () => {
+      try {
+        type MirroredSo = Omit<SalesOrderListRow, "customer" | "_count">;
+        type MirroredSoLine = { id: string; salesOrderId: string };
+        const [soRows, customerRows, lineRows] = await Promise.all([
+          listByType<MirroredSo>("salesOrder"),
+          listByType<Customer>("customer"),
+          listByType<MirroredSoLine>("salesOrderLine"),
+        ]);
+        if (ctrl.signal.aborted) return;
+        const customerById = new Map<string, Customer>();
+        for (const c of customerRows) customerById.set(c.body.id, c.body);
+        const lineCountBySo = new Map<string, number>();
+        for (const l of lineRows) {
+          lineCountBySo.set(
+            l.body.salesOrderId,
+            (lineCountBySo.get(l.body.salesOrderId) ?? 0) + 1,
+          );
+        }
+        const filtered = soRows
+          .map((m) => m.body)
+          .filter((so) => {
+            if (params.customerId && so.customerId !== params.customerId) return false;
+            if (params.status && so.status !== params.status) return false;
+            return true;
+          })
+          .map<SalesOrderListRow>((so) => {
+            const c = customerById.get(so.customerId);
+            return {
+              ...so,
+              customer: c
+                ? { id: c.id, name: c.name }
+                : { id: so.customerId, name: so.customerId },
+              _count: { lines: lineCountBySo.get(so.id) ?? 0 },
+            };
+          });
+        if (filtered.length > 0 || soRows.length > 0) {
+          mirrorPaintedRef.current = true;
+          setRows(filtered);
+          setFromMirror(true);
+        }
+      } catch {
+        // Let network drive.
+      }
+    })();
+
+    // Phase 2: network revalidate.
     listSalesOrders(
       {
         customerId: params.customerId || undefined,
         status: params.status || undefined,
       },
       ctrl.signal,
-    ).then(async (r) => {
+    ).then((r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") {
         setRows(r.data);
+        setFromMirror(false);
       } else if (r.kind === "unauthorized") {
         router.replace("/login");
       } else if (r.kind === "forbidden") {
         setErrMsg("You do not have access to view sales orders.");
-      } else if (isTransientFailure(r)) {
-        // Fall back to mirror: SO bucket carries flat customerId only (the
-        // online row has customer joined); look it up from the customer
-        // bucket and graft the nested {id, name} onto each row. Also
-        // compute the _count.lines (online-only convenience) from the
-        // salesOrderLine bucket so the column renders.
-        try {
-          type MirroredSo = Omit<SalesOrderListRow, "customer" | "_count">;
-          type MirroredSoLine = { id: string; salesOrderId: string };
-          const [soRows, customerRows, lineRows] = await Promise.all([
-            listByType<MirroredSo>("salesOrder"),
-            listByType<Customer>("customer"),
-            listByType<MirroredSoLine>("salesOrderLine"),
-          ]);
-          if (ctrl.signal.aborted) return;
-          if (soRows.length === 0) {
-            setOffline(true);
-            return;
-          }
-          const customerById = new Map<string, Customer>();
-          for (const c of customerRows) customerById.set(c.body.id, c.body);
-          const lineCountBySo = new Map<string, number>();
-          for (const l of lineRows) {
-            lineCountBySo.set(
-              l.body.salesOrderId,
-              (lineCountBySo.get(l.body.salesOrderId) ?? 0) + 1,
-            );
-          }
-          const filtered = soRows
-            .map((m) => m.body)
-            .filter((so) => {
-              if (params.customerId && so.customerId !== params.customerId) return false;
-              if (params.status && so.status !== params.status) return false;
-              return true;
-            })
-            .map<SalesOrderListRow>((so) => {
-              const c = customerById.get(so.customerId);
-              return {
-                ...so,
-                customer: c
-                  ? { id: c.id, name: c.name }
-                  : { id: so.customerId, name: so.customerId },
-                _count: { lines: lineCountBySo.get(so.id) ?? 0 },
-              };
-            });
-          setRows(filtered);
-          setFromMirror(true);
-        } catch {
-          setOffline(true);
-        }
+      } else if (r.kind === "network_error" || r.kind === "server_error") {
+        if (!mirrorPaintedRef.current) setOffline(true);
       } else if ("message" in r) {
         setErrMsg(typeof r.message === "string" ? r.message : r.message.join("; "));
       }
