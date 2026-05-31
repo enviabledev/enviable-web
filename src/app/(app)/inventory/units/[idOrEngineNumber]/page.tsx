@@ -66,6 +66,20 @@ type MirroredWarehouse = {
   id: string;
   name: string;
 };
+type MirroredStockMovement = {
+  id: string;
+  unitId: string;
+  movementType: string;
+  fromState: string | null;
+  toState: string | null;
+  fromWarehouseId: string | null;
+  toWarehouseId: string | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  actorId: string;
+  occurredAt: string;
+  notes: string | null;
+};
 
 export default function UnitDetailPage() {
   const params = useParams<{ idOrEngineNumber: string }>();
@@ -83,7 +97,10 @@ export default function UnitDetailPage() {
 
     // Phase 1: reconstruct UnitDetail from the mirror. The page accepts
     // either an id or an engineNumber; match by either against the unit
-    // bucket. Movement timeline is empty here, see D for that wiring.
+    // bucket. Movement timeline reconstructs from the stockMovement bucket
+    // filtered by unitId and joined to the user directory for actor names
+    // (the backend mirrors a minimal user directory for offline staff
+    // attribution).
     (async () => {
       try {
         const units = await listByType<MirroredUnitFull>("unit");
@@ -95,22 +112,51 @@ export default function UnitDetailPage() {
         );
         if (!hit) return;
         const u = hit.body;
-        const [variant, shipment, warehouse] = await Promise.all([
-          listByType<MirroredVariantFull>("productVariant").then((vs) =>
-            vs.map((v) => v.body).find((v) => v.id === u.productVariantId),
-          ),
-          u.shipmentId
-            ? listByType<MirroredShipmentForUnit>("shipment").then((ss) =>
-                ss.map((s) => s.body).find((s) => s.id === u.shipmentId),
-              )
-            : Promise.resolve(undefined),
-          u.currentWarehouseId
-            ? listByType<MirroredWarehouse>("warehouse").then((ws) =>
-                ws.map((w) => w.body).find((w) => w.id === u.currentWarehouseId),
-              )
-            : Promise.resolve(undefined),
-        ]);
+        const [variant, shipment, warehouse, movementRows, userRows] =
+          await Promise.all([
+            listByType<MirroredVariantFull>("productVariant").then((vs) =>
+              vs.map((v) => v.body).find((v) => v.id === u.productVariantId),
+            ),
+            u.shipmentId
+              ? listByType<MirroredShipmentForUnit>("shipment").then((ss) =>
+                  ss.map((s) => s.body).find((s) => s.id === u.shipmentId),
+                )
+              : Promise.resolve(undefined),
+            u.currentWarehouseId
+              ? listByType<MirroredWarehouse>("warehouse").then((ws) =>
+                  ws.map((w) => w.body).find((w) => w.id === u.currentWarehouseId),
+                )
+              : Promise.resolve(undefined),
+            listByType<MirroredStockMovement>("stockMovement"),
+            listByType<{ id: string; fullName: string }>("user"),
+          ]);
         if (ctrl.signal.aborted) return;
+        // Field-access audit on the timeline: every field StockMovementEntry
+        // exposes (id, movementType, fromState, toState, fromWarehouseId,
+        // toWarehouseId, referenceType, referenceId, occurredAt, notes,
+        // actor.{id, fullName}) is assigned explicitly here with a fallback,
+        // so a mirror row with a missing actor or null FK can never crash.
+        const userById = new Map(userRows.map((u) => [u.body.id, u.body.fullName]));
+        const movements: StockMovementEntry[] = movementRows
+          .map((m) => m.body)
+          .filter((m) => m.unitId === u.id)
+          .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1))
+          .map((m) => ({
+            id: m.id,
+            movementType: m.movementType as MovementType,
+            fromState: m.fromState ?? null,
+            toState: m.toState ?? null,
+            fromWarehouseId: m.fromWarehouseId ?? null,
+            toWarehouseId: m.toWarehouseId ?? null,
+            referenceType: (m.referenceType ?? null) as StockMovementEntry["referenceType"],
+            referenceId: m.referenceId ?? null,
+            occurredAt: m.occurredAt,
+            notes: m.notes ?? null,
+            actor: {
+              id: m.actorId,
+              fullName: userById.get(m.actorId) ?? m.actorId,
+            },
+          }));
         const reconstructed: UnitDetail = {
           id: u.id,
           engineNumber: u.engineNumber,
@@ -145,7 +191,7 @@ export default function UnitDetailPage() {
           currentWarehouse: warehouse
             ? { id: warehouse.id, name: warehouse.name }
             : null,
-          movements: [],
+          movements,
         };
         mirrorPaintedRef.current = true;
         setState((prev) =>
@@ -250,11 +296,7 @@ export default function UnitDetailPage() {
       </header>
 
       <SummaryCard unit={unit} />
-      <TimelineCard
-        movements={unit.movements}
-        currentStatus={unit.status}
-        offlineMode={isFromMirror}
-      />
+      <TimelineCard movements={unit.movements} currentStatus={unit.status} />
     </div>
   );
 }
@@ -351,30 +393,13 @@ function SummaryCard({ unit }: { unit: UnitDetail }) {
 function TimelineCard({
   movements,
   currentStatus,
-  offlineMode = false,
 }: {
   movements: readonly StockMovementEntry[];
   currentStatus: string;
-  offlineMode?: boolean;
 }) {
-  // Mirror foundation does not include the stockMovement bucket; the
-  // movement timeline cannot be reconstructed from cached data. Show a
-  // calm offline notice for this section while the rest of the unit
-  // detail renders normally from the mirror. Backend-pull finding noted.
-  if (offlineMode) {
-    return (
-      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
-        <header className="px-5 py-3.5 border-b border-[var(--color-border-default)]">
-          <h2 className="m-0 text-[14px] font-semibold text-[var(--color-ink-900)]">
-            Movement timeline
-          </h2>
-        </header>
-        <div className="px-6 py-8">
-          <OfflineNotice body="The movement timeline is not available offline yet. The mirror does not currently include stock movements; the timeline will load when the connection returns." />
-        </div>
-      </section>
-    );
-  }
+  // Movements reconstruct from the stockMovement bucket offline, joined to
+  // the user directory for actor names. The page-level FreshnessBadge already
+  // signals "cached data"; no separate offline notice for the timeline.
   if (movements.length === 0) {
     return (
       <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
