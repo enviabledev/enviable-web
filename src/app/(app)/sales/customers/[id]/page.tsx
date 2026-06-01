@@ -7,7 +7,7 @@
  * later syncs becomes visible without a manual refresh.
  */
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
@@ -16,11 +16,13 @@ import { getCustomer, type Customer } from "@/lib/api";
 import { syncEngine } from "@/lib/sync/engine";
 import { queueEntityUpdate } from "@/lib/sync/actions/entity-update";
 import { getById } from "@/lib/sync/mirror/store";
+import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
 export default function CustomerDetailPage() {
   const router = useRouter();
-  const params = useParams<{ id: string }>();
-  const id = params.id;
+  // Read from window.location to handle the SW's sibling-URL fallback;
+  // see src/lib/sync/use-url-segment.ts.
+  const id = useUrlLastSegment();
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   // errMsg is for real, surfaceable errors only (forbidden, not_found,

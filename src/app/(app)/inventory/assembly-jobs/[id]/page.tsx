@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import AssemblyStatusPill from "@/components/assembly/AssemblyStatusPill";
@@ -22,6 +22,7 @@ import {
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { getById } from "@/lib/sync/mirror/store";
+import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
 // Variant context joined from the unit. Same fields online (getUnit) and
 // offline (productVariant bucket), so the detail shape is source-independent.
@@ -81,10 +82,11 @@ function variantLabelOf(model?: string, colour?: string, sku?: string): string |
 }
 
 export default function AssemblyJobDetailPage() {
-  const params = useParams<{ id: string }>();
   const router = useRouter();
   const { has } = usePermissions();
-  const id = decodeURIComponent(params.id);
+  // Read from window.location to handle the SW's sibling-URL fallback;
+  // see src/lib/sync/use-url-segment.ts.
+  const id = useUrlLastSegment();
   const canRead = has("assembly.read");
   const canPerform = has("assembly.perform");
 

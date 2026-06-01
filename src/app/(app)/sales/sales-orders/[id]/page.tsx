@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import SoStatusPill from "@/components/sales-orders/SoStatusPill";
@@ -40,6 +40,7 @@ import {
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime, formatNGN } from "@/lib/format";
 import { getById, listByType } from "@/lib/sync/mirror/store";
+import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
 type LoadState =
   | { status: "loading" }
@@ -100,10 +101,11 @@ type ActionBanner =
 const UNIT_PRICE_RE = /^\d+(\.\d{1,2})?$/;
 
 export default function SalesOrderDetailPage() {
-  const params = useParams<{ id: string }>();
   const router = useRouter();
   const { has } = usePermissions();
-  const id = decodeURIComponent(params.id);
+  // Read from window.location to handle the SW's sibling-URL fallback;
+  // see src/lib/sync/use-url-segment.ts.
+  const id = useUrlLastSegment();
 
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [invoice, setInvoice] = useState<Invoice | null>(null);

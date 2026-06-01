@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
@@ -16,6 +16,7 @@ import {
   type VariantAttributes,
 } from "@/lib/api";
 import { listByType } from "@/lib/sync/mirror/store";
+import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 import {
   formatDateShort,
   formatDateTime,
@@ -82,9 +83,12 @@ type MirroredStockMovement = {
 };
 
 export default function UnitDetailPage() {
-  const params = useParams<{ idOrEngineNumber: string }>();
   const router = useRouter();
-  const idOrEngineNumber = decodeURIComponent(params.idOrEngineNumber);
+  // Read from window.location, not useParams: when the SW serves a cached
+  // sibling URL for an uncached detail (sibling-fallback for offline nav),
+  // useParams returns the sibling's id from the RSC, not the URL bar's id.
+  // See src/lib/sync/use-url-segment.ts for the rationale.
+  const idOrEngineNumber = useUrlLastSegment();
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
   // Mirror-first paint, revalidate with network. Movements timeline

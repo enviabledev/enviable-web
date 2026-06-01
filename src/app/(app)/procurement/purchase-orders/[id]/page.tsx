@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import PoStatusPill from "@/components/purchase-orders/PoStatusPill";
@@ -23,6 +23,7 @@ import {
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatDateTime, formatNGN } from "@/lib/format";
 import { getById, listByType } from "@/lib/sync/mirror/store";
+import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
 type LoadState =
   | { status: "loading" }
@@ -43,10 +44,11 @@ type ActionState =
   | { status: "error"; message: string };
 
 export default function PurchaseOrderDetailPage() {
-  const params = useParams<{ id: string }>();
   const router = useRouter();
   const { has } = usePermissions();
-  const id = decodeURIComponent(params.id);
+  // Read from window.location to handle the SW's sibling-URL fallback;
+  // see src/lib/sync/use-url-segment.ts.
+  const id = useUrlLastSegment();
 
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [action, setAction] = useState<ActionState>({ status: "idle" });
