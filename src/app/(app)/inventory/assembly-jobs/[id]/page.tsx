@@ -21,6 +21,8 @@ import {
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
+import { queueCompleteAssembly } from "@/lib/sync/actions/assembly";
+import { useConnectivity } from "@/lib/sync/connectivity";
 import { getById } from "@/lib/sync/mirror/store";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
@@ -56,6 +58,7 @@ type ActionState =
   | { status: "idle" }
   | { status: "confirming"; action: "complete" | "fail" }
   | { status: "submitting"; action: "complete" | "fail" }
+  | { status: "queued-offline" }
   | { status: "conflict"; message: string }
   | { status: "error"; message: string };
 
@@ -84,6 +87,7 @@ function variantLabelOf(model?: string, colour?: string, sku?: string): string |
 export default function AssemblyJobDetailPage() {
   const router = useRouter();
   const { has } = usePermissions();
+  const { state: connState } = useConnectivity();
   // Read from window.location to handle the SW's sibling-URL fallback;
   // see src/lib/sync/use-url-segment.ts.
   const id = useUrlLastSegment();
@@ -194,7 +198,30 @@ export default function AssemblyJobDetailPage() {
 
   const runAction = async (which: "complete" | "fail") => {
     if (action.status === "submitting") return;
+
+    // Fail is online-only: the backend's SyncActionType enum has no
+    // 'assembly.fail' entry, so there is nothing to enqueue. Adding it is
+    // a separate handoff to the enviable-system session.
+    if (which === "fail" && connState === "offline") {
+      setAction({
+        status: "error",
+        message: "Failing an assembly requires a connection. Reconnect to record this.",
+      });
+      return;
+    }
+
     setAction({ status: "submitting", action: which });
+
+    // Complete is offline-capable through the sync engine.
+    if (which === "complete" && connState === "offline") {
+      await queueCompleteAssembly({
+        jobId: id,
+        description: `Complete assembly ${state.status === "ok" ? state.detail.engineNumber : id}`,
+      });
+      setAction({ status: "queued-offline" });
+      return;
+    }
+
     const fn = which === "complete" ? completeAssembly : failAssembly;
     const r = await fn(id);
     if (r.kind === "ok") {
@@ -214,7 +241,21 @@ export default function AssemblyJobDetailPage() {
     } else if (r.kind === "validation") {
       setAction({ status: "error", message: typeof r.message === "string" ? r.message : r.message.join("; ") });
     } else if (r.kind === "network_error") {
-      setAction({ status: "error", message: "You appear to be offline. Assembly actions require a connection; try again when reconnected." });
+      // Connectivity flipped between the conn check and the POST. For
+      // Complete, fall through to the offline queue so the supervisor's work
+      // is not lost. For Fail, surface the same "requires connection" notice.
+      if (which === "complete") {
+        await queueCompleteAssembly({
+          jobId: id,
+          description: `Complete assembly ${state.status === "ok" ? state.detail.engineNumber : id}`,
+        });
+        setAction({ status: "queued-offline" });
+      } else {
+        setAction({
+          status: "error",
+          message: "Failing an assembly requires a connection. Reconnect to record this.",
+        });
+      }
     } else {
       setAction({ status: "error", message: "Unexpected response from the server." });
     }
@@ -304,7 +345,7 @@ export default function AssemblyJobDetailPage() {
           </div>
         </div>
 
-        {showActions && action.status !== "confirming" && (
+        {showActions && action.status !== "confirming" && action.status !== "queued-offline" && (
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -318,7 +359,8 @@ export default function AssemblyJobDetailPage() {
             <button
               type="button"
               onClick={() => setAction({ status: "confirming", action: "fail" })}
-              disabled={action.status === "submitting"}
+              disabled={action.status === "submitting" || connState === "offline"}
+              title={connState === "offline" ? "Failing an assembly requires a connection" : undefined}
               className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-danger-700)] bg-white text-[var(--color-danger-700)] hover:bg-[var(--color-danger-50)] disabled:opacity-50 inline-flex items-center"
             >
               {action.status === "submitting" && action.action === "fail" ? "Failing..." : "Fail Assembly"}
@@ -339,6 +381,43 @@ export default function AssemblyJobDetailPage() {
           onConfirm={() => runAction(action.action)}
           onCancel={() => setAction({ status: "idle" })}
         />
+      )}
+
+      {action.status === "queued-offline" && (
+        <div
+          role="status"
+          className="mb-4 px-3.5 py-2.5 rounded-[3px] border"
+          style={{
+            background: "var(--color-success-100)",
+            borderColor: "var(--color-success-700)",
+            color: "var(--color-success-700)",
+          }}
+        >
+          <div className="font-semibold text-[12.5px] mb-0.5">Saved locally, will sync.</div>
+          <div className="text-[12px] leading-[1.5] text-[var(--color-ink-700)]">
+            Complete is queued. This job is still <span className="font-semibold">In Progress</span> on the
+            server; when the connection returns, the engine will run the transition and the unit will pivot
+            to <span className="font-semibold">In Warehouse CBU</span>. If the server rejects it
+            (e.g. another supervisor completed or failed it first), the action will appear in the topbar
+            sync indicator with the server&apos;s message.
+          </div>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setAction({ status: "idle" })}
+              className="h-7 px-3 inline-flex items-center rounded-[3px] text-[12px] font-medium border border-[var(--color-success-700)] bg-white text-[var(--color-success-700)] hover:bg-[var(--color-success-50)]"
+            >
+              Got it
+            </button>
+            <Link
+              href="/inventory/assembly-jobs"
+              className="h-7 px-3 inline-flex items-center rounded-[3px] text-[12px] font-medium text-white"
+              style={{ background: "var(--color-success-700)" }}
+            >
+              Back to Assembly Jobs
+            </Link>
+          </div>
+        </div>
       )}
 
       {action.status === "conflict" && (

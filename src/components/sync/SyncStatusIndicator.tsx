@@ -24,7 +24,11 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { syncEngine } from "@/lib/sync/engine";
-import { listForDisplay, resetForReplay } from "@/lib/sync/queue";
+import {
+  listForDisplay,
+  removeByClientId,
+  resetForReplay,
+} from "@/lib/sync/queue";
 import { useSyncSnapshot } from "@/lib/sync/state";
 import type { ActionStatus, QueuedAction } from "@/lib/sync/types";
 
@@ -160,6 +164,18 @@ export default function SyncStatusIndicator() {
     await syncEngine.drain();
   };
 
+  // Dismiss a failed action. The user has read the verbatim server message
+  // on the row; "Dismiss" removes the action from the queue so the failed-
+  // count stops nagging. Safe by retry: failed actions are terminal (the
+  // engine does NOT re-pick them), so removal does not interrupt in-flight
+  // work. For string-message assembly conflicts there is no structured
+  // resolution flow (no payload to fix; the underlying state moved on),
+  // so Dismiss IS the resolution.
+  const onDismiss = async (clientId: string) => {
+    await removeByClientId(clientId);
+    syncEngine.notifyChange();
+  };
+
   return (
     <div className="relative">
       <button
@@ -280,6 +296,17 @@ export default function SyncStatusIndicator() {
                       <span className="text-[11px] text-[var(--color-ink-500)] flex-shrink-0">
                         {shortTime(a.createdAt)}
                       </span>
+                      {a.status === "failed" && (
+                        <button
+                          type="button"
+                          onClick={() => onDismiss(a.clientId)}
+                          aria-label="Dismiss failed action"
+                          title="Dismiss this failed action"
+                          className="flex-shrink-0 w-[18px] h-[18px] inline-flex items-center justify-center rounded-[3px] text-[12px] leading-none text-[var(--color-ink-500)] hover:bg-[var(--color-danger-100)] hover:text-[var(--color-danger-700)]"
+                        >
+                          &times;
+                        </button>
+                      )}
                     </li>
                   );
                 })}
