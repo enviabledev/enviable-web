@@ -25,6 +25,38 @@ import { syncEngine } from "./engine";
 import { downloadHistory } from "./mirror/downloader";
 import { reconcile } from "./mirror/reconciler";
 
+/**
+ * Warm one route through the SW cache: fetch the HTML and every same-origin
+ * script + stylesheet + preload it references, mimicking what a real browser
+ * navigation does. A plain fetch() of the URL would cache the HTML only;
+ * the page's JS chunks would still be uncached and the offline hard-reload
+ * would fail at chunk load. Parsing the HTML for <script src> / <link href>
+ * and fetching each through the SW closes that gap.
+ */
+async function warmRoute(href: string): Promise<void> {
+  try {
+    const res = await fetch(href, { credentials: "include" });
+    if (!res.ok) return;
+    const html = await res.text();
+    const urls = new Set<string>();
+    for (const m of html.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)) urls.add(m[1]);
+    for (const m of html.matchAll(/<link[^>]+href=["']([^"']+)["']/gi)) urls.add(m[1]);
+    const sameOrigin = [...urls].filter(
+      (u) => u.startsWith("/") || u.startsWith(window.location.origin),
+    );
+    await Promise.allSettled(
+      sameOrigin.map((u) =>
+        fetch(u, { credentials: "include" }).catch(() => {
+          // Per-asset failure is silently dropped; best-effort warming.
+        }),
+      ),
+    );
+  } catch {
+    // Best-effort warming. The user-facing nav still works without this;
+    // only the offline cache is affected.
+  }
+}
+
 export default function SyncBoot() {
   const { state, refresh: refreshAuth } = useAuth();
   const { hasAll } = usePermissions();
@@ -136,25 +168,25 @@ export default function SyncBoot() {
   // waiting for the next 60s tick. Avoids a minute-long blank window where
   // the user is logged in but the mirror hasn't started downloading.
   //
-  // Also warm the route assets here: fire a plain fetch for every NAV
-  // target the principal can access. The SW intercepts these GETs and
-  // populates its cache via its existing network-first behaviour, so a
-  // cold offline hard-reload of any NAV target works without the user
-  // having to open each page online first.
+  // Also warm the route assets here so an offline hard-reload of any NAV
+  // target works without the user having to open each page online first.
+  // Verified via a Playwright probe on 2026-06: a bare fetch() of a route
+  // URL caches the HTML response only; the page's JS chunks (24 script
+  // src refs in /inventory/units, the dynamic-segment chunk among them)
+  // are NOT auto-fetched by a JS fetch. To make the route offline-loadable
+  // the SW must also have its chunks cached, so we parse the HTML response
+  // and fetch each <script src> and <link href> through the SW, mimicking
+  // what a real browser navigation does.
   //
-  // NOTE: this used to use router.prefetch, which is a no-op in dev mode
-  // (Next 15 disables router.prefetch in dev to avoid recompilation
-  // overhead). The SW cache stayed empty in dev because of that, and Kalu
-  // hit it as "offline = ERR_FAILED for every page" once the silent
-  // dashboard fallback was removed. A plain fetch works in both dev and
-  // prod, and going through the SW means the response lands in the cache
-  // exactly the same way an online navigation would.
+  // router.prefetch is intentionally NOT used here: it is a no-op in Next 15
+  // dev mode (Next disables prefetch in dev to avoid recompilation
+  // overhead), which silently left the cache empty before this fix.
   //
   // Limitation: dynamic detail URLs (e.g. /inventory/units/<id>) are NOT in
   // NAV and therefore NOT pre-warmed. They become offline-readable only
-  // after an online visit caches their specific URL. The mirror data is
-  // proactively downloaded regardless, but the route assets per dynamic id
-  // remain visit-on-demand.
+  // after an online visit caches their specific URL. The shared route
+  // chunks (the [idOrEngineNumber] segment's chunk) ARE cached because
+  // their static parent (e.g. /inventory/units) is warmed.
   useEffect(() => {
     if (state.status !== "authenticated") return;
     void (async () => {
@@ -166,11 +198,7 @@ export default function SyncBoot() {
       for (const group of NAV) {
         for (const item of group.items) {
           if (!hasAll(item.permissions)) continue;
-          void fetch(item.href, { credentials: "include" }).catch(() => {
-            // Best-effort prefetch; failures are silently dropped (the
-            // user-facing nav still works, this only warms the offline
-            // cache).
-          });
+          void warmRoute(item.href);
         }
       }
     })();
