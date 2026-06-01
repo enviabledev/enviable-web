@@ -45,7 +45,7 @@
  *   navigation.
  */
 
-const CACHE_VERSION = "v8";
+const CACHE_VERSION = "v9";
 const CACHE_NAME = `enviable-shell-${CACHE_VERSION}`;
 const CACHE_PREFIX = "enviable-shell-";
 
@@ -115,16 +115,57 @@ async function networkFirstWithCacheFallback(req) {
   } catch (err) {
     const cached = await cache.match(key);
     if (cached) return cached;
-    // No cached response for THIS request. Earlier this fell back to the
-    // cached "/" for any navigation (mode === "navigate"), so an offline hard
-    // load of an uncached detail URL silently rendered the dashboard with
-    // the wrong URL in the address bar (2026-06: Kalu correctly flagged
-    // this as misleading and wrong). The honest behaviour now: let the
-    // fetch fail. The app-level error boundary at (app)/error.tsx catches
-    // chunk-load failures during render and surfaces a graceful "couldn't
-    // load offline, reconnect and retry" card; for hard-load failures the
-    // browser's own offline page is honest about the failure rather than
-    // serving the wrong content with a right URL.
+
+    // Sibling-URL fallback for uncached dynamic detail pages. The detail
+    // pages in this app are "use client" components that read useParams
+    // from the URL at render time, so the HTML and RSC payloads for any
+    // /a/b/<id> URL are interchangeable: the client renders based on the
+    // runtime URL, not on the SSR-time URL. If THIS request misses but
+    // we have a SIBLING URL cached under the same parent path (and the
+    // same RSC vs HTML type), return that one's response. The browser
+    // mounts the page, useParams returns the actual id from the URL bar,
+    // and the page reads the right data from the mirror. This is what
+    // makes "navigate offline to any detail URL of a known dynamic route"
+    // actually work; SyncBoot pre-warms one representative per dynamic
+    // route from the mirror's known ids so the fallback always has a
+    // sibling to serve.
+    const sibling = await findSiblingFallback(cache, req, key);
+    if (sibling) return sibling;
+
+    // No cached response and no sibling fallback. Let the fetch fail.
+    // The app-level error boundary at (app)/error.tsx catches chunk-load
+    // and render failures with a graceful "couldn't load offline,
+    // reconnect and retry" card; for hard-load failures the browser's
+    // own offline page is honest about the failure rather than serving
+    // the wrong content with a right URL (the silent-dashboard-fallback
+    // bug from 2026-06 v6).
     throw err;
   }
+}
+
+async function findSiblingFallback(cache, req, key) {
+  const targetUrlStr = typeof key === "string" ? key : req.url;
+  const target = new URL(targetUrlStr);
+  let targetPath = target.pathname;
+  const targetIsRsc = targetPath.endsWith("__rsc__");
+  if (targetIsRsc) targetPath = targetPath.slice(0, -"__rsc__".length);
+  if (targetPath.startsWith("/_next/")) return null; // static assets are unique by URL
+  const segs = targetPath.split("/").filter(Boolean);
+  if (segs.length < 3) return null; // only fall back for 3+ segment dynamic routes
+  const parentPath = "/" + segs.slice(0, -1).join("/") + "/";
+
+  const allKeys = await cache.keys();
+  for (const k of allKeys) {
+    const cand = new URL(k.url);
+    let candPath = cand.pathname;
+    const candIsRsc = candPath.endsWith("__rsc__");
+    if (candIsRsc) candPath = candPath.slice(0, -"__rsc__".length);
+    if (candIsRsc !== targetIsRsc) continue;
+    if (candPath === targetPath) continue;
+    if (!candPath.startsWith(parentPath)) continue;
+    if (candPath.split("/").filter(Boolean).length !== segs.length) continue;
+    const fallback = await cache.match(k);
+    if (fallback) return fallback;
+  }
+  return null;
 }

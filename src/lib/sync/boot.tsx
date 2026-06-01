@@ -24,6 +24,7 @@ import { connectivity } from "./connectivity";
 import { syncEngine } from "./engine";
 import { downloadHistory } from "./mirror/downloader";
 import { reconcile } from "./mirror/reconciler";
+import { listByType } from "./mirror/store";
 
 /**
  * Warm one route through the SW cache: fetch the HTML and every same-origin
@@ -54,6 +55,62 @@ async function warmRoute(href: string): Promise<void> {
   } catch {
     // Best-effort warming. The user-facing nav still works without this;
     // only the offline cache is affected.
+  }
+}
+
+/**
+ * Pre-warm ONE representative detail URL per dynamic route, picking the id
+ * from the mirror's already-downloaded entities. The SW caches the HTML +
+ * dependent chunks of that one URL, and its sibling-URL fallback then
+ * serves that same response for ANY other id under the same dynamic route
+ * (the page is "use client" + useParams, so the client renders correctly
+ * for the runtime URL regardless of which sibling's HTML was served).
+ *
+ * This is the second half of "navigate offline to any detail URL": warm
+ * one rep so the SW has something to fall back to, then trust the SW's
+ * pattern-match for the rest.
+ */
+async function warmRepresentativeDetails(): Promise<void> {
+  const patterns: Array<{ entity: string; hrefFor: (body: Record<string, unknown>) => string | null }> = [
+    {
+      entity: "unit",
+      hrefFor: (u) => {
+        const en = u.engineNumber;
+        const id = u.id;
+        const key = typeof en === "string" ? en : typeof id === "string" ? id : null;
+        return key ? `/inventory/units/${encodeURIComponent(key)}` : null;
+      },
+    },
+    {
+      entity: "assemblyJob",
+      hrefFor: (j) => (typeof j.id === "string" ? `/inventory/assembly-jobs/${j.id}` : null),
+    },
+    {
+      entity: "purchaseOrder",
+      hrefFor: (p) => (typeof p.id === "string" ? `/procurement/purchase-orders/${p.id}` : null),
+    },
+    {
+      entity: "shipment",
+      hrefFor: (s) => (typeof s.id === "string" ? `/procurement/shipments/${s.id}` : null),
+    },
+    {
+      entity: "salesOrder",
+      hrefFor: (s) => (typeof s.id === "string" ? `/sales/sales-orders/${s.id}` : null),
+    },
+    {
+      entity: "customer",
+      hrefFor: (c) => (typeof c.id === "string" ? `/sales/customers/${c.id}` : null),
+    },
+  ];
+  for (const { entity, hrefFor } of patterns) {
+    try {
+      const rows = await listByType(entity as Parameters<typeof listByType>[0]);
+      if (rows.length === 0) continue;
+      const href = hrefFor(rows[0].body);
+      if (href) void warmRoute(href);
+    } catch {
+      // Per-entity failure is best-effort; skip.
+    }
   }
 }
 
@@ -201,6 +258,14 @@ export default function SyncBoot() {
           void warmRoute(item.href);
         }
       }
+      // Also warm one representative detail URL per dynamic route from the
+      // mirror's known entities. The SW's sibling-fallback (sw.js:
+      // findSiblingFallback) then serves that representative's response
+      // for any other id under the same dynamic route, so an offline hard-
+      // load (or soft-nav) of an arbitrary detail URL renders correctly
+      // via useParams + mirror-first paint. Without this, the SW has no
+      // sibling to fall back to and the navigation fails.
+      void warmRepresentativeDetails();
     })();
   }, [state.status, hasAll]);
 
