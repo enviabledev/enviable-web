@@ -45,7 +45,7 @@
  *   navigation.
  */
 
-const CACHE_VERSION = "v9";
+const CACHE_VERSION = "v10";
 const CACHE_NAME = `enviable-shell-${CACHE_VERSION}`;
 const CACHE_PREFIX = "enviable-shell-";
 
@@ -132,16 +132,48 @@ async function networkFirstWithCacheFallback(req) {
     const sibling = await findSiblingFallback(cache, req, key);
     if (sibling) return sibling;
 
-    // No cached response and no sibling fallback. Let the fetch fail.
-    // The app-level error boundary at (app)/error.tsx catches chunk-load
-    // and render failures with a graceful "couldn't load offline,
-    // reconnect and retry" card; for hard-load failures the browser's
-    // own offline page is honest about the failure rather than serving
-    // the wrong content with a right URL (the silent-dashboard-fallback
-    // bug from 2026-06 v6).
+    // Last-resort offline shell for navigation requests: an honest "this
+    // page is not cached yet, complete an online sync first" HTML page,
+    // served at the requested URL so the URL bar remains correct. This
+    // covers the cold-mirror edge case (a brand-new install that went
+    // offline before warmRepresentativeDetails could pick a representative
+    // for this route). For RSC (cors) requests and static assets, no
+    // shell makes sense; we let the fetch fail and the page-level error
+    // boundary / browser's own error handle it.
+    if (req.mode === "navigate") {
+      return new Response(OFFLINE_SHELL_HTML, {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+
     throw err;
   }
 }
+
+const OFFLINE_SHELL_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sync required</title>
+<style>
+  body { font: 14px/1.5 system-ui, -apple-system, sans-serif; color: #111; background: #f6f7f8; margin: 0; padding: 0; }
+  .card { max-width: 520px; margin: 80px auto; padding: 24px; background: #fff; border: 1px solid #e2e5e8; border-radius: 4px; }
+  h1 { margin: 0 0 8px; font-size: 18px; font-weight: 600; color: #111; }
+  p { margin: 0 0 16px; color: #444; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #d18900; margin-right: 8px; vertical-align: middle; }
+  a { display: inline-block; padding: 6px 12px; background: #1F4E79; color: #fff; text-decoration: none; font-size: 12.5px; font-weight: 500; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1><span class="dot"></span>This page is not cached yet</h1>
+  <p>You are offline, and this URL has not been visited or pre-warmed during an online session yet. Connect to the internet and reload to fetch it, and the offline cache will include it for next time.</p>
+  <a href="/">Back to dashboard</a>
+</div>
+</body>
+</html>`;
 
 async function findSiblingFallback(cache, req, key) {
   const targetUrlStr = typeof key === "string" ? key : req.url;

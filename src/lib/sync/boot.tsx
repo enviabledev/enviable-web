@@ -59,52 +59,65 @@ async function warmRoute(href: string): Promise<void> {
 }
 
 /**
- * Pre-warm ONE representative detail URL per dynamic route, picking the id
+ * Single registry of dynamic routes whose HTML/RSC the offline cache needs
+ * a representative for. Adding a new dynamic route means adding one entry
+ * here, that's the one-place change. The SW's findSiblingFallback (in
+ * public/sw.js) generalises automatically over URL shape (same parent path
+ * + same depth) so it does not need its own pattern list; this registry is
+ * authoritative for the warming side, the SW reads cache state alone.
+ *
+ * Each entry names the mirror entity bucket whose first row provides the
+ * representative id, and how to build the href from that row. Cold-mirror
+ * (no rows yet) safely skips the entry; the SW serves an "offline shell"
+ * for such routes until the first online sync populates the bucket.
+ */
+type DynamicRouteWarmEntry = {
+  entity: Parameters<typeof listByType>[0];
+  hrefFor: (body: Record<string, unknown>) => string | null;
+};
+const DYNAMIC_ROUTES_TO_WARM: DynamicRouteWarmEntry[] = [
+  {
+    entity: "unit",
+    hrefFor: (u) => {
+      const en = u.engineNumber;
+      const id = u.id;
+      const key = typeof en === "string" ? en : typeof id === "string" ? id : null;
+      return key ? `/inventory/units/${encodeURIComponent(key)}` : null;
+    },
+  },
+  {
+    entity: "assemblyJob",
+    hrefFor: (j) => (typeof j.id === "string" ? `/inventory/assembly-jobs/${j.id}` : null),
+  },
+  {
+    entity: "purchaseOrder",
+    hrefFor: (p) => (typeof p.id === "string" ? `/procurement/purchase-orders/${p.id}` : null),
+  },
+  {
+    entity: "shipment",
+    hrefFor: (s) => (typeof s.id === "string" ? `/procurement/shipments/${s.id}` : null),
+  },
+  {
+    entity: "salesOrder",
+    hrefFor: (s) => (typeof s.id === "string" ? `/sales/sales-orders/${s.id}` : null),
+  },
+  {
+    entity: "customer",
+    hrefFor: (c) => (typeof c.id === "string" ? `/sales/customers/${c.id}` : null),
+  },
+];
+
+/**
+ * Pre-warm one representative detail URL per dynamic route, picking the id
  * from the mirror's already-downloaded entities. The SW caches the HTML +
  * dependent chunks of that one URL, and its sibling-URL fallback then
- * serves that same response for ANY other id under the same dynamic route
- * (the page is "use client" + useParams, so the client renders correctly
- * for the runtime URL regardless of which sibling's HTML was served).
- *
- * This is the second half of "navigate offline to any detail URL": warm
- * one rep so the SW has something to fall back to, then trust the SW's
- * pattern-match for the rest.
+ * serves that same response for ANY other id under the same dynamic route.
+ * Cold-mirror entries (no rows yet) are skipped, no error.
  */
 async function warmRepresentativeDetails(): Promise<void> {
-  const patterns: Array<{ entity: string; hrefFor: (body: Record<string, unknown>) => string | null }> = [
-    {
-      entity: "unit",
-      hrefFor: (u) => {
-        const en = u.engineNumber;
-        const id = u.id;
-        const key = typeof en === "string" ? en : typeof id === "string" ? id : null;
-        return key ? `/inventory/units/${encodeURIComponent(key)}` : null;
-      },
-    },
-    {
-      entity: "assemblyJob",
-      hrefFor: (j) => (typeof j.id === "string" ? `/inventory/assembly-jobs/${j.id}` : null),
-    },
-    {
-      entity: "purchaseOrder",
-      hrefFor: (p) => (typeof p.id === "string" ? `/procurement/purchase-orders/${p.id}` : null),
-    },
-    {
-      entity: "shipment",
-      hrefFor: (s) => (typeof s.id === "string" ? `/procurement/shipments/${s.id}` : null),
-    },
-    {
-      entity: "salesOrder",
-      hrefFor: (s) => (typeof s.id === "string" ? `/sales/sales-orders/${s.id}` : null),
-    },
-    {
-      entity: "customer",
-      hrefFor: (c) => (typeof c.id === "string" ? `/sales/customers/${c.id}` : null),
-    },
-  ];
-  for (const { entity, hrefFor } of patterns) {
+  for (const { entity, hrefFor } of DYNAMIC_ROUTES_TO_WARM) {
     try {
-      const rows = await listByType(entity as Parameters<typeof listByType>[0]);
+      const rows = await listByType(entity);
       if (rows.length === 0) continue;
       const href = hrefFor(rows[0].body);
       if (href) void warmRoute(href);
