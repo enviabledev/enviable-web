@@ -14,7 +14,6 @@
  * Renders null. Lives in src/app/(app)/layout.tsx where it is loaded only for
  * authenticated routes (the login screen does not need the engine).
  */
-import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { useAuth, usePermissions } from "@/lib/auth";
@@ -29,7 +28,6 @@ import { reconcile } from "./mirror/reconciler";
 export default function SyncBoot() {
   const { state, refresh: refreshAuth } = useAuth();
   const { hasAll } = usePermissions();
-  const router = useRouter();
 
   // Live auth status the triggerOnline closure reads at call time. Without
   // this, the closure captures the auth state from the effect-mount moment,
@@ -138,14 +136,25 @@ export default function SyncBoot() {
   // waiting for the next 60s tick. Avoids a minute-long blank window where
   // the user is logged in but the mirror hasn't started downloading.
   //
-  // Also warm the route assets here: fire router.prefetch for every NAV
-  // target the principal can access, so the JS chunks and RSC payloads land
-  // in the SW cache without the user having to open each page online first.
-  // This is the route-asset analog of the proactive mirror download for
-  // data, both fix the same "you have to open it first" half-PWA hole, one
-  // at the data layer, one at the route-asset layer. Prefetch failures are
-  // silently ignored by Next; the SW caches whatever responses do come back
-  // via its existing network-first behavior.
+  // Also warm the route assets here: fire a plain fetch for every NAV
+  // target the principal can access. The SW intercepts these GETs and
+  // populates its cache via its existing network-first behaviour, so a
+  // cold offline hard-reload of any NAV target works without the user
+  // having to open each page online first.
+  //
+  // NOTE: this used to use router.prefetch, which is a no-op in dev mode
+  // (Next 15 disables router.prefetch in dev to avoid recompilation
+  // overhead). The SW cache stayed empty in dev because of that, and Kalu
+  // hit it as "offline = ERR_FAILED for every page" once the silent
+  // dashboard fallback was removed. A plain fetch works in both dev and
+  // prod, and going through the SW means the response lands in the cache
+  // exactly the same way an online navigation would.
+  //
+  // Limitation: dynamic detail URLs (e.g. /inventory/units/<id>) are NOT in
+  // NAV and therefore NOT pre-warmed. They become offline-readable only
+  // after an online visit caches their specific URL. The mirror data is
+  // proactively downloaded regardless, but the route assets per dynamic id
+  // remain visit-on-demand.
   useEffect(() => {
     if (state.status !== "authenticated") return;
     void (async () => {
@@ -156,11 +165,16 @@ export default function SyncBoot() {
       void reconcile();
       for (const group of NAV) {
         for (const item of group.items) {
-          if (hasAll(item.permissions)) router.prefetch(item.href);
+          if (!hasAll(item.permissions)) continue;
+          void fetch(item.href, { credentials: "include" }).catch(() => {
+            // Best-effort prefetch; failures are silently dropped (the
+            // user-facing nav still works, this only warms the offline
+            // cache).
+          });
         }
       }
     })();
-  }, [state.status, hasAll, router]);
+  }, [state.status, hasAll]);
 
   return null;
 }
