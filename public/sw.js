@@ -25,8 +25,14 @@
  *   Network-first for EVERYTHING (navigations, /_next/static/*, fonts,
  *   images, other GETs). The cache exists purely as an offline fallback:
  *   when fetch succeeds, the fresh response is returned and also stored;
- *   when fetch fails (offline), the cached copy is served, falling back to
- *   the cached root for navigations.
+ *   when fetch fails (offline) the cached copy for THAT request is served,
+ *   and if there's no cached copy the request fails. There is intentionally
+ *   no "fall back to cached root" rule: serving the dashboard at an
+ *   uncached detail URL was silently misleading (the URL bar said one
+ *   thing, the content was another). Honest failure is better; the
+ *   app-level error boundary at (app)/error.tsx handles graceful
+ *   degradation during render, and the browser handles outright load
+ *   failures with its native offline page.
  *
  *   Cache-first sounds tempting for /_next/static/* since Next emits
  *   content-hashed filenames in production. But in dev with Turbopack,
@@ -39,7 +45,7 @@
  *   navigation.
  */
 
-const CACHE_VERSION = "v6";
+const CACHE_VERSION = "v7";
 const CACHE_NAME = `enviable-shell-${CACHE_VERSION}`;
 const CACHE_PREFIX = "enviable-shell-";
 
@@ -109,13 +115,16 @@ async function networkFirstWithCacheFallback(req) {
   } catch (err) {
     const cached = await cache.match(key);
     if (cached) return cached;
-    // For top-level navigations with no cache, fall back to whatever shell HTML
-    // we may have cached at the root path. Better than a blank "no connection"
-    // page for the offline-load demo.
-    if (req.mode === "navigate") {
-      const rootCached = await cache.match("/");
-      if (rootCached) return rootCached;
-    }
+    // No cached response for THIS request. Earlier this fell back to the
+    // cached "/" for any navigation (mode === "navigate"), so an offline hard
+    // load of an uncached detail URL silently rendered the dashboard with
+    // the wrong URL in the address bar (2026-06: Kalu correctly flagged
+    // this as misleading and wrong). The honest behaviour now: let the
+    // fetch fail. The app-level error boundary at (app)/error.tsx catches
+    // chunk-load failures during render and surfaces a graceful "couldn't
+    // load offline, reconnect and retry" card; for hard-load failures the
+    // browser's own offline page is honest about the failure rather than
+    // serving the wrong content with a right URL.
     throw err;
   }
 }
