@@ -21,7 +21,7 @@ import {
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
-import { queueCompleteAssembly } from "@/lib/sync/actions/assembly";
+import { queueCompleteAssembly, queueFailAssembly } from "@/lib/sync/actions/assembly";
 import { useConnectivity } from "@/lib/sync/connectivity";
 import { getById } from "@/lib/sync/mirror/store";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
@@ -58,7 +58,7 @@ type ActionState =
   | { status: "idle" }
   | { status: "confirming"; action: "complete" | "fail" }
   | { status: "submitting"; action: "complete" | "fail" }
-  | { status: "queued-offline" }
+  | { status: "queued-offline"; action: "complete" | "fail" }
   | { status: "conflict"; message: string }
   | { status: "error"; message: string };
 
@@ -198,27 +198,22 @@ export default function AssemblyJobDetailPage() {
 
   const runAction = async (which: "complete" | "fail") => {
     if (action.status === "submitting") return;
-
-    // Fail is online-only: the backend's SyncActionType enum has no
-    // 'assembly.fail' entry, so there is nothing to enqueue. Adding it is
-    // a separate handoff to the enviable-system session.
-    if (which === "fail" && connState === "offline") {
-      setAction({
-        status: "error",
-        message: "Failing an assembly requires a connection. Reconnect to record this.",
-      });
-      return;
-    }
-
     setAction({ status: "submitting", action: which });
 
-    // Complete is offline-capable through the sync engine.
-    if (which === "complete" && connState === "offline") {
-      await queueCompleteAssembly({
-        jobId: id,
-        description: `Complete assembly ${state.status === "ok" ? state.detail.engineNumber : id}`,
-      });
-      setAction({ status: "queued-offline" });
+    const engineRef = state.status === "ok" ? state.detail.engineNumber : id;
+    const queueOffline = async () => {
+      const queuer = which === "complete" ? queueCompleteAssembly : queueFailAssembly;
+      const verb = which === "complete" ? "Complete" : "Fail";
+      await queuer({ jobId: id, description: `${verb} assembly ${engineRef}` });
+      setAction({ status: "queued-offline", action: which });
+    };
+
+    // Symmetric offline path: Start, Complete, and Fail all queue through the
+    // engine with honest "saved locally, will sync" UX. The job's status pill
+    // and the unit's status both remain pre-action on the page until the
+    // engine drains and the network re-read confirms the server transition.
+    if (connState === "offline") {
+      await queueOffline();
       return;
     }
 
@@ -241,21 +236,10 @@ export default function AssemblyJobDetailPage() {
     } else if (r.kind === "validation") {
       setAction({ status: "error", message: typeof r.message === "string" ? r.message : r.message.join("; ") });
     } else if (r.kind === "network_error") {
-      // Connectivity flipped between the conn check and the POST. For
-      // Complete, fall through to the offline queue so the supervisor's work
-      // is not lost. For Fail, surface the same "requires connection" notice.
-      if (which === "complete") {
-        await queueCompleteAssembly({
-          jobId: id,
-          description: `Complete assembly ${state.status === "ok" ? state.detail.engineNumber : id}`,
-        });
-        setAction({ status: "queued-offline" });
-      } else {
-        setAction({
-          status: "error",
-          message: "Failing an assembly requires a connection. Reconnect to record this.",
-        });
-      }
+      // Connectivity flipped between the conn check and the POST. Fall
+      // through to the offline queue for both Complete and Fail so the
+      // supervisor's work is not lost.
+      await queueOffline();
     } else {
       setAction({ status: "error", message: "Unexpected response from the server." });
     }
@@ -359,8 +343,7 @@ export default function AssemblyJobDetailPage() {
             <button
               type="button"
               onClick={() => setAction({ status: "confirming", action: "fail" })}
-              disabled={action.status === "submitting" || connState === "offline"}
-              title={connState === "offline" ? "Failing an assembly requires a connection" : undefined}
+              disabled={action.status === "submitting"}
               className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-danger-700)] bg-white text-[var(--color-danger-700)] hover:bg-[var(--color-danger-50)] disabled:opacity-50 inline-flex items-center"
             >
               {action.status === "submitting" && action.action === "fail" ? "Failing..." : "Fail Assembly"}
@@ -395,11 +378,22 @@ export default function AssemblyJobDetailPage() {
         >
           <div className="font-semibold text-[12.5px] mb-0.5">Saved locally, will sync.</div>
           <div className="text-[12px] leading-[1.5] text-[var(--color-ink-700)]">
-            Complete is queued. This job is still <span className="font-semibold">In Progress</span> on the
-            server; when the connection returns, the engine will run the transition and the unit will pivot
-            to <span className="font-semibold">In Warehouse CBU</span>. If the server rejects it
-            (e.g. another supervisor completed or failed it first), the action will appear in the topbar
-            sync indicator with the server&apos;s message.
+            {action.action === "complete" ? (
+              <>
+                Complete is queued. This job is still <span className="font-semibold">In Progress</span> on
+                the server; when the connection returns, the engine will run the transition and the unit
+                will pivot to <span className="font-semibold">In Warehouse CBU</span>.
+              </>
+            ) : (
+              <>
+                Fail is queued. This job is still <span className="font-semibold">In Progress</span> on the
+                server and the unit is NOT yet marked <span className="font-semibold">Damaged</span>; when
+                the connection returns, the engine will run the transition and the unit will pivot to
+                <span className="font-semibold"> Damaged</span>.
+              </>
+            )}{" "}
+            If the server rejects it (e.g. another supervisor completed or failed it first), the action
+            will appear in the topbar sync indicator with the server&apos;s message.
           </div>
           <div className="mt-2 flex gap-2">
             <button

@@ -9,6 +9,7 @@ export type SyncActionType =
   | "unit.receipt"
   | "assembly.start"
   | "assembly.complete"
+  | "assembly.fail"
   | "salesorder.create"
   | "entity.update";
 
