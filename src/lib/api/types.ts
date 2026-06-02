@@ -149,3 +149,57 @@ export type UnitListQuery = {
   receivedTo?: string;
   search?: string;
 };
+
+/**
+ * Movements list row. Same shape as StockMovementEntry, plus the unit summary
+ * needed to render the cross-unit list (engine number). Backed by
+ * GET /api/stock-movements which selects unit { id, engineNumber } and
+ * actor { id, fullName } on every row.
+ */
+export type StockMovementListRow = {
+  id: string;
+  unitId: string;
+  movementType: MovementType;
+  fromState: string | null;
+  toState: string | null;
+  fromWarehouseId: string | null;
+  toWarehouseId: string | null;
+  referenceType: MovementReferenceType | null;
+  referenceId: string | null;
+  occurredAt: string;
+  notes: string | null;
+  actor: StockMovementActor;
+  unit: { id: string; engineNumber: string };
+};
+
+export type StockMovementListResponse = PaginatedResponse<StockMovementListRow>;
+
+export type StockMovementListQuery = {
+  page?: number;
+  pageSize?: 10 | 25 | 50 | 100;
+  unitId?: string;
+  movementType?: MovementType;
+  actorId?: string;
+  occurredFrom?: string;
+  occurredTo?: string;
+};
+
+/**
+ * Spare-part movement, embedded inside the spare-part detail (no standalone
+ * list endpoint on the backend, but the sparePartMovement bucket lands in the
+ * mirror via /api/sync/pull, so we render the movements tab from the mirror).
+ */
+export const SPARE_PART_MOVEMENT_TYPE = ["RECEIPT", "ADJUSTMENT"] as const;
+export type SparePartMovementType = (typeof SPARE_PART_MOVEMENT_TYPE)[number];
+
+export type SparePartMovementListRow = {
+  id: string;
+  sparePartId: string;
+  movementType: SparePartMovementType;
+  quantity: number;
+  referenceType: MovementReferenceType | null;
+  referenceId: string | null;
+  occurredAt: string;
+  notes: string | null;
+  actorId: string | null;
+};
