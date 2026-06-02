@@ -109,6 +109,10 @@ const DYNAMIC_ROUTES_TO_WARM: DynamicRouteWarmEntry[] = [
     entity: "stockMovement",
     hrefFor: (m) => (typeof m.id === "string" ? `/inventory/movements/${m.id}` : null),
   },
+  {
+    entity: "sparePart",
+    hrefFor: (p) => (typeof p.id === "string" ? `/inventory/spare-parts/${p.id}` : null),
+  },
 ];
 
 /**

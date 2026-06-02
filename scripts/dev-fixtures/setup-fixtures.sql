@@ -204,6 +204,29 @@ INSERT INTO spare_parts (
    50, 8500.00, 'ACTIVE', NOW() - INTERVAL '20 days', NOW() - INTERVAL '5 days')
 ON CONFLICT (id) DO NOTHING;
 
+-- One SparePartMovement per seeded part so the spare-part detail page's
+-- movement-history surface is exercised by fixtures rather than relying on
+-- a real historical-load run. RECEIPT initialization with positive quantity;
+-- the quantity column on each movement matches the parent's quantityOnHand
+-- so the audit trail tells a coherent story. Idempotent (ON CONFLICT id).
+INSERT INTO spare_part_movements (
+  id, "sparePartId", "movementType", quantity, "occurredAt",
+  notes, "actorId", "referenceType", "referenceId"
+) VALUES
+  ('fixt-spm-eba-init', 'fixt-sp-001', 'RECEIPT', 12,
+   NOW() - INTERVAL '20 days', 'Initial stock load',
+   (SELECT id FROM users WHERE email = 'kelechi@enviable.example' LIMIT 1),
+   NULL, NULL),
+  ('fixt-spm-fwh-init', 'fixt-sp-002', 'RECEIPT', 25,
+   NOW() - INTERVAL '20 days', 'Initial stock load',
+   (SELECT id FROM users WHERE email = 'kelechi@enviable.example' LIMIT 1),
+   NULL, NULL),
+  ('fixt-spm-bps-init', 'fixt-sp-003', 'RECEIPT', 50,
+   NOW() - INTERVAL '20 days', 'Initial stock load',
+   (SELECT id FROM users WHERE email = 'kelechi@enviable.example' LIMIT 1),
+   NULL, NULL)
+ON CONFLICT (id) DO NOTHING;
+
 -- =============================================================================
 -- 6. RECEIVE-TEST SHIPMENT (CLEARED, awaiting unit serialisation)
 -- =============================================================================

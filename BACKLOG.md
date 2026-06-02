@@ -43,6 +43,55 @@ can find the SO id from the return id.
 5. Surface returns context on the sales-order detail page if that's the
    model.
 
+### Non-cost-user fixture password not activated
+
+The dev-fixtures seed `fixt-user-costblind` (Cost Blind Test, role: Stock
+Auditor) for cost-gating adversarial verification, but the row's
+passwordHash is `$argon2id$PLACEHOLDER_RESET_REQUIRED` until the backend's
+`npm run set-password -- costblind-test@enviable.example <pw>` script is
+run from `enviable-system`. With the password unset, login fails, so the
+spare-parts cost-gating Playwright test verifies absence by manipulating
+the mirror row directly (deleting `landedCostPerUnit` and re-rendering)
+rather than by logging in as a no-cost-view user.
+
+The mirror-manipulation test exercises the same render path the absent
+field would hit, so the behavioural check is intact, but the true
+two-user adversarial test (the prompt's "cost present for cost user,
+absent for non-cost user, assert both cases") is not exercised end-to-end.
+
+**Action when picked up:** run the backend script once to activate the
+fixture user (the existing `Password123!` is fine for dev), then add a
+second login pass in `test-spare-parts.mjs` (or a parallel test) that
+logs in as costblind and asserts the landed-cost column is absent from
+the rendered table. Same pattern would apply to any future cost-gated
+screen.
+
+### No SparePartMovement writer outside historical-load
+
+Only `enviable-system/src/historical-load/historical-load.service.ts`
+writes `SparePartMovement` rows today (audited 2026-06-02). Assembly does
+not currently record a SparePartMovement when consuming parts, and there
+is no manual adjustment endpoint. This is the MVP state per the
+spare-parts module comment, but it has two downstream effects on the
+movement-history UX:
+
+1. The spare-part detail's movement timeline reads cleanly for stock
+   that was received via the historical-load tool, but shows no entries
+   for parts seeded directly via the dev fixtures or for any "consumed
+   in assembly" activity. Fixed for fixtures by seeding a RECEIPT
+   movement per part in `setup-fixtures.sql`; nothing to do for the
+   assembly-consumption gap until the backend writes those movements.
+
+2. The resolver in `src/lib/movements/reference.ts` already handles
+   every MovementReferenceType, so the day a writer starts setting
+   referenceType (e.g. ASSEMBLY_JOB on a "consumed in assembly"
+   movement, or ADJUSTMENT on a manual write-off), the deep-link
+   target is already wired. No frontend change required at that point.
+
+**Action when picked up:** none on the frontend until the backend lands
+a consumption-writing path. Surface here so it is visible when the
+spare-parts inventory operations story moves forward.
+
 ### TRANSFER referenceType: defined but unwritten
 
 `MovementReferenceType.TRANSFER` is defined in the backend enum but no

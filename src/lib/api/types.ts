@@ -203,3 +203,52 @@ export type SparePartMovementListRow = {
   notes: string | null;
   actorId: string | null;
 };
+
+/**
+ * Spare-part catalogue. The backend's SparePart model has a STORED
+ * quantityOnHand field that the historical-load service updates in the
+ * same transaction as the SparePartMovement write, so this is not
+ * computed-from-movements: the frontend renders the stored value
+ * directly from the mirror.
+ *
+ * landedCostPerUnit is cost-gated by the backend's CostVisibilityInterceptor;
+ * the property is absent on the response (and on the mirror row) for users
+ * without costdata.view. Render with optional-chain access; never read with
+ * a non-null assertion.
+ */
+export const SPARE_PART_STATUS = ["ACTIVE", "DISCONTINUED"] as const;
+export type SparePartStatus = (typeof SPARE_PART_STATUS)[number];
+
+export type SparePartListRow = {
+  id: string;
+  sku: string;
+  name: string;
+  description: string | null;
+  quantityOnHand: number;
+  landedCostPerUnit?: string;
+  status: SparePartStatus;
+};
+
+export type SparePartListResponse = PaginatedResponse<SparePartListRow>;
+
+export type SparePartListQuery = {
+  page?: number;
+  pageSize?: 25 | 50 | 100 | 250;
+  status?: SparePartStatus;
+  search?: string;
+};
+
+export type SparePartMovementEntry = {
+  id: string;
+  movementType: SparePartMovementType;
+  quantity: number;
+  referenceType: MovementReferenceType | null;
+  referenceId: string | null;
+  occurredAt: string;
+  notes: string | null;
+  actor: { id: string; fullName: string } | null;
+};
+
+export type SparePartDetail = SparePartListRow & {
+  movements: SparePartMovementEntry[];
+};

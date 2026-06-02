@@ -1,6 +1,7 @@
 export { apiFetch, buildQuery, type ApiResult } from "./client";
 export { listUnits, getUnit } from "./units";
 export { listStockMovements } from "./stock-movements";
+export { listSpareParts, getSparePart } from "./spare-parts";
 export {
   listAssemblyJobs,
   getAssemblyJob,
@@ -162,6 +163,12 @@ export type {
   StockMovementListQuery,
   SparePartMovementType,
   SparePartMovementListRow,
+  SparePartStatus,
+  SparePartListRow,
+  SparePartListResponse,
+  SparePartListQuery,
+  SparePartMovementEntry,
+  SparePartDetail,
   VariantAttributes,
   PaginatedResponse,
 } from "./types";
@@ -170,6 +177,7 @@ export {
   MOVEMENT_TYPE,
   MOVEMENT_REFERENCE_TYPE,
   SPARE_PART_MOVEMENT_TYPE,
+  SPARE_PART_STATUS,
 } from "./types";
 export type {
   StocksReport,
