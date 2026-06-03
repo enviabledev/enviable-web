@@ -138,7 +138,7 @@ export default function SalesOrderDetailPage() {
 
   const loadFromMirror = async () => {
     try {
-      const [soRow, lineRows, variantRows, unitRows, invRows, payRows] =
+      const [soRow, lineRows, variantRows, unitRows, invRows, payRows, methodRows] =
         await Promise.all([
           getById<MirroredSo>("salesOrder", id),
           listByType<MirroredSoLine>("salesOrderLine"),
@@ -146,6 +146,7 @@ export default function SalesOrderDetailPage() {
           listByType<MirroredUnitForSo>("unit"),
           listByType<Invoice>("invoice"),
           listByType<Payment>("payment"),
+          listByType<{ id: string; name: string; status: string }>("paymentMethod"),
         ]);
       if (!soRow) return;
       const so = soRow.body;
@@ -195,7 +196,26 @@ export default function SalesOrderDetailPage() {
         .find((i) => i.salesOrderId === id);
       setInvoice((prev) => prev ?? matchingInvoice ?? null);
       setInvoiceChecked(true);
-      setPayments((prev) => (prev.length > 0 ? prev : payRows.map((p) => p.body).filter((p) => p.salesOrderId === id)));
+      // Mirror Payment rows carry paymentMethodId only; the renderer expects
+      // a nested paymentMethod summary object (api shape from the server's
+      // include). Join from the mirrored paymentMethod bucket so the row is
+      // structurally identical to a network-painted one, the same shape fix
+      // the SO customer relation needed earlier. Without this, the renderer
+      // crashes on `p.paymentMethod.name`.
+      const methodById = new Map(methodRows.map((m) => [m.body.id, m.body]));
+      const reconstructedPayments: Payment[] = payRows
+        .map((p) => p.body)
+        .filter((p) => p.salesOrderId === id)
+        .map((p) => {
+          const m = methodById.get(p.paymentMethodId);
+          return {
+            ...p,
+            paymentMethod: m
+              ? { id: m.id, name: m.name, status: m.status as Payment["paymentMethod"]["status"] }
+              : { id: p.paymentMethodId, name: p.paymentMethodId, status: "ACTIVE" as Payment["paymentMethod"]["status"] },
+          };
+        });
+      setPayments((prev) => (prev.length > 0 ? prev : reconstructedPayments));
     } catch {
       // Let the network phase drive.
     }
