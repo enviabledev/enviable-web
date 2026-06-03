@@ -229,6 +229,15 @@ export default function SalesOrderDetailPage() {
   };
 
   useEffect(() => {
+    // useUrlLastSegment starts as "" until its mount-time useEffect runs to
+    // read window.location.pathname. Skip the first render's empty-id pass
+    // so we do not hit GET /api/sales-orders/ (which Next collapses to the
+    // LIST route, returning a SalesOrderListRow array that the page then
+    // tries to render as a detail object, crashing on so.customer.name).
+    // Same fix shape applies to any other detail page using
+    // useUrlLastSegment whose fetch wrappers do not themselves guard
+    // against the empty-segment case.
+    if (!id) return;
     mirrorPaintedRef.current = false;
     void loadFromMirror();
     void refresh();

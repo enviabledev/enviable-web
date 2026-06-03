@@ -59,6 +59,11 @@ export default function PurchaseOrderDetailPage() {
   // revalidates from getPurchaseOrder.
   const mirrorPaintedRef = useRef(false);
   useEffect(() => {
+    // Empty-id guard: useUrlLastSegment starts as "" until its mount-time
+    // effect runs; without this skip, the network call hits
+    // /api/purchase-orders/ (the LIST route) and the detail renderer
+    // crashes on the array.
+    if (!id) return;
     const ctrl = new AbortController();
     mirrorPaintedRef.current = false;
 

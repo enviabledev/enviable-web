@@ -95,12 +95,18 @@ export default function CustomerDetailPage() {
   );
 
   useEffect(() => {
+    // Skip the first render's empty-id pass; useUrlLastSegment starts as ""
+    // until its mount-time effect reads window.location.pathname. Without
+    // this, the network call hits /api/customers/ (the LIST route), the
+    // response gets typed-cast as a detail, and the render crashes when
+    // it reads fields off what is actually an array.
+    if (!id) return;
     const ctrl = new AbortController();
     mirrorPaintedRef.current = false;
     void loadFromMirror(ctrl.signal);
     loadFromNetwork(ctrl.signal);
     return () => ctrl.abort();
-  }, [loadFromMirror, loadFromNetwork]);
+  }, [id, loadFromMirror, loadFromNetwork]);
 
   // Re-read from network whenever the engine signals a change (a drain
   // landed). Cheap and correct: if the sync caused a server-side phone

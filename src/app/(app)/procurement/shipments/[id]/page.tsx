@@ -71,6 +71,10 @@ export default function ShipmentDetailPage() {
   // revalidates from getShipment.
   const mirrorPaintedRef = useRef(false);
   useEffect(() => {
+    // Empty-id guard: useUrlLastSegment starts as "" until its mount-time
+    // effect runs; without this skip, the network call hits /api/shipments/
+    // (the LIST route) and the detail renderer crashes on the array.
+    if (!id) return;
     const ctrl = new AbortController();
     mirrorPaintedRef.current = false;
 

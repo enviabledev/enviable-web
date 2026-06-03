@@ -96,6 +96,10 @@ export default function UnitDetailPage() {
   // offline.
   const mirrorPaintedRef = useRef(false);
   useEffect(() => {
+    // Empty-id guard: useUrlLastSegment starts as "" until its mount-time
+    // effect runs; without this skip, the network call hits /api/units/
+    // (the LIST route) and the detail renderer crashes on the array.
+    if (!idOrEngineNumber) return;
     const ctrl = new AbortController();
     mirrorPaintedRef.current = false;
 

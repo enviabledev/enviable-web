@@ -98,7 +98,7 @@ export default function AssemblyJobDetailPage() {
   const [action, setAction] = useState<ActionState>({ status: "idle" });
 
   useEffect(() => {
-    if (!canRead) return;
+    if (!canRead || !id) return;
     const ctrl = new AbortController();
 
     // Phase 1: paint from the mirror. assemblyJob bucket is empty until the
