@@ -489,9 +489,16 @@ function SparePartTab({
   } | null>(null);
   const [refCtx, setRefCtx] = useState<RefContext | null>(null);
 
+  // This tab is mirror-only (no backend list endpoint for spare-part
+  // movements), so freshness depends on re-reading the mirror after
+  // SyncBoot's background reconcile lands new rows. Same signal pattern
+  // the deliveries page uses: re-read on visibility / focus / online / a
+  // light 15s tick while the document is visible. Without this, a clerk
+  // who opens the tab before the first reconcile sees a stale snapshot
+  // and the page never catches up.
   useEffect(() => {
-    const ctrl = new AbortController();
-    (async () => {
+    let cancelled = false;
+    const read = async () => {
       try {
         const [movs, parts, users] = await Promise.all([
           listByType<MirroredSparePartMovement>("sparePartMovement"),
@@ -499,7 +506,7 @@ function SparePartTab({
           listByType<MirroredUserMini>("user"),
         ]);
         const ctx = await loadRefContext();
-        if (ctrl.signal.aborted) return;
+        if (cancelled) return;
         const partById = new Map(parts.map((p) => [p.body.id, p.body]));
         const userById = new Map(users.map((u) => [u.body.id, u.body]));
         const rows = movs.map((m) => m.body);
@@ -517,6 +524,7 @@ function SparePartTab({
             return true;
           })
           .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
+        if (cancelled) return;
         setData({
           rows: filtered as unknown as SparePartMovementListRow[],
           total: filtered.length,
@@ -527,8 +535,24 @@ function SparePartTab({
       } catch {
         // mirror unavailable
       }
-    })();
-    return () => ctrl.abort();
+    };
+    void read();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void read();
+    };
+    window.addEventListener("focus", read);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", read);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void read();
+    }, 15000);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", read);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", read);
+      window.clearInterval(interval);
+    };
   }, [params]);
 
   if (!data) {
