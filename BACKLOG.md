@@ -125,6 +125,59 @@ management actions as state-and-permission-gated, confirmed-update
 forms following the existing pattern. No frontend action until the
 backend lands the endpoints.
 
+### Delivery artifact buckets not mirrored (deliveryNote / waybill / proofOfDelivery)
+
+The deliveries screen ships against the salesOrder mirror bucket and
+filters by delivery-related statuses; `deliveryNote`, `waybill`, and
+`proofOfDelivery` are NOT in
+`enviable-system/src/sync/sync-pull.service.ts:ALL_TYPES` and therefore
+not in `enviable-web/src/lib/sync/mirror/types.ts:ENTITY_TYPES`.
+
+**Schema audit (where the timestamps live):** `dispatchedAt` and
+`deliveredAt` are columns on `SalesOrder` itself (schema.prisma:913-914),
+populated by the `dispatch` and `recordProofOfDelivery` action handlers
+in the same transaction as the satellite record write. So the
+deliveries-list view renders both timestamps offline from the already-
+mirrored `salesOrder` bucket without needing the satellite records.
+
+**Affected screens:**
+- `/sales/deliveries` (new): **NOT affected.** All list columns
+  (SO#, Customer, Status, Released, Dispatched, Delivered) source from
+  the mirrored salesOrder + customer buckets. The view's primary value
+  is intact offline.
+- `/sales/sales-orders/[id]` DeliveryCard (existing, prompt 7): the
+  *workflow state* renders from the SO's status field (mirrored), but
+  the *document details* are unavailable offline: delivery-note number,
+  vehicle registration, driver name, prepared-at timestamp at the
+  document level, waybill number, POD signer / signed-at. These
+  surface as empty / missing on an offline SO detail post-dispatch.
+
+**Decision needed before the fix:** the audit from prompt 18 noted that
+the delivery workflow as built does NOT have offline-queueable write
+actions (createDeliveryNote, dispatch, recordProofOfDelivery are all
+online-only by current implementation, similar to price-setting). Adding
+the mirror buckets without also adding the offline-queue support gives
+half the picture; the full offline-capable delivery workflow needs both.
+The stakeholder question: is offline delivery workflow a priority? (A
+delivery dispatcher in the field with intermittent connectivity might
+need it; an in-warehouse dispatcher operating from a desk station may
+not.)
+
+**Scope when picked up:**
+1. Confirm the stakeholder priority on offline-capable delivery actions.
+2. Add `'deliveryNote', 'waybill', 'proofOfDelivery'` to backend
+   `ALL_TYPES` in sync-pull.service.ts and the matching `referenceDelta`
+   shape.
+3. Add the same three to `ENTITY_TYPES` and `ReferenceData` /
+   `REF_KEY_TO_ENTITY` in `src/lib/sync/mirror/types.ts`.
+4. If offline-queue support is in scope: add the three delivery actions
+   to backend `SyncActionType` enum + dispatch cases + payload DTOs;
+   add queue helpers and wire the DeliveryCard form for offline submit
+   following the assembly Start / Complete / Fail pattern from prompt
+   14b.
+5. Add the deliveries-list "has note / has POD" diagnostics once the
+   buckets land in the mirror.
+
 ### TRANSFER referenceType: defined but unwritten
 
 `MovementReferenceType.TRANSFER` is defined in the backend enum but no

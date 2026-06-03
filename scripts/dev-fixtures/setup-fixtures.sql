@@ -380,6 +380,36 @@ INSERT INTO sales_order_lines (
    'fixt-u-034', 'CBU', 3500000.00, 0.00, 3500000.00)
 ON CONFLICT (id) DO NOTHING;
 
+-- Three SOs across the in-flight delivery states so the deliveries screen's
+-- visible-outcome verification has rows to render and the status filter
+-- has a non-trivial set to narrow. Created directly in SQL (audit-quiet);
+-- the delivery workflow actions are exercised on the SO detail page rather
+-- than via these rows. Idempotent on id (status / dispatchedAt /
+-- deliveredAt update on re-run, no compound shape changes needed).
+INSERT INTO sales_orders (
+  id, "soNumber", "customerId", channel, status,
+  subtotal, "discountTotal", "vatAmount", total, "paymentReceivedTotal",
+  "createdAt", "updatedAt", "dispatchedAt", "deliveredAt"
+) VALUES
+  ('fixt-so-deliv-ready', 'SO-FIXT-DELIV-READY', 'fixt-customer-test',
+   'WAREHOUSE_PICKUP', 'READY_FOR_DISPATCH',
+   3000000.00, 0.00, 0.00, 3000000.00, 3000000.00,
+   NOW() - INTERVAL '3 days', NOW() - INTERVAL '1 day', NULL, NULL),
+  ('fixt-so-deliv-dispatched', 'SO-FIXT-DELIV-DISP', 'fixt-customer-test',
+   'WAREHOUSE_PICKUP', 'DISPATCHED',
+   3500000.00, 0.00, 0.00, 3500000.00, 3500000.00,
+   NOW() - INTERVAL '5 days', NOW() - INTERVAL '6 hours',
+   NOW() - INTERVAL '6 hours', NULL),
+  ('fixt-so-deliv-delivered', 'SO-FIXT-DELIV-DONE', 'fixt-customer-test',
+   'WAREHOUSE_PICKUP', 'DELIVERED',
+   2800000.00, 0.00, 0.00, 2800000.00, 2800000.00,
+   NOW() - INTERVAL '7 days', NOW() - INTERVAL '2 hours',
+   NOW() - INTERVAL '1 day', NOW() - INTERVAL '2 hours')
+ON CONFLICT (id) DO UPDATE
+  SET status = EXCLUDED.status,
+      "dispatchedAt" = EXCLUDED."dispatchedAt",
+      "deliveredAt" = EXCLUDED."deliveredAt";
+
 -- =============================================================================
 -- 10. COST-BLIND THROWAWAY USER (Stock Auditor: report.stocks + unit.read,
 --    no costdata.view, so they see both the units list and the stocks report
