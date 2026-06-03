@@ -11,6 +11,112 @@ to make before the fix can land. Remove an entry once the work ships.
 
 ## Pending
 
+### Admin cluster screens have no backend surface (users, roles)
+
+The `/admin/users` and `/admin/roles` nav entries (and the prompt 25 / prompt 26
+builds they map to) have no implementable backend surface. Audit findings
+(2026-06-03):
+
+- **No users controller, no `/api/users` endpoints.** Survey of every
+  `@Controller(...)` in `enviable-system/src` returns no users module. No
+  list-all-users endpoint, no detail endpoint, no create, no
+  deactivate/reactivate, no role-assignment endpoint. Nothing to call.
+- **No roles controller, no `/api/roles` endpoints.** Same shape; no surface.
+- **Permissions ARE defined and granted, but reference capabilities that
+  don't exist.** `prisma/seed.ts:77-80` defines `user.read`, `user.manage`,
+  `role.read`, `role.manage` in the permission catalogue. Three roles hold
+  `user.read` and `role.read`: Managing Director, Executive Director, General
+  Manager (so Theresa, the MD and the GM all see the `/admin/users` nav link
+  rendered, but clicking it would lead to a 404 since no page is built and no
+  API exists). NO role holds `user.manage` or `role.manage` — those two are
+  defined-on-arrival but dead-on-arrival; not even IT Admin holds them.
+- **Mirror's `user` bucket is minimal by design.** `sync-pull.service.ts:364`
+  emits only `{ id, fullName, updatedAt }`. Email, status, role list are NOT
+  in the mirror. The sync-pull docblock explicitly notes "Role labels are NOT
+  mirrored: User-Role is many-to-many via UserRole (no single roleId), so
+  resolving role names offline would need users + userRoles + roles joined
+  client-side (a frontend change)." The minimal shape is for offline-
+  attribution (so a deactivated staffer's name still resolves on past
+  actions), not for an admin directory.
+
+**Impact**: the frontend cannot build `/admin/users` or `/admin/roles` in any
+meaningful shape without backend work first. A thin shell that papers over
+the missing surface (mock data, mirror-only minimal directory) would violate
+the "API is the source of truth" principle and silently break the screen's
+primary value. The current state has a latent dead-link bug: the nav links
+render for any user with `user.read` / `role.read` (Theresa included) and lead
+to 404 on click.
+
+**Recommended backend round** (before resuming prompts 25 / 26):
+
+1. **Users controller**: `GET /api/users` (paginated list with status / role /
+   name filters), `GET /api/users/:id` (detail with roles + reportsTo +
+   status), `POST /api/users` (create without password; initial-password
+   flow needs stakeholder decision — see below), `PATCH /api/users/:id`
+   (update fullName / roles / status / reportsTo), `POST /api/users/:id/
+   deactivate` (soft-delete), `POST /api/users/:id/reactivate`. Permissions
+   `user.read` and `user.manage` (and seed `user.manage` into IT Admin role
+   so someone can actually use the manage endpoints).
+
+2. **Roles controller**: `GET /api/roles` (list with permission grants),
+   `GET /api/roles/:id` (detail with assigned users + permissions),
+   permissions `role.read` and `role.manage`. Whether roles are mutable at
+   runtime or are seed-only is a stakeholder decision (the simpler shape is
+   read-only view of seeded roles; the more flexible shape is full
+   management). Roles being mutable opens questions about migrations and
+   permission-grant audit trails, so read-only is the safer default.
+
+3. **Mirror surface adjustment**: if `/admin/users` needs offline read at
+   all, the `user` bucket needs to grow to include email, status, and the
+   user-role junction (or a denormalised `roles: string[]` projection). This
+   is a sync-pull change. The simpler shape is online-only-with-honest-notice
+   (like the audit log's was originally framed), since admin surfaces are
+   not field-device workflows.
+
+4. **Stakeholder decision: initial-password flow.** When an admin creates a
+   new user in the UI, how does the new user get their first password?
+   Options: (a) generated, displayed once to the admin, never stored (admin
+   reads it out / pastes into a secure channel); (b) generated, emailed to
+   the new user (requires email infrastructure); (c) admin runs
+   `set-password` script separately after creating the user in the UI (no
+   in-UI password flow at all, the cleanest from a security perspective);
+   (d) password-reset-link flow with self-service (requires email infra and
+   a token-expiry surface). The `set-password` script already exists; option
+   (c) is the minimum-viable path, with the create-user flow returning the
+   user record and an explicit "set this user's initial password via the
+   set-password script before they can sign in" message.
+
+5. **Other admin permissions also defined-but-unimplemented**:
+   `approval.read`, `approval.manage`, `toggle.read`, `document.read`,
+   `document.manage` are similarly seeded with no controllers. Same pattern,
+   same backend gap. None have nav entries currently; left as backend-side
+   findings.
+
+**Frontend interim choices** (to prevent the dead-link footgun until the
+backend round lands):
+
+- **Option (i)**: leave the nav links as-is, accept the 404 (worst — silent
+  user-confusion, violates the no-silent-skips principle at the nav layer).
+- **Option (ii)**: comment out the `/admin/users` and `/admin/roles` nav
+  entries in `src/lib/nav/config.ts` until the backend ships (cleanest, but
+  loses the affordance that "user admin is intended to exist").
+- **Option (iii)**: ship a placeholder page at each route that, for any user
+  with the permission, renders "This surface is not yet available; the
+  backend endpoints have not been implemented. See BACKLOG.md for the
+  required backend work." (honest, prevents the 404, preserves the
+  affordance, ~30 lines per page).
+
+Recommended: option (iii) — honest about the gap, prevents the dead link,
+mirrors the access-denied treatment pattern but for "not yet built" rather
+than "denied."
+
+**Priority**: low for the actual user/role management features (system is
+operable without them; user admin happens via seed + `set-password` script
+during the build phase), but the dead-link footgun should be fixed before
+Theresa or anyone else clicks `/admin/users` and hits a 404 in a demo. The
+backend round to implement the actual surface can defer until after go-live
+or whenever user management becomes operationally needed.
+
 ### Audit-log cost-strip asymmetry: direct-read preserves landedCost, sync-pull strips it
 
 The audit-log report's offline view silently loses cost-bearing fields for
