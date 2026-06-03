@@ -11,6 +11,58 @@ to make before the fix can land. Remove an entry once the work ships.
 
 ## Pending
 
+### Audit log beforeState capture missing across all update/delete actions
+
+The audit interceptor at `enviable-system/src/audit/audit.interceptor.ts:58-70`
+never passes `beforeState` to `audit.write`, so every audit log entry's
+`beforeState` is null. Verified empirically: 222 entries in fixtures, 0 with
+non-null beforeState.
+
+**Impact**: for *create* actions, null is correct (no prior state); for
+*update* actions, the audit log cannot show what changed (only the after-
+state is captured, not the delta), so an entry like "Theresa updated First
+Bank" records that the record was updated and what it currently says, but
+not whether she changed the bank's name, SWIFT code, account note, or
+status; for *delete* actions, the audit log records the action but not
+what was destroyed (no surviving snapshot for any case where the deletion
+is later questioned, and the only snapshot at all if the row later gets
+hard-purged). This is a systemic audit-completeness issue affecting the
+trail's primary inspection value for change-history queries, not a
+localized gap. The audit-log report (`/reports/audit-log`) is faithfully
+rendering the data it has; the empty "Before" column is exposing the
+backend data-completeness gap, not a frontend bug.
+
+**Recommended fix**: interceptor-wrapping approach. The interceptor does a
+`prisma.<entity>.findUnique({ where: { id: params.id } })` on the entity's
+id BEFORE the handler runs for non-create actions, threads the result into
+the audit row as `beforeState`. Most update/delete handlers are in the
+`entity/:id` URL shape, so a single change in the interceptor fixes the
+bulk of the problem uniformly. Trade-off: couples the interceptor to
+Prisma and the `:id` URL convention; may duplicate work the handler is
+about to do (most update handlers read-then-write); the cleaner long-term
+architecture is service-layer responsibility (each `@Audit`-annotated
+mutation reads-then-writes and passes `beforeState` to `audit.write`
+directly so the pre-mutation read serves double duty), but the simpler
+first-pass fix is interceptor-level. Service-layer override remains
+available for handlers that don't fit the standard shape (bulk-mutation
+operations, actions that mutate multiple entities, etc.).
+
+**Scope**: one backend change in the audit interceptor plus a sweep over
+existing `@Audit`-annotated handlers to confirm the `:id` convention
+holds or surface the override-needed cases. Historical entries (the
+existing 222) can't recover their pre-action state; the fix is
+fix-forward only, new entries from the fix onward will be complete.
+
+**Priority**: should be addressed before any audit-trail-based
+investigation happens in production (i.e., before go-live), since the
+audit log is the system's inspection-of-truth mechanism. Right now any
+"what changed?" or "what did this look like before deletion?" question
+asked of the audit log can only be partially answered. Worth surfacing
+to Theresa alongside the other pending decisions (invoice PDFs, variant
+management, warranty), since it affects the audit-trail's value for
+compliance and investigation purposes; the fix is straightforward
+technically, the priority question (pre-go-live or post-) is hers.
+
 ### Audit log: deep-link gaps for entity types without a detail page
 
 The /reports/audit-log screen deep-links the entityId of an audit entry to
