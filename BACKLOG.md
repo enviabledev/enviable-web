@@ -11,7 +11,123 @@ to make before the fix can land. Remove an entry once the work ships.
 
 ## Pending
 
-### Audit log beforeState capture missing across all update/delete actions
+### Audit-log cost-strip asymmetry: direct-read preserves landedCost, sync-pull strips it
+
+The audit-log report's offline view silently loses cost-bearing fields for
+users with audit.read but without costdata.view (e.g., the Internal Auditor
+seed role). Asymmetry confirmed empirically (2026-06-03):
+
+- ONLINE (via `GET /api/reports/audit-log`): the controller is `@SkipCostStrip()`,
+  so the global `CostVisibilityInterceptor` is bypassed. Audit entries return
+  with the full nested JSON, including `landedCost` inside a Shipment's
+  `afterState.units[]`. This is documented intent per I-8 (privacy of the audit
+  log comes from gating audit.read narrowly, not from sanitising rows).
+- OFFLINE (from the mirror, populated via `GET /api/sync/pull`): the sync-pull
+  controller is NOT `@SkipCostStrip()`, so the same `CostVisibilityInterceptor`
+  runs. The interceptor recursively walks the response tree and strips any key
+  named `landedCost` or `landedCostPerUnit` at every nesting level, including
+  inside audit entries' `beforeState`/`afterState` JSON blobs. For an auditor-
+  test (cost-blind) user, the mirror's audit entries have `landedCost` absent
+  from nested Unit snapshots.
+
+**Net effect**: the same auditor-test user, querying the same audit entry,
+sees different data depending on whether they are online (cost-bearing fields
+visible per @SkipCostStrip intent) or offline (cost-bearing fields stripped
+by sync-pull's interceptor pass-through). The mirror's audit data for cost-
+blind users is a permission-filtered view, not the comprehensive system of
+record the audit-log endpoint promises. A question like "what was this unit's
+landedCost in the audit snapshot?" answers correctly online and incompletely
+offline for the same auditor.
+
+**Three resolution options** (all backend changes, not frontend):
+
+1. **Add per-bucket SkipCostStrip equivalent to sync-pull**: the cost
+   interceptor would skip stripping for specific buckets named in a route-
+   level option, so the `auditLogEntries` bucket is exempt while other buckets
+   (units, shipments) continue to strip. Closest to "match the audit-log
+   endpoint's intent in the mirror layer too." Requires interceptor refactor.
+2. **Tighten role seeding so audit.read implies costdata.view**: the asymmetry
+   never manifests because no user has audit.read without costdata.view. The
+   Internal Auditor's "cost-blind reporting" framing (no costdata.view) would
+   need revision; audit.read users would all see cost in reports too. Smallest
+   code change, biggest role-design implication.
+3. **Accept the asymmetry; document it in the HorizonDisclosure**: extend the
+   offline disclosure wording to "Offline: showing cached audit entries from
+   \[date\]; this is a subset, AND for users without costdata.view, cost-
+   bearing fields in entity snapshots may be absent." Frontend-only change but
+   surfaces an awkward "you don't see this offline" caveat to the auditor.
+
+Recommendation: **option (2)** if the Internal Auditor role is supposed to
+have uniform cost visibility (the simplest mental model), **option (1)** if
+the cost-blind-reporting + cost-visible-audit split is intentional and the
+offline experience needs to match the online intent. The decision is a role-
+design question for Theresa, not a technical fix. Bank both options here so
+the next planning round has the full picture.
+
+### Audit log beforeState capture missing across all update/delete actions (RESOLVED 2026-06-03, forward-only)
+
+**Resolution**: backend fix landed in `enviable-system` commit `aaf7003`. The
+interceptor now does a best-effort `findUnique` by `req.params.id` on the
+`@Audit`-declared entityType BEFORE the handler runs, captures the row as
+`beforeState`. Update and delete entries created from that commit forward
+carry semantic pre-mutation snapshots; verified empirically by Playwright at
+the visible-outcome level (`/tmp/sw-investigation/test-audit-log-beforestate.mjs`
+scenario A: live counterparty.update via UI, audit-log expand pane shows the
+pre-update name in Before and the post-update name in After, exactly the
+delta plus Prisma's auto-bumped `updatedAt`). Pre-fix entries (the 222
+historical) remain at null beforeState as historical artifacts; the frontend
+report renders them with explanatory copy ("Prior state not captured for
+this entry") to distinguish from "no prior state" for creates. Forward-only
+fix; no backfill.
+
+**Residual edge cases left in BACKLOG**:
+
+- Three historical-load handlers (`historical.shipment`, `historical.units`,
+  `historical.spareparts`) still yield null beforeState. `historical.shipment`
+  and `historical.spareparts` are genuine bulk-create operations (null is
+  correct, same as any other create handler). `historical.units` is more
+  ambiguous: it loads units INTO an existing Shipment (audit entityType =
+  Shipment), so from the Shipment's perspective it IS an update (manifest
+  lines added, units attached); but the URL uses `:shipmentId` rather than
+  `:id`, so the interceptor's pre-mutation findUnique returns null. The
+  agent's commit docblock frames this as "acceptable for the bulk-load case";
+  worth a follow-up if anyone ever needs to know "what was the shipment's
+  manifest before historical units were loaded?" Could be fixed by either
+  renaming the URL param to `:id` or adding optional `paramKey` to `@Audit`.
+
+- Audit writes are NOT transactional with the handler. The current
+  architecture: handler runs, response emits, THEN audit write happens via
+  fire-and-forget in an RxJS `tap`. This means a handler that throws (or a
+  guard rejection) produces no audit row (good: no half-written audit), but
+  it also means a handler can succeed (database commits the change) and then
+  the audit write can fail (database hiccup, connection drop, anything),
+  leaving a mutation with no audit row. Different failure mode from "audit
+  for non-mutation"; arguably worse for an audit-log system: changes happen,
+  audit is silently missing, no operator-visible signal. Mitigation options:
+  post-commit transactional outbox pattern; retry-with-dedupe on audit write
+  failure; accept the gap with monitoring (Logger.error already fires on
+  failure, just needs an alert). Should be evaluated before any audit-trail-
+  based investigation happens in production.
+
+### Audit log: rendering treatment for populated beforeState/afterState
+
+Currently the audit-log report's expand pane shows context / beforeState /
+afterState as three side-by-side pretty-printed JSON blocks (ship-as-is per
+prompt 24b option A). For the typical audit-log query "what did X change
+about Y?", reading two full JSON snapshots and mentally diffing them is
+acceptable but not optimal. A structural diff treatment would highlight only
+the fields that actually differ between before and after, making the answer
+visually prominent rather than buried in the full snapshot.
+
+Deferred at prompt 24b on the principle that populated beforeState alone is
+the substantive improvement, and full snapshots preserve the inspect-anything
+property. Worth revisiting if auditors report the JSON blobs are hard to
+scan in practice; the implementation would add a small DiffTable component
+that walks before/after keys and renders rows for only the keys whose values
+differ, with the before / after values side by side. A toggle between "Full
+snapshots" and "Changed fields only" is the natural shape.
+
+### Audit log beforeState capture missing across all update/delete actions (HISTORICAL ENTRY, see above for resolution)
 
 The audit interceptor at `enviable-system/src/audit/audit.interceptor.ts:58-70`
 never passes `beforeState` to `audit.write`, so every audit log entry's

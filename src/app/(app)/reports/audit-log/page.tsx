@@ -503,16 +503,51 @@ function Row({
 }
 
 function DiffPanel({ row }: { row: AuditLogEntry }) {
+  // Four-category framing for null beforeState (banked from prompt 24b refinement):
+  //  - create actions (action ends in .create):  null is correct, no prior state to
+  //    capture; action context makes this self-evident, no explanatory copy needed.
+  //  - historical-load summary events (action starts with historical.):  the audit
+  //    row records the bulk-load outcome at the parent-Shipment / SparePart level;
+  //    per-entity changes are recorded separately in stockMovement / sparePartMovement.
+  //  - update / delete actions with null beforeState:  either pre-dates the backend
+  //    fix that added beforeState capture (enviable-system aaf7003, 2026-06-03), or
+  //    the route shape (no :id param, entityType-mismatched URL) prevented the
+  //    interceptor's pre-mutation findUnique. Honest framing without committing to
+  //    which specific cause applies.
+  //  - everything else (a verb without conventional .create/.update/.delete suffix
+  //    that happens to have null beforeState): generic empty cell, the action's
+  //    semantics carry the meaning.
+  const beforeReason = beforeStateAbsenceReason(row);
   return (
     <div className="grid grid-cols-3 gap-3">
       <JsonBlock title="Context" value={row.context} />
-      <JsonBlock title="Before" value={row.beforeState} />
+      <JsonBlock title="Before" value={row.beforeState} emptyReason={beforeReason} />
       <JsonBlock title="After" value={row.afterState} />
     </div>
   );
 }
 
-function JsonBlock({ title, value }: { title: string; value: unknown }) {
+function beforeStateAbsenceReason(row: AuditLogEntry): string | null {
+  if (row.beforeState != null) return null;
+  if (row.action.endsWith(".create")) return null; // self-evident from action
+  if (row.action.startsWith("historical.")) {
+    return "Bulk-load summary event; per-entity changes are recorded separately in stockMovement / sparePartMovement rows.";
+  }
+  if (row.action.endsWith(".update") || row.action.endsWith(".delete")) {
+    return "Prior state not captured for this entry. Entries from before the beforeState capture fix (or routes where the pre-mutation row could not be resolved) render the Before column empty.";
+  }
+  return null;
+}
+
+function JsonBlock({
+  title,
+  value,
+  emptyReason,
+}: {
+  title: string;
+  value: unknown;
+  emptyReason?: string | null;
+}) {
   const isNull = value == null;
   return (
     <div className="border border-[var(--color-border-default)] rounded-[3px] overflow-hidden">
@@ -520,7 +555,21 @@ function JsonBlock({ title, value }: { title: string; value: unknown }) {
         {title}
       </header>
       <pre className="m-0 px-2.5 py-2 text-[11px] font-mono text-[var(--color-ink-900)] whitespace-pre-wrap break-all max-h-[280px] overflow-auto">
-        {isNull ? <span className="text-[var(--color-ink-500)]">--</span> : JSON.stringify(value, null, 2)}
+        {isNull ? (
+          <span className="text-[var(--color-ink-500)] block" data-testid="json-empty">
+            --
+            {emptyReason && (
+              <span
+                className="block mt-2 font-sans text-[11px] not-italic text-[var(--color-ink-700)] leading-[1.5]"
+                data-testid="json-empty-reason"
+              >
+                {emptyReason}
+              </span>
+            )}
+          </span>
+        ) : (
+          JSON.stringify(value, null, 2)
+        )}
       </pre>
     </div>
   );
