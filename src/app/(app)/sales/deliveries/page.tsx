@@ -148,16 +148,24 @@ export default function DeliveriesPage() {
     [params, router],
   );
 
+  // Mirror re-read function. The mirror is the source of truth and SyncBoot
+  // keeps it current via background downloads + reconciles, but the page
+  // needs a signal to know when to re-read. Without one, a clerk who opens
+  // this page before SyncBoot's first reconcile completes (or who keeps
+  // the tab open while a later reconcile lands) sees a stale snapshot.
+  // We re-read on mount, on tab-visibility change, on window focus, and on
+  // every 'online' connectivity event (when SyncBoot itself kicks off a
+  // pull, which is the most likely moment new rows appear).
   useEffect(() => {
     if (!canSee) return;
-    const ctrl = new AbortController();
-    (async () => {
+    let cancelled = false;
+    const read = async () => {
       try {
         const [orders, customers] = await Promise.all([
           listByType<MirroredSalesOrder>("salesOrder"),
           listByType<MirroredCustomer>("customer"),
         ]);
-        if (ctrl.signal.aborted) return;
+        if (cancelled) return;
         const customerById = new Map(customers.map((c) => [c.body.id, c.body]));
         const filtered = orders
           .map((o) => o.body)
@@ -174,20 +182,36 @@ export default function DeliveriesPage() {
             deliveredAt: so.deliveredAt,
             total: so.total,
           }))
-          // Newest delivery action first: dispatched orders by dispatchedAt,
-          // ready-for-dispatch by createdAt, etc. Sort by the most recent
-          // delivery-relevant timestamp.
           .sort((a, b) => {
             const aT = a.deliveredAt ?? a.dispatchedAt ?? a.createdAt;
             const bT = b.deliveredAt ?? b.dispatchedAt ?? b.createdAt;
             return aT < bT ? 1 : -1;
           });
-        setRows(filtered);
+        if (!cancelled) setRows(filtered);
       } catch {
-        setRows([]);
+        if (!cancelled) setRows([]);
       }
-    })();
-    return () => ctrl.abort();
+    };
+    void read();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void read();
+    };
+    window.addEventListener("focus", read);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", read);
+    // Lightweight periodic refresh while the tab is open and visible. Cheap
+    // because listByType is a single indexed-range scan against IDB; runs
+    // once every 15s only when the document is visible.
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void read();
+    }, 15000);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", read);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", read);
+      window.clearInterval(interval);
+    };
   }, [canSee]);
 
   if (!canSee) {
