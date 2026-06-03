@@ -11,6 +11,25 @@ to make before the fix can land. Remove an entry once the work ships.
 
 ## Pending
 
+### Audit log: deep-link gaps for entity types without a detail page
+
+The /reports/audit-log screen deep-links the entityId of an audit entry to
+the affected entity's detail page where one exists. Entity types with
+detail pages: PurchaseOrder, SalesOrder, Shipment, Counterparty,
+AssemblyJob, ProformaInvoice, Customer, Unit, SparePart. Entity types
+WITHOUT a detail page (entityId renders as plain text instead of a link):
+Invoice, Payment, ReleaseAuthorisation, DeliveryNote, Waybill,
+PriceListEntry, Product, ConflictReviewItem, Return, LandedCost.
+
+Most of these align with the existing build scope (Invoice / Payment are
+list-only at this stage; DeliveryNote / Waybill are downstream artefacts
+of SalesOrder and accessible via the SO detail; Product / PriceListEntry
+are flat-list-only). The two genuine gaps are Return (no list or detail
+screen yet, surfaced separately in the BACKLOG) and ConflictReviewItem
+(handled by /sync/conflicts which uses a different id shape). When those
+ship, add their routes to the ENTITY_ROUTE table in
+src/app/(app)/reports/audit-log/page.tsx.
+
 ### Customers report has no cost gating (deviation noted)
 
 The frontend prompt 23 framing carried the cost-gating assertion from the

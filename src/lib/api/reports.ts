@@ -189,3 +189,86 @@ export async function getCustomersReport(
   });
   return apiFetch<CustomersReportResponse>(`/api/reports/customers${qs}`, { signal });
 }
+
+/**
+ * Audit log. The system of record (Invariant I-10: rows immutable, append-
+ * only). @SkipCostStrip on the controller: the audit log returns COMPLETE
+ * records (including cost data in afterState) to every audit.read holder.
+ * Privacy comes from gating audit.read narrowly, not from sanitising rows.
+ * Reads of the audit log are themselves NOT audited (no recursion).
+ *
+ * occurredFrom / occurredTo are inclusive bounds on occurredAt (not gte/lt
+ * like the other reports). beforeState / afterState are full JSON snapshots
+ * of the entity at the moment of the action, or null for create/delete
+ * polarity. context carries the HTTP method, path, query, and route params
+ * (the request envelope at audit time).
+ */
+export type AuditLogActor = { id: string; fullName: string };
+
+export type AuditLogEntry = {
+  id: string;
+  actor: AuditLogActor | null;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  occurredAt: string;
+  context: unknown;
+  beforeState: unknown;
+  afterState: unknown;
+};
+
+export type AuditLogResponse = {
+  data: AuditLogEntry[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
+export type AuditLogStats = {
+  totalCount: number;
+  distinctActors: number;
+  actions: { action: string; count: number }[];
+};
+
+export type AuditLogQuery = {
+  page?: number;
+  pageSize?: number;
+  actorUserId?: string;
+  action?: string;
+  entityType?: string;
+  entityId?: string;
+  occurredFrom?: string;
+  occurredTo?: string;
+};
+
+export async function getAuditLog(
+  query: AuditLogQuery = {},
+  signal?: AbortSignal,
+): Promise<ApiResult<AuditLogResponse>> {
+  const qs = buildQuery({
+    page: query.page,
+    pageSize: query.pageSize,
+    actorUserId: query.actorUserId,
+    action: query.action,
+    entityType: query.entityType,
+    entityId: query.entityId,
+    occurredFrom: query.occurredFrom,
+    occurredTo: query.occurredTo,
+  });
+  return apiFetch<AuditLogResponse>(`/api/reports/audit-log${qs}`, { signal });
+}
+
+export async function getAuditLogStats(
+  query: AuditLogQuery = {},
+  signal?: AbortSignal,
+): Promise<ApiResult<AuditLogStats>> {
+  const qs = buildQuery({
+    actorUserId: query.actorUserId,
+    action: query.action,
+    entityType: query.entityType,
+    entityId: query.entityId,
+    occurredFrom: query.occurredFrom,
+    occurredTo: query.occurredTo,
+  });
+  return apiFetch<AuditLogStats>(`/api/reports/audit-log/stats${qs}`, { signal });
+}
