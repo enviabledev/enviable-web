@@ -11,6 +11,22 @@ export type {
   SetPriceBody,
 } from "./types";
 export {
+  listProformaInvoicesForPo,
+  getProformaInvoice,
+  createProformaInvoice,
+  approveProformaInvoice,
+  rejectProformaInvoice,
+} from "./proforma-invoices";
+export type {
+  ProformaInvoice,
+  ProformaInvoiceLine,
+  ProformaInvoiceStatus,
+  ProformaInvoicePoSummary,
+  CreateProformaInvoiceBody,
+  CreateProformaInvoiceLine,
+} from "./types";
+export { PROFORMA_INVOICE_STATUS } from "./types";
+export {
   listAssemblyJobs,
   getAssemblyJob,
   startAssembly,

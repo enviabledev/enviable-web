@@ -105,10 +105,10 @@ DELETE FROM customers WHERE id = 'fixt-customer-test';
 --    setup-fixtures.sql clears deletedAt back to NULL on the same id. Also
 --    detach the user_roles so re-applying setup creates a fresh role link.
 DELETE FROM user_roles
-WHERE "userId" IN ('fixt-user-costblind', 'fixt-user-salesofficer', 'fixt-user-confirmer');
+WHERE "userId" IN ('fixt-user-costblind', 'fixt-user-salesofficer', 'fixt-user-confirmer', 'fixt-user-procurement');
 UPDATE users
 SET "deletedAt" = NOW(), "updatedAt" = NOW()
-WHERE id IN ('fixt-user-costblind', 'fixt-user-salesofficer', 'fixt-user-confirmer')
+WHERE id IN ('fixt-user-costblind', 'fixt-user-salesofficer', 'fixt-user-confirmer', 'fixt-user-procurement')
   AND "deletedAt" IS NULL;
 
 COMMIT;

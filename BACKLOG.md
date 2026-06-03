@@ -57,6 +57,7 @@ round by round.
 |--------------------------------------|-------------------------|---------------------|----------|
 | `costblind-test@enviable.example`    | fixt-user-costblind     | Stock Auditor       | true two-user cost-gating assertion (currently verified via mirror manipulation in `test-spare-parts.mjs` scenario D) |
 | `confirmer-test@enviable.example`    | fixt-user-confirmer     | Sales Manager       | `pricelist.manage` supersede flow + SO confirmer flow (both pending) |
+| `procurement-test@enviable.example`  | fixt-user-procurement   | Procurement Officer | `pi.review` approve/reject flow on proforma invoices (activated 2026-06-03) |
 
 **Activation command** (run once from `enviable-system`):
 ```

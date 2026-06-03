@@ -300,3 +300,77 @@ export type SetPriceBody = {
   customerTierId: string;
   price: string;
 };
+
+/**
+ * Proforma invoices. Each PI is bound to exactly one PO via purchaseOrderId;
+ * a PO can have multiple PIs across revisions (revisionNumber) but the I-5
+ * invariant forbids more than one ACTIVE PI per PO (partial unique index
+ * `one_active_pi_per_po`). Approving a PI atomically supersedes any prior
+ * ACTIVE PI on the same PO. Permissions: pi.read for view, pi.review for
+ * create/approve/reject.
+ */
+export const PROFORMA_INVOICE_STATUS = [
+  "PENDING_REVIEW",
+  "ACTIVE",
+  "SUPERSEDED",
+  "REJECTED",
+] as const;
+export type ProformaInvoiceStatus = (typeof PROFORMA_INVOICE_STATUS)[number];
+
+export type ProformaInvoiceLine = {
+  id: string;
+  proformaInvoiceId: string;
+  productVariantId: string;
+  quantity: number;
+  unitPrice: string;
+  lineTotal: string;
+  updatedAt: string;
+};
+
+export type ProformaInvoicePoSummary = {
+  id: string;
+  poNumber: string;
+  status: string;
+  supplierId: string;
+};
+
+export type ProformaInvoice = {
+  id: string;
+  piNumber: string;
+  purchaseOrderId: string;
+  revisionNumber: number;
+  status: ProformaInvoiceStatus;
+  approvedById: string | null;
+  approvedAt: string | null;
+  totalValue: string;
+  freightAmount: string;
+  insuranceAmount: string;
+  issueDate: string | null;
+  validityUntil: string | null;
+  paymentTerms: string | null;
+  portOfLoading: string | null;
+  portOfDischarge: string | null;
+  rawDocumentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lines: ProformaInvoiceLine[];
+  purchaseOrder: ProformaInvoicePoSummary;
+};
+
+export type CreateProformaInvoiceLine = {
+  productVariantId: string;
+  quantity: number;
+  unitPrice: string;
+};
+
+export type CreateProformaInvoiceBody = {
+  piNumber: string;
+  issueDate?: string;
+  validityUntil?: string;
+  freightAmount?: string;
+  insuranceAmount?: string;
+  paymentTerms?: string;
+  portOfLoading?: string;
+  portOfDischarge?: string;
+  lines: CreateProformaInvoiceLine[];
+};

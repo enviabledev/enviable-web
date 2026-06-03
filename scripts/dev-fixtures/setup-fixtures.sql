@@ -512,6 +512,85 @@ FROM roles r
 WHERE r.name = 'Stock Auditor'
 ON CONFLICT (id) DO NOTHING;
 
+-- =============================================================================
+-- 11. PROCUREMENT-TEST THROWAWAY USER (Procurement Officer: pi.read + pi.review)
+--     Throwaway audit-attribution subject for the proforma-invoices approve /
+--     reject flow on /procurement/proforma-invoices/[id]. Same activation
+--     pattern as costblind-test / confirmer-test (placeholder hash, set via
+--     `npm run set-password` from enviable-system, tracked in BACKLOG.md
+--     under the verification-fixture cluster).
+-- =============================================================================
+INSERT INTO users (id, "fullName", email, "passwordHash", status, "createdAt", "updatedAt")
+VALUES (
+  'fixt-user-procurement', 'Procurement Test', 'procurement-test@enviable.example',
+  '$argon2id$PLACEHOLDER_RESET_REQUIRED', 'ACTIVE',
+  NOW(), NOW()
+)
+ON CONFLICT (id) DO UPDATE
+  SET "deletedAt" = NULL,
+      "updatedAt" = NOW();
+
+INSERT INTO user_roles (id, "userId", "roleId", "assignedAt")
+SELECT 'fixt-userrole-procurement', 'fixt-user-procurement', r.id, NOW()
+FROM roles r WHERE r.name = 'Procurement Officer'
+ON CONFLICT (id) DO NOTHING;
+
+-- =============================================================================
+-- 12. PROFORMA INVOICE FIXTURES across all four statuses for the cross-supplier
+--     /procurement/proforma-invoices verification. Two existing fixture POs,
+--     two PI revisions each, statuses {SUPERSEDED, ACTIVE} on po-test (the
+--     supersede pattern) and {REJECTED, PENDING_REVIEW} on po-receive-test.
+--     updatedAt = NOW() on every row + on ON CONFLICT UPDATE so the mirror's
+--     since-delta picks them up; issueDate / approvedAt remain backdated.
+-- =============================================================================
+INSERT INTO proforma_invoices (
+  id, "piNumber", "purchaseOrderId", "revisionNumber", status,
+  "approvedById", "approvedAt",
+  "totalValue", "freightAmount", "insuranceAmount",
+  "issueDate", "validityUntil", "paymentTerms",
+  "portOfLoading", "portOfDischarge", "rawDocumentId",
+  "createdAt", "updatedAt"
+) VALUES
+  ('fixt-pi-test-r1', 'PI-FIXT-TEST-R1', 'fixt-po-test', 1, 'SUPERSEDED',
+   (SELECT id FROM users WHERE email='daniel@enviable.example' LIMIT 1),
+   NOW() - INTERVAL '8 days',
+   45000000.00, 1500000.00, 500000.00,
+   NOW() - INTERVAL '15 days', NOW() - INTERVAL '5 days',
+   '30% advance, 70% on shipment', 'Mumbai', 'Lagos', NULL,
+   NOW() - INTERVAL '15 days', NOW()),
+  ('fixt-pi-test-r2', 'PI-FIXT-TEST-R2', 'fixt-po-test', 2, 'ACTIVE',
+   (SELECT id FROM users WHERE email='daniel@enviable.example' LIMIT 1),
+   NOW() - INTERVAL '4 days',
+   46000000.00, 1600000.00, 500000.00,
+   NOW() - INTERVAL '10 days', NOW() + INTERVAL '20 days',
+   '30% advance, 70% on shipment', 'Mumbai', 'Lagos', NULL,
+   NOW() - INTERVAL '10 days', NOW()),
+  ('fixt-pi-recv-r1', 'PI-FIXT-RECV-R1', 'fixt-po-receive-test', 1, 'REJECTED',
+   NULL, NULL,
+   42000000.00, 1200000.00, 400000.00,
+   NOW() - INTERVAL '12 days', NOW() - INTERVAL '6 days',
+   'Net 30', 'Mumbai', 'Lagos', NULL,
+   NOW() - INTERVAL '12 days', NOW()),
+  ('fixt-pi-recv-r2', 'PI-FIXT-RECV-R2', 'fixt-po-receive-test', 2, 'PENDING_REVIEW',
+   NULL, NULL,
+   43500000.00, 1300000.00, 400000.00,
+   NOW() - INTERVAL '5 days', NOW() + INTERVAL '25 days',
+   '30% advance, 70% on shipment', 'Mumbai', 'Lagos', NULL,
+   NOW() - INTERVAL '5 days', NOW())
+ON CONFLICT (id) DO UPDATE
+  SET "updatedAt" = NOW(),
+      status = EXCLUDED.status,
+      "approvedById" = EXCLUDED."approvedById",
+      "approvedAt" = EXCLUDED."approvedAt";
+
+INSERT INTO proforma_invoice_lines (id, "proformaInvoiceId", "productVariantId", quantity, "unitPrice", "lineTotal", "updatedAt")
+VALUES
+  ('fixt-pil-test-r1', 'fixt-pi-test-r1', 'seed-var-gs-ecogreen', 100, 430000.00, 43000000.00, NOW()),
+  ('fixt-pil-test-r2', 'fixt-pi-test-r2', 'seed-var-gs-ecogreen', 100, 439000.00, 43900000.00, NOW()),
+  ('fixt-pil-recv-r1', 'fixt-pi-recv-r1', 'seed-var-gs-nepblue',  100, 404000.00, 40400000.00, NOW()),
+  ('fixt-pil-recv-r2', 'fixt-pi-recv-r2', 'seed-var-gs-nepblue',  100, 418000.00, 41800000.00, NOW())
+ON CONFLICT (id) DO UPDATE SET "updatedAt" = NOW();
+
 COMMIT;
 
 -- Summary (visible after running):

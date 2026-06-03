@@ -125,6 +125,10 @@ const DYNAMIC_ROUTES_TO_WARM: DynamicRouteWarmEntry[] = [
         ? `/sales/price-lists/${e.productVariantId}?tier=${e.customerTierId}`
         : null,
   },
+  {
+    entity: "proformaInvoice",
+    hrefFor: (p) => (typeof p.id === "string" ? `/procurement/proforma-invoices/${p.id}` : null),
+  },
 ];
 
 /**
