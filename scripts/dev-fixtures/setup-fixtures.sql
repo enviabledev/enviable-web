@@ -410,6 +410,68 @@ ON CONFLICT (id) DO UPDATE
       "dispatchedAt" = EXCLUDED."dispatchedAt",
       "deliveredAt" = EXCLUDED."deliveredAt";
 
+-- Four invoices + six payments across PENDING / CONFIRMED / REJECTED so the
+-- /sales/invoices-payments cross-SO view (built mirror-only per outcome B of
+-- prompt 19's backend audit; no /api/invoices or /api/payments aggregation
+-- endpoints exist) has a non-trivial set to filter and tab through. Each
+-- invoice is 1:1 to an SO via the unique salesOrderId; payments are many
+-- per SO. Idempotent on id; CONFLICT NOTHING on the inserts because the
+-- shape is fixed once seeded (no per-run-update fields).
+INSERT INTO invoices (
+  id, "salesOrderId", "invoiceNumber",
+  "issueDate", "vatRate", "vatAmount", total,
+  "pdfDocumentId", "createdAt", "updatedAt"
+) VALUES
+  ('fixt-inv-await',      'fixt-so-await-payment',    'INV-FIXT-AWAIT',
+   NOW() - INTERVAL '1 day',  0.0750, 472500.00, 6772500.00,
+   NULL, NOW() - INTERVAL '1 day',  NOW() - INTERVAL '1 day'),
+  ('fixt-inv-deliv-r',    'fixt-so-deliv-ready',      'INV-FIXT-DELIV-R',
+   NOW() - INTERVAL '3 days', 0.0000, 0.00,      3000000.00,
+   NULL, NOW() - INTERVAL '3 days', NOW() - INTERVAL '3 days'),
+  ('fixt-inv-deliv-d',    'fixt-so-deliv-dispatched', 'INV-FIXT-DELIV-D',
+   NOW() - INTERVAL '5 days', 0.0000, 0.00,      3500000.00,
+   NULL, NOW() - INTERVAL '5 days', NOW() - INTERVAL '5 days'),
+  ('fixt-inv-deliv-done', 'fixt-so-deliv-delivered',  'INV-FIXT-DELIV-X',
+   NOW() - INTERVAL '7 days', 0.0000, 0.00,      2800000.00,
+   NULL, NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO payments (
+  id, "salesOrderId", "paymentMethodId", amount, "receivedAt",
+  "referenceNumber", "confirmationSource", "confirmedById",
+  "receiptDocumentId", status, "clientId",
+  "createdAt", "updatedAt"
+) VALUES
+  ('fixt-pmt-await-1', 'fixt-so-await-payment',    'seed-pm-bank', 2000000.00,
+   NOW() - INTERVAL '6 hours', 'TXN-PEND-001', 'MANUAL_UPLOAD',
+   NULL, NULL, 'PENDING',   NULL,
+   NOW() - INTERVAL '6 hours', NOW() - INTERVAL '6 hours'),
+  ('fixt-pmt-ready-1', 'fixt-so-deliv-ready',      'seed-pm-pos',  3000000.00,
+   NOW() - INTERVAL '2 days', 'POS-CFM-002',  'MANUAL_UPLOAD',
+   (SELECT id FROM users WHERE email='confirmer-test@enviable.example' LIMIT 1),
+   NULL, 'CONFIRMED', NULL,
+   NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days'),
+  ('fixt-pmt-disp-1',  'fixt-so-deliv-dispatched', 'seed-pm-bank', 2000000.00,
+   NOW() - INTERVAL '4 days', 'TXN-CFM-003a', 'MANUAL_UPLOAD',
+   (SELECT id FROM users WHERE email='confirmer-test@enviable.example' LIMIT 1),
+   NULL, 'CONFIRMED', NULL,
+   NOW() - INTERVAL '4 days', NOW() - INTERVAL '4 days'),
+  ('fixt-pmt-disp-2',  'fixt-so-deliv-dispatched', 'seed-pm-bank', 1500000.00,
+   NOW() - INTERVAL '3 days', 'TXN-CFM-003b', 'MANUAL_UPLOAD',
+   (SELECT id FROM users WHERE email='confirmer-test@enviable.example' LIMIT 1),
+   NULL, 'CONFIRMED', NULL,
+   NOW() - INTERVAL '3 days', NOW() - INTERVAL '3 days'),
+  ('fixt-pmt-done-1',  'fixt-so-deliv-delivered',  'seed-pm-pos',  2800000.00,
+   NOW() - INTERVAL '6 days', 'POS-CFM-004',  'MANUAL_UPLOAD',
+   (SELECT id FROM users WHERE email='confirmer-test@enviable.example' LIMIT 1),
+   NULL, 'CONFIRMED', NULL,
+   NOW() - INTERVAL '6 days', NOW() - INTERVAL '6 days'),
+  ('fixt-pmt-done-2',  'fixt-so-deliv-delivered',  'seed-pm-bank',  500000.00,
+   NOW() - INTERVAL '5 days', 'TXN-REJ-005',  'MANUAL_UPLOAD',
+   NULL, NULL, 'REJECTED', NULL,
+   NOW() - INTERVAL '5 days', NOW() - INTERVAL '5 days')
+ON CONFLICT (id) DO NOTHING;
+
 -- =============================================================================
 -- 10. COST-BLIND THROWAWAY USER (Stock Auditor: report.stocks + unit.read,
 --    no costdata.view, so they see both the units list and the stocks report
