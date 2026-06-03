@@ -129,6 +129,10 @@ const DYNAMIC_ROUTES_TO_WARM: DynamicRouteWarmEntry[] = [
     entity: "proformaInvoice",
     hrefFor: (p) => (typeof p.id === "string" ? `/procurement/proforma-invoices/${p.id}` : null),
   },
+  {
+    entity: "counterparty",
+    hrefFor: (c) => (typeof c.id === "string" ? `/procurement/counterparties/${c.id}` : null),
+  },
 ];
 
 /**

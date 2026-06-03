@@ -583,6 +583,36 @@ ON CONFLICT (id) DO UPDATE
       "approvedById" = EXCLUDED."approvedById",
       "approvedAt" = EXCLUDED."approvedAt";
 
+-- =============================================================================
+-- 13. COUNTERPARTY FIXTURES across the 6 type values + an INACTIVE supplier
+--     for the /procurement/counterparties filter verification. The seed
+--     ships only MANUFACTURER + SUPPLIER; the build needs all types so the
+--     type filter narrows non-trivially. updatedAt = NOW() per the fixture
+--     rule. contact stored as JSON (the schema column is Json); banking
+--     details only on the BANK row to exercise that path.
+-- =============================================================================
+INSERT INTO counterparties (id, name, type, contact, "bankDetails", status, "createdAt", "updatedAt", "deletedAt")
+VALUES
+  ('fixt-cp-forwarder',  'Lagos Freight Logistics Ltd',  'FREIGHT_FORWARDER',
+   '{"contact_email":"ops@lagosfreight.example","phone":"+234-1-555-0100"}'::jsonb, NULL,
+   'ACTIVE', NOW() - INTERVAL '30 days', NOW(), NULL),
+  ('fixt-cp-clearing',   'Apapa Clearing Agents Co',     'CLEARING_AGENT',
+   '{"contact_email":"docs@apapaclearing.example","phone":"+234-1-555-0200"}'::jsonb, NULL,
+   'ACTIVE', NOW() - INTERVAL '30 days', NOW(), NULL),
+  ('fixt-cp-insurance',  'NICON Insurance plc',          'INSURANCE_COMPANY',
+   '{"contact_email":"marine@nicon.example","phone":"+234-1-555-0300"}'::jsonb, NULL,
+   'ACTIVE', NOW() - INTERVAL '30 days', NOW(), NULL),
+  ('fixt-cp-bank',       'First Bank of Nigeria',        'BANK',
+   '{"contact_email":"trade@firstbank.example","phone":"+234-1-555-0400"}'::jsonb,
+   '{"swift_bic":"FBNINGLA","sample_account":"xxxxx-redacted"}'::jsonb,
+   'ACTIVE', NOW() - INTERVAL '30 days', NOW(), NULL),
+  ('fixt-cp-inactive',   'Decommissioned Supplier Co',   'SUPPLIER',
+   NULL, NULL, 'INACTIVE', NOW() - INTERVAL '60 days', NOW(), NULL)
+ON CONFLICT (id) DO UPDATE
+  SET "updatedAt" = NOW(),
+      status = EXCLUDED.status,
+      "deletedAt" = NULL;
+
 INSERT INTO proforma_invoice_lines (id, "proformaInvoiceId", "productVariantId", quantity, "unitPrice", "lineTotal", "updatedAt")
 VALUES
   ('fixt-pil-test-r1', 'fixt-pi-test-r1', 'seed-var-gs-ecogreen', 100, 430000.00, 43000000.00, NOW()),

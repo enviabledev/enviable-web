@@ -66,8 +66,22 @@ export type {
   CreatePoBody,
   UpdatePoBody,
 } from "./purchase-orders";
-export { listCounterparties } from "./counterparties";
-export type { Counterparty, CounterpartyType, CounterpartyStatus } from "./counterparties";
+export {
+  listCounterparties,
+  getCounterparty,
+  createCounterparty,
+  updateCounterparty,
+  deleteCounterparty,
+  COUNTERPARTY_TYPE,
+  COUNTERPARTY_STATUS,
+} from "./counterparties";
+export type {
+  Counterparty,
+  CounterpartyType,
+  CounterpartyStatus,
+  CreateCounterpartyBody,
+  UpdateCounterpartyBody,
+} from "./counterparties";
 export { listProducts, flattenVariantOptions } from "./products";
 export type { ProductWithVariants, ProductVariantSummary, ProductCategory, ProductStatus } from "./products";
 export {

@@ -97,6 +97,12 @@ WHERE "salesOrderId" IN (SELECT id FROM sales_orders WHERE "customerId" = 'fixt-
 DELETE FROM sales_orders WHERE "customerId" = 'fixt-customer-test';
 DELETE FROM customers WHERE id = 'fixt-customer-test';
 
+-- 7b. Fixture counterparties (the 5 added in setup-fixtures.sql section 13).
+--     None of these are referenced as supplier/forwarder/etc. by any of the
+--     PO/shipment/LC fixture rows, so they hard-delete cleanly. The seed
+--     counterparties (seed-cp-tvs, seed-cp-vsk) are not touched.
+DELETE FROM counterparties WHERE id LIKE 'fixt-cp-%';
+
 -- 8. Throwaway users: SOFT-DELETE only. We cannot hard-delete a user that
 --    has acted (audit_log_entries reference them as actor; the append-only
 --    trigger on audit_log_entries blocks the cascade UPDATE that would
