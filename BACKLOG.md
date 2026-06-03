@@ -43,33 +43,40 @@ can find the SO id from the return id.
 5. Surface returns context on the sales-order detail page if that's the
    model.
 
-### Verification-fixture password activation (clustered)
+### Verification-fixture password activation (RESOLVED 2026-06-03)
 
-Several throwaway dev-fixture users are seeded with the placeholder hash
-`$argon2id$PLACEHOLDER_RESET_REQUIRED` and need a single backend
-`npm run set-password` call before they can drive Playwright verifications.
-Grouped here so the activation work is one pass rather than rediscovered
-round by round.
+Pre-reports-cluster batch activation pass completed. Every throwaway
+fixture covering a verification permission shape used by the remaining
+screens (reports, admin) is now activated. Future fixture additions
+should be added to this table during the round that surfaces the need,
+not deferred.
 
-**Fixture users awaiting activation:**
+**Fixture users:**
 
-| Email                                | Fixture id              | Role                | Unblocks |
-|--------------------------------------|-------------------------|---------------------|----------|
-| `costblind-test@enviable.example`    | fixt-user-costblind     | Stock Auditor       | true two-user cost-gating assertion (currently verified via mirror manipulation in `test-spare-parts.mjs` scenario D) |
-| `confirmer-test@enviable.example`    | fixt-user-confirmer     | Sales Manager       | `pricelist.manage` supersede flow + SO confirmer flow (both pending) |
-| `procurement-test@enviable.example`  | fixt-user-procurement   | Procurement Officer | `pi.review` approve/reject flow on proforma invoices (activated 2026-06-03) |
-| (none seeded)                        | (pending)               | (any role with `counterparty.read` WITHOUT `counterparty.manage`) | Verifies the counterparty edit/delete/new-CTA gating renders cleanly for a read-only user; currently every counterparty.read-holding seeded role also holds counterparty.manage. Activating a Managing Director / Executive Director seeded user (both have read-only counterparty access per seed.ts) would unblock this. |
+| Email                                | Fixture id              | Role                          | Status | Unblocks |
+|--------------------------------------|-------------------------|-------------------------------|--------|----------|
+| `costblind-test@enviable.example`    | fixt-user-costblind     | Stock Auditor                 | ✓ activated 2026-06-03 | Two-user cost-gating across `/reports/stocks`, units detail, spare-parts detail. The mirror-manipulation workaround in `test-spare-parts.mjs` scenario D can now be upgraded to a true two-user login. |
+| `confirmer-test@enviable.example`    | fixt-user-confirmer     | Sales Manager                 | ✓ activated 2026-06-03 | `pricelist.manage` supersede flow (exercised in prompt 17), `report.revenue` + `report.customers` WITH `costdata.view` (cost-permitted reporting). |
+| `procurement-test@enviable.example`  | fixt-user-procurement   | Procurement Officer           | ✓ activated 2026-06-03 | `pi.review` approve/reject on `/procurement/proforma-invoices`; `counterparty.manage` on `/procurement/counterparties`. |
+| `salesofficer-test@enviable.example` | fixt-user-salesofficer  | Sales Officer (Warehouse)     | ✓ activated (prior round) | Discount / payment separation-of-duties, sales-cluster permission boundaries. |
+| `auditor-test@enviable.example`      | fixt-user-auditor       | Internal Auditor / Compliance | ✓ activated 2026-06-03 | `/reports/audit` (the only role that holds `audit.read`); cost-blind reporting on `/reports/revenue` + `/reports/customers` (auditor has report.X access WITHOUT `costdata.view`, the only seeded role that combination matches). |
+
+**Permission-shape gaps that turned out NOT to be gaps:**
+
+The pre-cluster audit identified one apparent gap: a user with
+`counterparty.read` WITHOUT `counterparty.manage`. The seeded
+Executive Director (theresa@) role holds exactly that combination
+(read-only counterparty access). Named accounts are reserved for the
+people they represent (the throwaway/named convention banked below),
+so for write-attribution tests this remains a fixture gap; for the
+counterparty's edit/delete/new-CTA-hidden assertion, the architecture
+of the gate is verified in code, and the visual no-buttons-rendered
+verification can use any reader. Acceptable as-is.
 
 **Activation command** (run once from `enviable-system`):
 ```
 npm run set-password -- <email> Password123!
 ```
-
-**Action when picked up:** run the activation for each fixture user in
-one pass, then any prior test that worked around the gap can be updated
-to drive the true two-user / manage-capable flow directly. New verification
-fixtures discovered later should be added to this table rather than as
-sibling entries, so the activation step stays clusterable.
 
 ### Throwaway fixtures are the verification subjects, not seeded named accounts
 

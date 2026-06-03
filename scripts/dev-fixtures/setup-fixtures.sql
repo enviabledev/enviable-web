@@ -513,6 +513,30 @@ WHERE r.name = 'Stock Auditor'
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
+-- 10b. AUDITOR-TEST THROWAWAY USER (Internal Auditor / Compliance: audit.read,
+--      report.revenue, report.customers, report.stocks — but NO costdata.view).
+--      Covers two distinct verifications: (1) the /reports/audit screen at
+--      the only role that holds audit.read; (2) cost-blind reporting on
+--      /reports/revenue and /reports/customers, the only seeded role with
+--      report.X access but without cost visibility (most reporting roles
+--      hold both). Same placeholder hash + npm run set-password pattern.
+-- =============================================================================
+INSERT INTO users (id, "fullName", email, "passwordHash", status, "createdAt", "updatedAt")
+VALUES (
+  'fixt-user-auditor', 'Auditor Test', 'auditor-test@enviable.example',
+  '$argon2id$PLACEHOLDER_RESET_REQUIRED', 'ACTIVE',
+  NOW(), NOW()
+)
+ON CONFLICT (id) DO UPDATE
+  SET "deletedAt" = NULL,
+      "updatedAt" = NOW();
+
+INSERT INTO user_roles (id, "userId", "roleId", "assignedAt")
+SELECT 'fixt-userrole-auditor', 'fixt-user-auditor', r.id, NOW()
+FROM roles r WHERE r.name = 'Internal Auditor / Compliance'
+ON CONFLICT (id) DO NOTHING;
+
+-- =============================================================================
 -- 11. PROCUREMENT-TEST THROWAWAY USER (Procurement Officer: pi.read + pi.review)
 --     Throwaway audit-attribution subject for the proforma-invoices approve /
 --     reject flow on /procurement/proforma-invoices/[id]. Same activation
