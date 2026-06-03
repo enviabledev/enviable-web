@@ -41,7 +41,14 @@ export type {
   AssemblyJobUnitSummary,
   AssemblyJobSupervisor,
 } from "./assembly";
-export { getStocksReport } from "./reports";
+export { getStocksReport, getRevenueReport } from "./reports";
+export type {
+  RevenueReport,
+  RevenueReportQuery,
+  RevenueReportVariantRow,
+  RevenueReportCustomerRow,
+  RevenueReportTrendPoint,
+} from "./reports";
 export { countPurchaseOrders, countShipments } from "./counts";
 export {
   listPurchaseOrders,

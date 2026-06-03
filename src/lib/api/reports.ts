@@ -68,3 +68,65 @@ export async function getStocksReport(
   const qs = buildQuery({ warehouseId: query.warehouseId });
   return apiFetch<StocksReport>(`/api/reports/stocks${qs}`, { signal });
 }
+
+/**
+ * Revenue report. The backend's recognition basis is
+ * ReleaseAuthorisation.issuedAt (not SO.createdAt / dispatchedAt /
+ * deliveredAt). All SOs that have ever been release-authorised in the
+ * window are included, regardless of current status (PICKING through
+ * CLOSED, including REFUNDED). Margin / landedCost / totalLandedCost
+ * are absent (not null) on the response for users without costdata.view.
+ */
+export type RevenueReportVariantRow = {
+  productVariantId: string;
+  sku: string;
+  unitsSold: number;
+  revenue: string;
+  landedCost?: string;
+  margin?: string;
+};
+
+export type RevenueReportCustomerRow = {
+  customerId: string;
+  name: string;
+  orders: number;
+  revenue: string;
+};
+
+export type RevenueReportTrendPoint = {
+  date: string;
+  revenue: string;
+  unitsSold: number;
+};
+
+export type RevenueReport = {
+  from: string;
+  to: string;
+  recognitionBasis: string;
+  totalRevenue: string;
+  vatCollected: string;
+  unitsSold: { total: number; ckd: number; cbu: number };
+  revenueByVariant: RevenueReportVariantRow[];
+  revenueByCustomer: RevenueReportCustomerRow[];
+  trend: RevenueReportTrendPoint[];
+  // Absent for users without costdata.view.
+  margin?: {
+    netRevenue: string;
+    totalLandedCost: string;
+    margin: string;
+  };
+};
+
+export type RevenueReportQuery = {
+  from?: string;
+  to?: string;
+  topN?: number;
+};
+
+export async function getRevenueReport(
+  query: RevenueReportQuery = {},
+  signal?: AbortSignal,
+): Promise<ApiResult<RevenueReport>> {
+  const qs = buildQuery({ from: query.from, to: query.to, topN: query.topN });
+  return apiFetch<RevenueReport>(`/api/reports/revenue${qs}`, { signal });
+}
