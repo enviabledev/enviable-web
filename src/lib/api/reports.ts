@@ -130,3 +130,62 @@ export async function getRevenueReport(
   const qs = buildQuery({ from: query.from, to: query.to, topN: query.topN });
   return apiFetch<RevenueReport>(`/api/reports/revenue${qs}`, { signal });
 }
+
+/**
+ * Customers report. Per-customer aggregations over the optional date window
+ * (from/to scope SO.createdAt, gte/lt). Customers are listed regardless of
+ * in-range activity (the customer base stays visible); the tier and status
+ * filters narrow the customer SET, while the date range narrows the order
+ * metrics within each visible row.
+ *
+ * Outstanding balance is a sales/AR figure (NOT cost data) and is visible to
+ * all report.customers holders. There is no cost gating on this report.
+ *
+ * totalOrderValue counts ONLY orders that have a ReleaseAuthorisation row
+ * (the same "released" set the revenue report uses); orders in earlier
+ * statuses contribute to totalOrders and lastOrderDate but not totalOrderValue.
+ */
+export type CustomersReportTierSummary = { id: string; name: string };
+
+export type CustomersReportRow = {
+  customerId: string;
+  name: string;
+  type: string;
+  status: string;
+  tier: CustomersReportTierSummary | null;
+  totalOrders: number;
+  totalOrderValue: string;
+  lastOrderDate: string | null;
+  outstandingBalance: string;
+};
+
+export type CustomersReportResponse = {
+  data: CustomersReportRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
+export type CustomersReportQuery = {
+  page?: number;
+  pageSize?: number;
+  tierId?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+};
+
+export async function getCustomersReport(
+  query: CustomersReportQuery = {},
+  signal?: AbortSignal,
+): Promise<ApiResult<CustomersReportResponse>> {
+  const qs = buildQuery({
+    page: query.page,
+    pageSize: query.pageSize,
+    tierId: query.tierId,
+    status: query.status,
+    from: query.from,
+    to: query.to,
+  });
+  return apiFetch<CustomersReportResponse>(`/api/reports/customers${qs}`, { signal });
+}

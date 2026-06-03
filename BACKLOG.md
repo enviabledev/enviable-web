@@ -11,6 +11,21 @@ to make before the fix can land. Remove an entry once the work ships.
 
 ## Pending
 
+### Customers report has no cost gating (deviation noted)
+
+The frontend prompt 23 framing carried the cost-gating assertion from the
+revenue/stocks report templates. The customers report doesn't have cost
+gating: the backend's reports.controller.ts comment is explicit ("Outstanding
+balance is a sales/AR figure (not cost data), so no cost gating here"), and
+the response has no cost-shaped fields to strip or omit. The
+recomputeCustomersFromMirror replicates this faithfully (it never reads
+Unit.landedCost). The verification substitutes a symmetric "no-cost user
+sees identical figures" assertion to prove the report is genuinely cost-
+blind rather than stealthily-gated. This is a templating-vs-actual-shape
+gap, surfaced as the verification work, not a backend gap; recorded here
+so future report builds check the controller's cost-strip declaration
+before assuming the template applies.
+
 ### RETURN bucket not mirrored (movements reference resolution)
 
 `MovementReferenceType.RETURN` is a value the backend emits (returns service

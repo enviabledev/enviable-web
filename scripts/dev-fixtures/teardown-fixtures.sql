@@ -95,7 +95,7 @@ WHERE "referenceType" = 'SALES_ORDER'
 DELETE FROM sales_order_lines
 WHERE "salesOrderId" IN (SELECT id FROM sales_orders WHERE "customerId" = 'fixt-customer-test');
 DELETE FROM sales_orders WHERE "customerId" = 'fixt-customer-test';
-DELETE FROM customers WHERE id = 'fixt-customer-test';
+DELETE FROM customers WHERE id IN ('fixt-customer-test', 'fixt-customer-volume', 'fixt-customer-inactive');
 
 -- 7b. Fixture counterparties (the 5 added in setup-fixtures.sql section 13).
 --     None of these are referenced as supplier/forwarder/etc. by any of the

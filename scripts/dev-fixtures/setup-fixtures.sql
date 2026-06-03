@@ -294,6 +294,40 @@ FROM customer_tiers ct
 WHERE ct.name = 'ResellerStandard'
 ON CONFLICT (id) DO NOTHING;
 
+-- Two extra customer fixtures so the customers report has multiple rows to
+-- partition on. Customer-base visibility is independent of in-range activity
+-- (per backend: customers always listed), so these will appear in the report
+-- with zero orders, exercising the tier and status filter narrowing.
+--   - fixt-customer-volume: ACTIVE, ResellerVolume tier  -> proves tier filter narrows
+--   - fixt-customer-inactive: INACTIVE, ResellerStandard -> proves status filter narrows
+INSERT INTO customers (id, name, type, "tierId", phone, email, status, "createdAt", "updatedAt")
+SELECT
+  'fixt-customer-volume',
+  'Volume Buyer Co Ltd',
+  'RESELLER',
+  ct.id,
+  '+234-901-FIXT-VOL',
+  'volume-buyer@example.test',
+  'ACTIVE',
+  NOW(), NOW()
+FROM customer_tiers ct
+WHERE ct.name = 'ResellerVolume'
+ON CONFLICT (id) DO UPDATE SET "updatedAt" = NOW();
+
+INSERT INTO customers (id, name, type, "tierId", phone, email, status, "createdAt", "updatedAt")
+SELECT
+  'fixt-customer-inactive',
+  'Dormant Dealers Plc',
+  'RESELLER',
+  ct.id,
+  '+234-901-FIXT-INA',
+  'dormant-dealers@example.test',
+  'INACTIVE',
+  NOW(), NOW()
+FROM customer_tiers ct
+WHERE ct.name = 'ResellerStandard'
+ON CONFLICT (id) DO UPDATE SET "updatedAt" = NOW();
+
 -- Throwaway Sales Officer (Warehouse) user. Has salesorder.create and
 -- customer.read but NOT salesorder.discount, so it's the principal that
 -- exercises the discount-permission 403 verbatim. Same fail-loud naming
