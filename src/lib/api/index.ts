@@ -1,4 +1,18 @@
 export { apiFetch, buildQuery, type ApiResult } from "./client";
+export {
+  createHistoricalShipment,
+  loadHistoricalUnits,
+  loadHistoricalSpareParts,
+} from "./historical-load";
+export type {
+  CreateHistoricalShipmentBody,
+  CreatedHistoricalShipment,
+  HistoricalLoadRowError,
+  HistoricalLoadReport,
+  HistoricalUnitsReport,
+  HistoricalUnitsCommitResult,
+  HistoricalSparePartsCommitResult,
+} from "./historical-load";
 export { listUnits, getUnit } from "./units";
 export { listStockMovements } from "./stock-movements";
 export { listSpareParts, getSparePart } from "./spare-parts";

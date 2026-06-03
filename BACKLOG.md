@@ -11,6 +11,62 @@ to make before the fix can land. Remove an entry once the work ships.
 
 ## Pending
 
+### Product / variant catalogue has no management surface
+
+Same shape as the users / roles gap, surfaced during the prompt 27
+historical-load audit. The products controller
+(`enviable-system/src/products/products.controller.ts`) exposes only
+`GET /api/products` (list). There is NO:
+
+- `POST /api/products` or `POST /api/product-variants` to create
+- `PATCH /api/products/:id` or `PATCH /api/product-variants/:id` to edit
+- `DELETE` to soft-delete or reactivate
+- `historical.variants` handler under historical-load (only Shipment, Units,
+  SpareParts; variants are not bulk-loadable)
+
+There is no `product.manage` or `productvariant.manage` permission in the
+catalogue (the products controller's gate is `product.read` for the list and
+nothing else). Variants are 100% seed-managed: defined in
+`enviable-system/prisma/seed.ts` and applied at deploy time. Adding a new
+variant (e.g., a new model/colour combination) requires an engineer to edit
+the seed and redeploy, same as adding a new user or modifying a role.
+
+**Impact**: for a static catalogue this is fine (the seeded 3 variants cover
+the current TVS King / ZS+ lineup). For a growing catalogue (new models, new
+colours, supplier-changing-SKU-codes, variant retirements), the seed-and-
+redeploy workflow is friction-heavy. The decision parallels the user-management
+question: is the catalogue stable enough that seed-only is sufficient, or does
+operational reality need runtime management?
+
+**Recommended path** (same shape as the users/roles backend round):
+
+1. `ProductsController` add `POST` for product creation, `PATCH`/`POST` for
+   product update / retire. Same for `ProductVariantsController` (likely a
+   new module) with `POST`/`PATCH`/`DELETE`. `@Audit` annotations on each
+   mutation; @-RequirePermissions on `product.manage` and
+   `productvariant.manage` (also need to seed these into the catalogue and
+   grant to General Manager or similar).
+
+2. Frontend: a `/catalogue/products` and `/catalogue/variants` (or unified
+   `/catalogue` with tabs) screen for list/detail/create/edit. The mirror's
+   product and productVariant buckets already exist (read-only); the
+   management surface would be online-only writes (same pattern as
+   counterparties).
+
+3. Historical-load could optionally grow a `historical.variants` handler
+   for bulk catalogue imports (one-off migrations of an existing variant
+   catalogue from a spreadsheet). Same CSV + dry-run/commit shape as the
+   existing handlers.
+
+**Priority**: same framing as users/roles. Low for the operational system
+(catalogue is stable); should be addressed if/when a regular cadence of
+variant changes becomes operational reality. Stakeholder decision for
+Theresa alongside the other deferred admin surfaces. No frontend
+placeholder needed currently since there is no nav entry for variants
+(unlike users/roles which had dead-link nav entries; variants have no
+catalogue nav, the existing products list at `/inventory/units` flows
+through variant context as a join, not as a standalone catalogue screen).
+
 ### Admin cluster screens have no backend surface (users, roles)
 
 The `/admin/users` and `/admin/roles` nav entries (and the prompt 25 / prompt 26
