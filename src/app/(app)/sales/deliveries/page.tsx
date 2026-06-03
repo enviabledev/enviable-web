@@ -32,6 +32,7 @@ import { DeliveriesIcon, SearchIcon } from "@/components/icons";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatDateTime } from "@/lib/format";
+import { useMirrorFreshness } from "@/lib/sync/mirror/freshness";
 import { listByType } from "@/lib/sync/mirror/store";
 
 /** SO statuses that represent a delivery in motion. The dispatcher
@@ -140,6 +141,8 @@ export default function DeliveriesPage() {
   useEffect(() => setSearchDraft(params.search), [params.search]);
 
   const [rows, setRows] = useState<Row[] | null>(null);
+  const watermark = useMirrorFreshness();
+  const bootstrapping = watermark ? !watermark.historyComplete : true;
 
   const navigate = useCallback(
     (next: Partial<ReturnType<typeof readParams>>) => {
@@ -320,9 +323,25 @@ export default function DeliveriesPage() {
             </h2>
           </header>
           {visible.length === 0 ? (
-            <div className="px-4 py-8 text-center text-[12.5px] text-[var(--color-ink-500)]">
-              No deliveries match the current filters.
-            </div>
+            bootstrapping && rows.length === 0 ? (
+              <div className="px-4 py-10 text-center text-[12.5px] text-[var(--color-ink-500)]">
+                <div className="inline-flex items-center gap-2.5 mb-2">
+                  <span className="inline-block w-[10px] h-[10px] rounded-full bg-[var(--color-navy-700)] animate-pulse" />
+                  <span className="font-medium text-[var(--color-ink-700)]">
+                    Syncing your data...
+                  </span>
+                </div>
+                <div className="max-w-[480px] mx-auto">
+                  The local mirror is downloading from the server. Deliveries will appear here as
+                  soon as the initial sync finishes; this usually takes a few seconds and only
+                  happens on the first load.
+                </div>
+              </div>
+            ) : (
+              <div className="px-4 py-8 text-center text-[12.5px] text-[var(--color-ink-500)]">
+                No deliveries match the current filters.
+              </div>
+            )
           ) : (
             <table className="w-full text-[13px]">
               <thead>

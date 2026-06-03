@@ -386,6 +386,12 @@ ON CONFLICT (id) DO NOTHING;
 -- the delivery workflow actions are exercised on the SO detail page rather
 -- than via these rows. Idempotent on id (status / dispatchedAt /
 -- deliveredAt update on re-run, no compound shape changes needed).
+-- IMPORTANT: the spine column `updatedAt` is NOW() so the mirror's
+-- since-mode delta picks the rows up on the next reconcile tick after
+-- the fixtures are seeded. Domain timestamps (createdAt, dispatchedAt,
+-- deliveredAt) remain backdated for realistic data. This is the rule
+-- for any future fixture using a mirror-synced entity: backdate domain
+-- fields freely, but updatedAt MUST be NOW() so the mirror sees them.
 INSERT INTO sales_orders (
   id, "soNumber", "customerId", channel, status,
   subtotal, "discountTotal", "vatAmount", total, "paymentReceivedTotal",
@@ -394,19 +400,20 @@ INSERT INTO sales_orders (
   ('fixt-so-deliv-ready', 'SO-FIXT-DELIV-READY', 'fixt-customer-test',
    'WAREHOUSE_PICKUP', 'READY_FOR_DISPATCH',
    3000000.00, 0.00, 0.00, 3000000.00, 3000000.00,
-   NOW() - INTERVAL '3 days', NOW() - INTERVAL '1 day', NULL, NULL),
+   NOW() - INTERVAL '3 days', NOW(), NULL, NULL),
   ('fixt-so-deliv-dispatched', 'SO-FIXT-DELIV-DISP', 'fixt-customer-test',
    'WAREHOUSE_PICKUP', 'DISPATCHED',
    3500000.00, 0.00, 0.00, 3500000.00, 3500000.00,
-   NOW() - INTERVAL '5 days', NOW() - INTERVAL '6 hours',
+   NOW() - INTERVAL '5 days', NOW(),
    NOW() - INTERVAL '6 hours', NULL),
   ('fixt-so-deliv-delivered', 'SO-FIXT-DELIV-DONE', 'fixt-customer-test',
    'WAREHOUSE_PICKUP', 'DELIVERED',
    2800000.00, 0.00, 0.00, 2800000.00, 2800000.00,
-   NOW() - INTERVAL '7 days', NOW() - INTERVAL '2 hours',
+   NOW() - INTERVAL '7 days', NOW(),
    NOW() - INTERVAL '1 day', NOW() - INTERVAL '2 hours')
 ON CONFLICT (id) DO UPDATE
   SET status = EXCLUDED.status,
+      "updatedAt" = NOW(),
       "dispatchedAt" = EXCLUDED."dispatchedAt",
       "deliveredAt" = EXCLUDED."deliveredAt";
 
@@ -417,6 +424,9 @@ ON CONFLICT (id) DO UPDATE
 -- invoice is 1:1 to an SO via the unique salesOrderId; payments are many
 -- per SO. Idempotent on id; CONFLICT NOTHING on the inserts because the
 -- shape is fixed once seeded (no per-run-update fields).
+-- updatedAt = NOW() on every row so the mirror's since-mode delta picks
+-- them up on the next reconcile tick after seeding. Domain timestamps
+-- (issueDate, receivedAt, createdAt) remain backdated for realistic data.
 INSERT INTO invoices (
   id, "salesOrderId", "invoiceNumber",
   "issueDate", "vatRate", "vatAmount", total,
@@ -424,17 +434,17 @@ INSERT INTO invoices (
 ) VALUES
   ('fixt-inv-await',      'fixt-so-await-payment',    'INV-FIXT-AWAIT',
    NOW() - INTERVAL '1 day',  0.0750, 472500.00, 6772500.00,
-   NULL, NOW() - INTERVAL '1 day',  NOW() - INTERVAL '1 day'),
+   NULL, NOW() - INTERVAL '1 day',  NOW()),
   ('fixt-inv-deliv-r',    'fixt-so-deliv-ready',      'INV-FIXT-DELIV-R',
    NOW() - INTERVAL '3 days', 0.0000, 0.00,      3000000.00,
-   NULL, NOW() - INTERVAL '3 days', NOW() - INTERVAL '3 days'),
+   NULL, NOW() - INTERVAL '3 days', NOW()),
   ('fixt-inv-deliv-d',    'fixt-so-deliv-dispatched', 'INV-FIXT-DELIV-D',
    NOW() - INTERVAL '5 days', 0.0000, 0.00,      3500000.00,
-   NULL, NOW() - INTERVAL '5 days', NOW() - INTERVAL '5 days'),
+   NULL, NOW() - INTERVAL '5 days', NOW()),
   ('fixt-inv-deliv-done', 'fixt-so-deliv-delivered',  'INV-FIXT-DELIV-X',
    NOW() - INTERVAL '7 days', 0.0000, 0.00,      2800000.00,
-   NULL, NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days')
-ON CONFLICT (id) DO NOTHING;
+   NULL, NOW() - INTERVAL '7 days', NOW())
+ON CONFLICT (id) DO UPDATE SET "updatedAt" = NOW();
 
 INSERT INTO payments (
   id, "salesOrderId", "paymentMethodId", amount, "receivedAt",
@@ -445,32 +455,32 @@ INSERT INTO payments (
   ('fixt-pmt-await-1', 'fixt-so-await-payment',    'seed-pm-bank', 2000000.00,
    NOW() - INTERVAL '6 hours', 'TXN-PEND-001', 'MANUAL_UPLOAD',
    NULL, NULL, 'PENDING',   NULL,
-   NOW() - INTERVAL '6 hours', NOW() - INTERVAL '6 hours'),
+   NOW() - INTERVAL '6 hours', NOW()),
   ('fixt-pmt-ready-1', 'fixt-so-deliv-ready',      'seed-pm-pos',  3000000.00,
    NOW() - INTERVAL '2 days', 'POS-CFM-002',  'MANUAL_UPLOAD',
    (SELECT id FROM users WHERE email='confirmer-test@enviable.example' LIMIT 1),
    NULL, 'CONFIRMED', NULL,
-   NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days'),
+   NOW() - INTERVAL '2 days', NOW()),
   ('fixt-pmt-disp-1',  'fixt-so-deliv-dispatched', 'seed-pm-bank', 2000000.00,
    NOW() - INTERVAL '4 days', 'TXN-CFM-003a', 'MANUAL_UPLOAD',
    (SELECT id FROM users WHERE email='confirmer-test@enviable.example' LIMIT 1),
    NULL, 'CONFIRMED', NULL,
-   NOW() - INTERVAL '4 days', NOW() - INTERVAL '4 days'),
+   NOW() - INTERVAL '4 days', NOW()),
   ('fixt-pmt-disp-2',  'fixt-so-deliv-dispatched', 'seed-pm-bank', 1500000.00,
    NOW() - INTERVAL '3 days', 'TXN-CFM-003b', 'MANUAL_UPLOAD',
    (SELECT id FROM users WHERE email='confirmer-test@enviable.example' LIMIT 1),
    NULL, 'CONFIRMED', NULL,
-   NOW() - INTERVAL '3 days', NOW() - INTERVAL '3 days'),
+   NOW() - INTERVAL '3 days', NOW()),
   ('fixt-pmt-done-1',  'fixt-so-deliv-delivered',  'seed-pm-pos',  2800000.00,
    NOW() - INTERVAL '6 days', 'POS-CFM-004',  'MANUAL_UPLOAD',
    (SELECT id FROM users WHERE email='confirmer-test@enviable.example' LIMIT 1),
    NULL, 'CONFIRMED', NULL,
-   NOW() - INTERVAL '6 days', NOW() - INTERVAL '6 days'),
+   NOW() - INTERVAL '6 days', NOW()),
   ('fixt-pmt-done-2',  'fixt-so-deliv-delivered',  'seed-pm-bank',  500000.00,
    NOW() - INTERVAL '5 days', 'TXN-REJ-005',  'MANUAL_UPLOAD',
    NULL, NULL, 'REJECTED', NULL,
-   NOW() - INTERVAL '5 days', NOW() - INTERVAL '5 days')
-ON CONFLICT (id) DO NOTHING;
+   NOW() - INTERVAL '5 days', NOW())
+ON CONFLICT (id) DO UPDATE SET "updatedAt" = NOW();
 
 -- =============================================================================
 -- 10. COST-BLIND THROWAWAY USER (Stock Auditor: report.stocks + unit.read,

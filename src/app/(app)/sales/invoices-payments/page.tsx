@@ -35,6 +35,7 @@ import { PaymentsIcon, SearchIcon } from "@/components/icons";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatDateTime, formatNGN } from "@/lib/format";
+import { useMirrorFreshness } from "@/lib/sync/mirror/freshness";
 import { listByType } from "@/lib/sync/mirror/store";
 
 type Tab = "invoices" | "payments";
@@ -142,6 +143,8 @@ export default function InvoicesPaymentsPage() {
 
   const [invoices, setInvoices] = useState<InvoiceRow[] | null>(null);
   const [payments, setPayments] = useState<PaymentRow[] | null>(null);
+  const watermark = useMirrorFreshness();
+  const bootstrapping = watermark ? !watermark.historyComplete : true;
 
   const navigate = useCallback(
     (next: Partial<ReturnType<typeof readParams>>) => {
@@ -284,10 +287,61 @@ export default function InvoicesPaymentsPage() {
       />
 
       {params.tab === "invoices" ? (
-        <InvoicesPanel rows={invoices} params={params} />
+        <InvoicesPanel rows={invoices} params={params} bootstrapping={bootstrapping} />
       ) : (
-        <PaymentsPanel rows={payments} params={params} />
+        <PaymentsPanel rows={payments} params={params} bootstrapping={bootstrapping} />
       )}
+    </div>
+  );
+}
+
+/**
+ * Empty-state copy for mirror-only screens. The distinction matters:
+ *   - History still loading: "we are still downloading; come back in a moment"
+ *   - History complete + filtered to zero: "nothing matches your filters"
+ *   - History complete + no rows AT ALL: "nothing here yet"
+ *
+ * Without it, a first-time user sees "No invoices match the current filters."
+ * while the mirror is still bootstrapping, which reads as a broken page.
+ */
+function EmptyState({
+  bootstrapping,
+  filtered,
+  totalInMirror,
+  noun,
+}: {
+  bootstrapping: boolean;
+  filtered: number;
+  totalInMirror: number;
+  noun: string;
+}) {
+  if (bootstrapping && totalInMirror === 0) {
+    return (
+      <div className="px-4 py-10 text-center text-[12.5px] text-[var(--color-ink-500)]">
+        <div className="inline-flex items-center gap-2.5 mb-2">
+          <span className="inline-block w-[10px] h-[10px] rounded-full bg-[var(--color-navy-700)] animate-pulse" />
+          <span className="font-medium text-[var(--color-ink-700)]">
+            Syncing your data...
+          </span>
+        </div>
+        <div className="max-w-[480px] mx-auto">
+          The local mirror is downloading from the server. {noun} will appear here as soon as the
+          initial sync finishes; this usually takes a few seconds and only happens on the first
+          load.
+        </div>
+      </div>
+    );
+  }
+  if (filtered === 0 && totalInMirror > 0) {
+    return (
+      <div className="px-4 py-8 text-center text-[12.5px] text-[var(--color-ink-500)]">
+        No {noun} match the current filters.
+      </div>
+    );
+  }
+  return (
+    <div className="px-4 py-8 text-center text-[12.5px] text-[var(--color-ink-500)]">
+      No {noun} yet.
     </div>
   );
 }
@@ -405,9 +459,11 @@ function FiltersBar({
 function InvoicesPanel({
   rows,
   params,
+  bootstrapping,
 }: {
   rows: InvoiceRow[] | null;
   params: ReturnType<typeof readParams>;
+  bootstrapping: boolean;
 }) {
   if (!rows) {
     return <div className="py-10 text-center text-[var(--color-ink-500)]">Loading invoices...</div>;
@@ -439,9 +495,12 @@ function InvoicesPanel({
         </h2>
       </header>
       {filtered.length === 0 ? (
-        <div className="px-4 py-8 text-center text-[12.5px] text-[var(--color-ink-500)]">
-          No invoices match the current filters.
-        </div>
+        <EmptyState
+          bootstrapping={bootstrapping}
+          filtered={filtered.length}
+          totalInMirror={rows.length}
+          noun="invoices"
+        />
       ) : (
         <table className="w-full text-[13px]">
           <thead>
@@ -491,9 +550,11 @@ function InvoicesPanel({
 function PaymentsPanel({
   rows,
   params,
+  bootstrapping,
 }: {
   rows: PaymentRow[] | null;
   params: ReturnType<typeof readParams>;
+  bootstrapping: boolean;
 }) {
   if (!rows) {
     return <div className="py-10 text-center text-[var(--color-ink-500)]">Loading payments...</div>;
@@ -526,9 +587,12 @@ function PaymentsPanel({
         </h2>
       </header>
       {filtered.length === 0 ? (
-        <div className="px-4 py-8 text-center text-[12.5px] text-[var(--color-ink-500)]">
-          No payments match the current filters.
-        </div>
+        <EmptyState
+          bootstrapping={bootstrapping}
+          filtered={filtered.length}
+          totalInMirror={rows.length}
+          noun="payments"
+        />
       ) : (
         <table className="w-full text-[13px]">
           <thead>
