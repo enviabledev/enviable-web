@@ -186,6 +186,17 @@ async function findSiblingFallback(cache, req, key) {
   if (segs.length < 3) return null; // only fall back for 3+ segment dynamic routes
   const parentPath = "/" + segs.slice(0, -1).join("/") + "/";
 
+  // Build the normalized target URL for self-exclusion. For RSC keys we
+  // strip the __rsc__ suffix back off the path so we compare apples to
+  // apples against k.url.
+  const targetForSelf = (() => {
+    const u = new URL(targetUrlStr);
+    if (targetIsRsc) {
+      u.pathname = u.pathname.slice(0, -"__rsc__".length);
+    }
+    return u.toString();
+  })();
+
   const allKeys = await cache.keys();
   for (const k of allKeys) {
     const cand = new URL(k.url);
@@ -193,7 +204,15 @@ async function findSiblingFallback(cache, req, key) {
     const candIsRsc = candPath.endsWith("__rsc__");
     if (candIsRsc) candPath = candPath.slice(0, -"__rsc__".length);
     if (candIsRsc !== targetIsRsc) continue;
-    if (candPath === targetPath) continue;
+    // Don't serve our own exact URL back; the earlier cache.match would
+    // already have hit it. But a same-PATH candidate with a different
+    // query (e.g. /sales/price-lists/X?tier=A vs ?tier=B) IS a valid
+    // sibling, since the page-side useUrlLastSegment + useSearchParams
+    // re-read both the path id and the query at render time. Without
+    // this allowance, dynamic routes that differentiate on a query
+    // param fall through to the offline shell even when a same-path
+    // sibling is cached.
+    if (k.url === targetForSelf) continue;
     if (!candPath.startsWith(parentPath)) continue;
     if (candPath.split("/").filter(Boolean).length !== segs.length) continue;
     const fallback = await cache.match(k);

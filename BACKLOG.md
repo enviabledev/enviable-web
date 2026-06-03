@@ -43,28 +43,45 @@ can find the SO id from the return id.
 5. Surface returns context on the sales-order detail page if that's the
    model.
 
-### Non-cost-user fixture password not activated
+### Verification-fixture password activation (clustered)
 
-The dev-fixtures seed `fixt-user-costblind` (Cost Blind Test, role: Stock
-Auditor) for cost-gating adversarial verification, but the row's
-passwordHash is `$argon2id$PLACEHOLDER_RESET_REQUIRED` until the backend's
-`npm run set-password -- costblind-test@enviable.example <pw>` script is
-run from `enviable-system`. With the password unset, login fails, so the
-spare-parts cost-gating Playwright test verifies absence by manipulating
-the mirror row directly (deleting `landedCostPerUnit` and re-rendering)
-rather than by logging in as a no-cost-view user.
+Several throwaway dev-fixture users are seeded with the placeholder hash
+`$argon2id$PLACEHOLDER_RESET_REQUIRED` and need a single backend
+`npm run set-password` call before they can drive Playwright verifications.
+Grouped here so the activation work is one pass rather than rediscovered
+round by round.
 
-The mirror-manipulation test exercises the same render path the absent
-field would hit, so the behavioural check is intact, but the true
-two-user adversarial test (the prompt's "cost present for cost user,
-absent for non-cost user, assert both cases") is not exercised end-to-end.
+**Fixture users awaiting activation:**
 
-**Action when picked up:** run the backend script once to activate the
-fixture user (the existing `Password123!` is fine for dev), then add a
-second login pass in `test-spare-parts.mjs` (or a parallel test) that
-logs in as costblind and asserts the landed-cost column is absent from
-the rendered table. Same pattern would apply to any future cost-gated
-screen.
+| Email                                | Fixture id              | Role                | Unblocks |
+|--------------------------------------|-------------------------|---------------------|----------|
+| `costblind-test@enviable.example`    | fixt-user-costblind     | Stock Auditor       | true two-user cost-gating assertion (currently verified via mirror manipulation in `test-spare-parts.mjs` scenario D) |
+| `confirmer-test@enviable.example`    | fixt-user-confirmer     | Sales Manager       | `pricelist.manage` supersede flow + SO confirmer flow (both pending) |
+
+**Activation command** (run once from `enviable-system`):
+```
+npm run set-password -- <email> Password123!
+```
+
+**Action when picked up:** run the activation for each fixture user in
+one pass, then any prior test that worked around the gap can be updated
+to drive the true two-user / manage-capable flow directly. New verification
+fixtures discovered later should be added to this table rather than as
+sibling entries, so the activation step stays clusterable.
+
+### Throwaway fixtures are the verification subjects, not seeded named accounts
+
+Convention banked 2026-06-03. Playwright tests log in as throwaway dev-fixture
+users (`*-test@enviable.example`) for any action that writes audit-attributable
+state (price supersedes, SO confirmations, conflict resolutions, etc.). Seeded
+named accounts (`theresa@`, `ikenna@`, `kelechi@`, `daniel@`, `itadmin@`)
+represent real people in the organization and are reserved for those people's
+own sessions; using them as test identities pollutes the audit log so the
+"who did what" trail becomes less trustworthy.
+
+Read-only Playwright assertions (mirror download, list rendering, navigation)
+can use any user whose permissions match, including seeded named accounts,
+because reads do not write audit entries. Writes go through throwaway fixtures.
 
 ### No SparePartMovement writer outside historical-load
 
@@ -91,6 +108,22 @@ movement-history UX:
 **Action when picked up:** none on the frontend until the backend lands
 a consumption-writing path. Surface here so it is visible when the
 spare-parts inventory operations story moves forward.
+
+### Spare-parts catalogue management: bulk-only
+
+The spare-parts catalogue is read-only on the screen because the backend's
+spare-parts controller exposes only GET endpoints. The only write path is
+`/api/historical-load/spare-parts` (admin bulk-CSV import, gated
+`historicalload.run`), which is not a "regular add-a-SKU" flow.
+
+**Action when picked up:** if the business wants in-app spare-part
+catalogue management (add a new SKU, edit an existing one's name /
+description / status), the backend gets the create/update endpoints
+first (POST /api/spare-parts, PATCH /api/spare-parts/:id, gated
+something like `sparepart.manage`), and then the screen adds the
+management actions as state-and-permission-gated, confirmed-update
+forms following the existing pattern. No frontend action until the
+backend lands the endpoints.
 
 ### TRANSFER referenceType: defined but unwritten
 

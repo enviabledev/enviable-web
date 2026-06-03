@@ -2,6 +2,14 @@ export { apiFetch, buildQuery, type ApiResult } from "./client";
 export { listUnits, getUnit } from "./units";
 export { listStockMovements } from "./stock-movements";
 export { listSpareParts, getSparePart } from "./spare-parts";
+export { listPrices, setPrice } from "./price-lists";
+export type {
+  PriceListEntry,
+  PriceListQuery,
+  PriceListVariantSummary,
+  PriceListTierSummary,
+  SetPriceBody,
+} from "./types";
 export {
   listAssemblyJobs,
   getAssemblyJob,

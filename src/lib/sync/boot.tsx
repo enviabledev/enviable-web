@@ -113,6 +113,18 @@ const DYNAMIC_ROUTES_TO_WARM: DynamicRouteWarmEntry[] = [
     entity: "sparePart",
     hrefFor: (p) => (typeof p.id === "string" ? `/inventory/spare-parts/${p.id}` : null),
   },
+  {
+    // Price-list detail keys on variantId in the path and tierId in the
+    // query; the SW caches one URL per variantId (regardless of tier),
+    // and the page reads both from the URL + query at render time. The
+    // sibling-fallback hits at the path level, which is the dynamic-route
+    // shape we want here.
+    entity: "priceListEntry",
+    hrefFor: (e) =>
+      typeof e.productVariantId === "string" && typeof e.customerTierId === "string"
+        ? `/sales/price-lists/${e.productVariantId}?tier=${e.customerTierId}`
+        : null,
+  },
 ];
 
 /**

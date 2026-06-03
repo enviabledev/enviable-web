@@ -252,3 +252,51 @@ export type SparePartMovementEntry = {
 export type SparePartDetail = SparePartListRow & {
   movements: SparePartMovementEntry[];
 };
+
+/**
+ * Price-list entry. The backend models prices as tier-bound and temporal:
+ *   - One row per (productVariantId, customerTierId, effectiveWindow).
+ *   - effectiveTo IS NULL identifies the currently-active price for that
+ *     (variant, tier) tuple; rows with effectiveTo set are history.
+ *   - The I-5 invariant ("one active price per variant+tier") is enforced
+ *     by a partial unique index plus a transactional close+open in
+ *     pricing.service.ts setPrice(); a concurrent supersede returns
+ *     HTTP 409 with the canonical message.
+ *
+ * The price field is the SELLING price, not cost data, so it is visible to
+ * all users with pricelist.read; no costdata.view gating here.
+ */
+export type PriceListVariantSummary = {
+  id: string;
+  supplierSkuCode: string;
+};
+
+export type PriceListTierSummary = {
+  id: string;
+  name: string;
+};
+
+export type PriceListEntry = {
+  id: string;
+  productVariantId: string;
+  customerTierId: string;
+  price: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  setById: string | null;
+  updatedAt: string;
+  productVariant: PriceListVariantSummary;
+  customerTier: PriceListTierSummary;
+};
+
+export type PriceListQuery = {
+  variantId?: string;
+  tierId?: string;
+  includeClosed?: boolean;
+};
+
+export type SetPriceBody = {
+  productVariantId: string;
+  customerTierId: string;
+  price: string;
+};
