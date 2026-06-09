@@ -111,10 +111,10 @@ DELETE FROM counterparties WHERE id LIKE 'fixt-cp-%';
 --    setup-fixtures.sql clears deletedAt back to NULL on the same id. Also
 --    detach the user_roles so re-applying setup creates a fresh role link.
 DELETE FROM user_roles
-WHERE "userId" IN ('fixt-user-costblind', 'fixt-user-salesofficer', 'fixt-user-confirmer', 'fixt-user-procurement', 'fixt-user-auditor');
+WHERE "userId" IN ('fixt-user-costblind', 'fixt-user-salesofficer', 'fixt-user-confirmer', 'fixt-user-procurement', 'fixt-user-auditor', 'fixt-user-md');
 UPDATE users
 SET "deletedAt" = NOW(), "updatedAt" = NOW()
-WHERE id IN ('fixt-user-costblind', 'fixt-user-salesofficer', 'fixt-user-confirmer', 'fixt-user-procurement', 'fixt-user-auditor')
+WHERE id IN ('fixt-user-costblind', 'fixt-user-salesofficer', 'fixt-user-confirmer', 'fixt-user-procurement', 'fixt-user-auditor', 'fixt-user-md')
   AND "deletedAt" IS NULL;
 
 COMMIT;

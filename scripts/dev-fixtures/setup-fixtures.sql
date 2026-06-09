@@ -594,6 +594,30 @@ FROM roles r WHERE r.name = 'Procurement Officer'
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
+-- 11b. DEMO MANAGING DIRECTOR USER. The Managing Director role exists in the
+--      seed (broadest read + approval permissions, including user.read /
+--      role.read / approval.read / costdata.view / every report), but no
+--      seeded user holds it. For a demo where the presenter needs to log in
+--      as every role, this fills the gap. Same activation pattern as the
+--      other throwaway users (placeholder hash, set via `npm run set-password`
+--      from enviable-system).
+-- =============================================================================
+INSERT INTO users (id, "fullName", email, "passwordHash", status, "createdAt", "updatedAt")
+VALUES (
+  'fixt-user-md', 'Demo Managing Director', 'md-demo@enviable.example',
+  '$argon2id$PLACEHOLDER_RESET_REQUIRED', 'ACTIVE',
+  NOW(), NOW()
+)
+ON CONFLICT (id) DO UPDATE
+  SET "deletedAt" = NULL,
+      "updatedAt" = NOW();
+
+INSERT INTO user_roles (id, "userId", "roleId", "assignedAt")
+SELECT 'fixt-userrole-md', 'fixt-user-md', r.id, NOW()
+FROM roles r WHERE r.name = 'Managing Director'
+ON CONFLICT (id) DO NOTHING;
+
+-- =============================================================================
 -- 12. PROFORMA INVOICE FIXTURES across all four statuses for the cross-supplier
 --     /procurement/proforma-invoices verification. Two existing fixture POs,
 --     two PI revisions each, statuses {SUPERSEDED, ACTIVE} on po-test (the
