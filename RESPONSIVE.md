@@ -232,8 +232,29 @@ consistent shorthand on mobile and the full label at `sm+` (two spans,
 `sm:hidden` / `hidden sm:inline`; full value also on `title`). The mapping is a
 fixed table so the same input always yields the same output across clusters
 (e.g. `READY_FOR_DISPATCH` -> "Ready", `PAYMENT_RECEIVED` -> "Received"). See
-`shortSoStatus` in `SoStatusPill.tsx`; each status enum gets its own map as its
-cluster is done. Plus mobile table cells use `px-2 sm:px-3.5` to reclaim margin.
+`shortSoStatus` in `SoStatusPill.tsx`. Plus mobile table cells use
+`px-2 sm:px-3.5` to reclaim margin; combined with column-tiering and identity
+truncation, that padding rule is part of what makes Tier 1 fit at 375.
+
+**Per-entity propagation:** there is ONE status/type pill component per entity,
+each with its own FIXED (not computed) shorthand map following the SoStatusPill
+shape (mobile short span `sm:hidden` + full span `hidden sm:inline` + full value
+on `title`). As each cluster is done, give its pills the shorthand:
+- Inventory: `UnitStatusPill`, `MovementTypePill`, `AssemblyStatusPill`
+  (+ a spare-part status pill if one exists).
+- Procurement: the proforma status pill, counterparty type pill.
+
+A new list table added later must apply ALL of: column-tier classes, identity
+truncation, the entity's status-pill shorthand, `px-2 sm:px-3.5` padding, the
+stacked filter form, and the `overflow-x-auto` table container.
+
+## Running the responsive suite
+
+`npm run e2e:responsive` runs the shell spec + every `*-responsive.spec.ts`
+(auto-includes new clusters by filename match). Each cluster spec asserts, at
+375/768/1280: no document overflow, Tier-1-fits-without-table-scroll at 375,
+and desktop regression-clean. Needs backend :3000 + dev :3100 + the broad-read
+fixture user (md-demo). Prompt 29 closes when this is green across all clusters.
 
 ### No-info-dropped verification (per table)
 Before a table hides a column at mobile, confirm that column's field is
