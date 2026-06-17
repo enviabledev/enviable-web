@@ -15,6 +15,7 @@ import {
   type ShipmentStatus,
 } from "@/lib/api";
 import { formatDateShort } from "@/lib/format";
+import { COL } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
 
 // Mirror's shipment bucket stores the flat row (no nested manifestLines);
@@ -128,7 +129,7 @@ export default function ShipmentsListPage() {
 
   return (
     <div className="max-w-[1480px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] flex items-center gap-1.5 mb-1.5">
             <span>Procurement</span>
@@ -150,7 +151,7 @@ export default function ShipmentsListPage() {
         </div>
       </header>
 
-      <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] p-3.5 mb-3.5 grid grid-cols-[1fr_1fr_auto] gap-3 items-end">
+      <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] p-3.5 mb-3.5 grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 sm:items-end">
         <div className="flex flex-col gap-1 min-w-0">
           <span className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)]">
             Status
@@ -194,17 +195,17 @@ export default function ShipmentsListPage() {
         </button>
       </div>
 
-      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
+      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
             <tr>
               <Th>Reference</Th>
-              <Th>Purchase Order</Th>
+              <Th className={COL.sm}>Purchase Order</Th>
               <Th>Status</Th>
-              <Th>Vessel</Th>
-              <Th>BOL</Th>
-              <Th>ETA</Th>
-              <Th>Cleared</Th>
+              <Th className={COL.lg}>Vessel</Th>
+              <Th className={COL.lg}>BOL</Th>
+              <Th className={COL.md}>ETA</Th>
+              <Th className={COL.md}>Cleared</Th>
               <Th align="right">Manifest Lines</Th>
             </tr>
           </thead>
@@ -243,12 +244,13 @@ export default function ShipmentsListPage() {
                   <Td>
                     <Link
                       href={`/procurement/shipments/${row.id}`}
-                      className="font-mono text-[12px] text-[var(--color-navy-700)] hover:underline tracking-[0.02em]"
+                      title={row.shipmentReference}
+                      className="block max-w-[104px] sm:max-w-none truncate font-mono text-[12px] text-[var(--color-navy-700)] hover:underline tracking-[0.02em]"
                     >
                       {row.shipmentReference}
                     </Link>
                   </Td>
-                  <Td>
+                  <Td className={COL.sm}>
                     <span className="font-mono text-[11.5px] text-[var(--color-ink-700)]">
                       {row.purchaseOrderId}
                     </span>
@@ -256,17 +258,17 @@ export default function ShipmentsListPage() {
                   <Td>
                     <ShipmentStatusPill status={row.status} />
                   </Td>
-                  <Td>{row.vesselName ?? <span className="text-[var(--color-ink-400)]">--</span>}</Td>
-                  <Td>
+                  <Td className={COL.lg}>{row.vesselName ?? <span className="text-[var(--color-ink-400)]">--</span>}</Td>
+                  <Td className={COL.lg}>
                     {row.billOfLadingNumber ? (
                       <span className="font-mono text-[11.5px]">{row.billOfLadingNumber}</span>
                     ) : (
                       <span className="text-[var(--color-ink-400)]">--</span>
                     )}
                   </Td>
-                  <Td>{row.eta ? formatDateShort(row.eta) : <span className="text-[var(--color-ink-400)]">--</span>}</Td>
-                  <Td>{row.clearedAt ? formatDateShort(row.clearedAt) : <span className="text-[var(--color-ink-400)]">--</span>}</Td>
-                  <td className="px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[var(--color-ink-900)]">
+                  <Td className={COL.md}>{row.eta ? formatDateShort(row.eta) : <span className="text-[var(--color-ink-400)]">--</span>}</Td>
+                  <Td className={COL.md}>{row.clearedAt ? formatDateShort(row.clearedAt) : <span className="text-[var(--color-ink-400)]">--</span>}</Td>
+                  <td className="px-2 sm:px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[var(--color-ink-900)]">
                     {row.manifestLines.length}
                   </td>
                 </tr>
@@ -278,18 +280,18 @@ export default function ShipmentsListPage() {
   );
 }
 
-function Th({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" }) {
+function Th({ children, align = "left", className = "" }: { children: React.ReactNode; align?: "left" | "right"; className?: string }) {
   return (
     <th
-      className={`font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${
+      className={`font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${
         align === "right" ? "text-right" : "text-left"
-      }`}
+      } ${className}`}
     >
       {children}
     </th>
   );
 }
 
-function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] whitespace-nowrap">{children}</td>;
+function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <td className={`px-2 sm:px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] whitespace-nowrap ${className}`}>{children}</td>;
 }

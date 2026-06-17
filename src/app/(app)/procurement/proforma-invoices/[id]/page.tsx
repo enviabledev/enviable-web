@@ -43,6 +43,7 @@ import {
 import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { proformaInvoiceDoc } from "@/lib/invoices/pdf";
+import { COL, DETAIL_GRID } from "@/lib/responsive";
 import { useConnectivity } from "@/lib/sync/connectivity";
 import { formatDateTime, formatNGN } from "@/lib/format";
 import { getById, listByType } from "@/lib/sync/mirror/store";
@@ -76,6 +77,14 @@ type Reconstructed = {
 
 const STATUS_LABEL: Record<ProformaInvoiceStatus, string> = {
   PENDING_REVIEW: "Pending review",
+  ACTIVE: "Active",
+  SUPERSEDED: "Superseded",
+  REJECTED: "Rejected",
+};
+
+// Fixed mobile shorthand (status-pill standard, RESPONSIVE.md).
+const SHORT_LABEL: Record<ProformaInvoiceStatus, string> = {
+  PENDING_REVIEW: "Pending",
   ACTIVE: "Active",
   SUPERSEDED: "Superseded",
   REJECTED: "Rejected",
@@ -322,7 +331,7 @@ export default function ProformaInvoiceDetailPage() {
           <span className="text-[var(--color-ink-900)] font-medium font-mono">{pi.piNumber}</span>
         </div>
         <div className="flex items-center gap-3 flex-wrap mb-1">
-          <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em] font-mono">
+          <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em] font-mono break-all">
             {pi.piNumber}
           </h1>
           <span className="text-[12px] text-[var(--color-ink-500)] font-medium">
@@ -400,20 +409,20 @@ function ActionBar({
   const disabled = connState === "offline" || action.status === "submitting";
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Review</h2>
         <span className="text-[11px] text-[var(--color-ink-500)]">
           Online-only. Approving atomically supersedes any prior active PI for this PO (I-5).
         </span>
       </header>
       {action.status === "idle" && (
-        <div className="px-5 py-4 flex items-center gap-2 flex-wrap">
+        <div className="px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:flex-wrap">
           <button
             type="button"
             onClick={() => onConfirm("approve")}
             disabled={disabled}
             data-testid="approve-button"
-            className="h-[32px] px-4 rounded-[3px] bg-[var(--color-success-700)] text-white text-[12.5px] font-medium disabled:opacity-50"
+            className="h-[32px] px-4 rounded-[3px] bg-[var(--color-success-700)] text-white text-[12.5px] font-medium disabled:opacity-50 w-full sm:w-auto"
           >
             Approve
           </button>
@@ -422,12 +431,12 @@ function ActionBar({
             onClick={() => onConfirm("reject")}
             disabled={disabled}
             data-testid="reject-button"
-            className="h-[32px] px-4 rounded-[3px] border border-[var(--color-danger-700)] bg-white text-[var(--color-danger-700)] text-[12.5px] font-medium disabled:opacity-50"
+            className="h-[32px] px-4 rounded-[3px] border border-[var(--color-danger-700)] bg-white text-[var(--color-danger-700)] text-[12.5px] font-medium disabled:opacity-50 w-full sm:w-auto"
           >
             Reject
           </button>
           {connState === "offline" && (
-            <span className="text-[11.5px] text-[var(--color-warning-700)] ml-2">
+            <span className="text-[11.5px] text-[var(--color-warning-700)] sm:ml-2">
               Disabled offline. Reconnect to review.
             </span>
           )}
@@ -473,12 +482,12 @@ function ActionBar({
               </>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <button
               type="button"
               onClick={() => onRun(action.kind)}
               data-testid={`${action.kind}-confirm`}
-              className="h-[32px] px-4 rounded-[3px] text-white text-[12.5px] font-medium inline-flex items-center"
+              className="h-[32px] px-4 rounded-[3px] text-white text-[12.5px] font-medium inline-flex items-center justify-center w-full sm:w-auto"
               style={{
                 background:
                   action.kind === "approve"
@@ -491,7 +500,7 @@ function ActionBar({
             <button
               type="button"
               onClick={onCancel}
-              className="h-[32px] px-3 rounded-[3px] border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] text-[12.5px] font-medium hover:bg-[var(--color-ink-100)]"
+              className="h-[32px] px-3 rounded-[3px] border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] text-[12.5px] font-medium hover:bg-[var(--color-ink-100)] w-full sm:w-auto"
             >
               Cancel
             </button>
@@ -545,10 +554,10 @@ function ActionBar({
 function PiTotalsCard({ pi, goodsTotal }: { pi: ProformaInvoice; goodsTotal: number }) {
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)]">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)]">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">CIF totals</h2>
       </header>
-      <div className="px-5 py-4 grid grid-cols-4 gap-6">
+      <div className="px-4 sm:px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
         <div>
           <div className="text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] mb-1">Goods</div>
           <div className="text-[16px] font-semibold text-[var(--color-ink-900)] font-mono">
@@ -587,22 +596,23 @@ function PiLinesCard({
 }) {
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Line items</h2>
         <span className="text-[11px] text-[var(--color-ink-500)]">{pi.lines.length} lines</span>
       </header>
       {pi.lines.length === 0 ? (
-        <div className="px-5 py-8 text-center text-[12.5px] text-[var(--color-ink-500)]">
+        <div className="px-4 sm:px-5 py-8 text-center text-[12.5px] text-[var(--color-ink-500)]">
           No line items on this proforma invoice.
         </div>
       ) : (
+        <div className="overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
             <tr>
               <Th>Variant</Th>
-              <Th>SKU</Th>
+              <Th className={COL.sm}>SKU</Th>
               <Th align="right">Quantity</Th>
-              <Th align="right">Unit price</Th>
+              <Th align="right" className={COL.md}>Unit price</Th>
               <Th align="right">Line total</Th>
             </tr>
           </thead>
@@ -614,8 +624,12 @@ function PiLinesCard({
                   key={l.id}
                   className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] last:border-b-0`}
                 >
-                  <Td>{variantLabel(v, l.productVariantId)}</Td>
-                  <Td mono>
+                  <Td>
+                    <span className="block max-w-[160px] sm:max-w-none truncate" title={variantLabel(v, l.productVariantId)}>
+                      {variantLabel(v, l.productVariantId)}
+                    </span>
+                  </Td>
+                  <Td mono className={COL.sm}>
                     {v?.supplierSkuCode ?? (
                       <span className="text-[var(--color-ink-400)] text-[11.5px]">{l.productVariantId}</span>
                     )}
@@ -623,7 +637,7 @@ function PiLinesCard({
                   <Td align="right" mono>
                     {l.quantity.toLocaleString()}
                   </Td>
-                  <Td align="right" mono>
+                  <Td align="right" mono className={COL.md}>
                     {formatNGN(l.unitPrice)}
                   </Td>
                   <Td align="right" mono>
@@ -634,6 +648,7 @@ function PiLinesCard({
             })}
           </tbody>
         </table>
+        </div>
       )}
     </section>
   );
@@ -648,11 +663,11 @@ function PiMetaCard({
 }) {
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Metadata</h2>
-        <span className="text-[11px] text-[var(--color-ink-500)] font-mono">{pi.id}</span>
+        <span className="text-[11px] text-[var(--color-ink-500)] font-mono break-all">{pi.id}</span>
       </header>
-      <dl className="text-[12.5px] grid grid-cols-2 gap-x-12 px-5 py-3">
+      <dl className="text-[12.5px] grid grid-cols-1 sm:grid-cols-2 gap-x-12 px-4 sm:px-5 py-3">
         <Row label="Issue date">
           {pi.issueDate ? formatDateTime(pi.issueDate) : <span className="text-[var(--color-ink-400)]">--</span>}
         </Row>
@@ -688,10 +703,12 @@ function StatusPill({ status }: { status: ProformaInvoiceStatus }) {
   const tone = STATUS_TONE[status];
   return (
     <span
-      className={`inline-flex items-center gap-1 h-[20px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] ${tone.bg} ${tone.fg}`}
+      title={STATUS_LABEL[status]}
+      className={`inline-flex items-center gap-1 h-[20px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] whitespace-nowrap ${tone.bg} ${tone.fg}`}
     >
       <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${tone.dot}`} aria-hidden />
-      {STATUS_LABEL[status]}
+      <span className="sm:hidden">{SHORT_LABEL[status]}</span>
+      <span className="hidden sm:inline">{STATUS_LABEL[status]}</span>
     </span>
   );
 }
@@ -704,7 +721,7 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[160px_1fr] gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0">
+    <div className={`${DETAIL_GRID} gap-1 sm:gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0`}>
       <dt className="text-[12px] font-medium text-[var(--color-ink-500)]">{label}</dt>
       <dd className="m-0 text-[var(--color-ink-900)]">{children}</dd>
     </div>
@@ -714,13 +731,15 @@ function Row({
 function Th({
   children,
   align = "left",
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
+  className?: string;
 }) {
   return (
     <th
-      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]`}
+      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] ${className}`}
     >
       {children}
     </th>
@@ -731,16 +750,18 @@ function Td({
   children,
   align = "left",
   mono = false,
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
   mono?: boolean;
+  className?: string;
 }) {
   return (
     <td
-      className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap text-${align} ${
+      className={`px-2 sm:px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap text-${align} ${
         mono ? "font-mono text-[12px] tracking-[0.02em]" : ""
-      }`}
+      } ${className}`}
     >
       {children}
     </td>

@@ -585,7 +585,7 @@ export default function ReceiveUnitsPage() {
           />
         ))}
 
-        <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-4 py-3 flex items-center justify-between">
+        <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="text-[12.5px] text-[var(--color-ink-700)]">
             <span className="font-semibold text-[var(--color-ink-900)] tabular-nums">{totalRowsWithBoth}</span>{" "}
             pair{totalRowsWithBoth === 1 ? "" : "s"} ready to submit
@@ -595,10 +595,10 @@ export default function ReceiveUnitsPage() {
               </span>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Link
               href={resolveAction ? "/sync/conflicts" : `/procurement/shipments/${shipment.id}`}
-              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] hover:bg-[var(--color-ink-100)] inline-flex items-center"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] hover:bg-[var(--color-ink-100)] inline-flex items-center justify-center"
             >
               Cancel
             </Link>
@@ -610,7 +610,7 @@ export default function ReceiveUnitsPage() {
                 submit.status === "queued-resolved" ||
                 totalRowsWithBoth === 0
               }
-              className="h-8 px-4 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center"
+              className="h-8 px-4 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center justify-center"
               style={{ background: "var(--color-navy-700)" }}
             >
               {submit.status === "submitting"
@@ -823,14 +823,14 @@ function LineBlock({
 
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-4">
-      <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex items-center justify-between gap-3">
+      <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="min-w-0">
           <h3 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)] truncate">
             {variantLabel}
           </h3>
           <div className="font-mono text-[10.5px] text-[var(--color-ink-500)] mt-0.5">{sku}</div>
         </div>
-        <div className="flex items-center gap-5 text-[12px] flex-shrink-0">
+        <div className="flex items-center flex-wrap gap-x-5 gap-y-2 text-[12px] sm:flex-shrink-0">
           <Counter label="Declared" value={line.quantityDeclared} />
           <Counter label="Already received" value={line.quantityReceived} />
           <Counter label="Outstanding" value={outstanding} tone={outstanding === 0 ? "muted" : "default"} />
@@ -853,7 +853,8 @@ function LineBlock({
           No rows for this line. Click + Add row to enter units.
         </div>
       ) : (
-        <table className="w-full text-[13px]">
+        <div className="overflow-x-auto">
+        <table className="w-full text-[13px] min-w-[480px]">
           <thead>
             <tr>
               <th className="w-[40px] bg-[var(--color-ink-100)] border-b border-[var(--color-border-default)]" />
@@ -941,6 +942,7 @@ function LineBlock({
             })}
           </tbody>
         </table>
+        </div>
       )}
     </section>
   );

@@ -32,6 +32,7 @@ import {
   type CounterpartyType,
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
+import { COL, FILTER_CONTROL, FILTER_FORM } from "@/lib/responsive";
 import { useMirrorFreshness } from "@/lib/sync/mirror/freshness";
 import { listByType } from "@/lib/sync/mirror/store";
 
@@ -44,6 +45,19 @@ const TYPE_LABEL: Record<CounterpartyType, string> = {
   SUPPLIER: "Supplier",
   CLEARING_AGENT: "Clearing agent",
   FREIGHT_FORWARDER: "Freight forwarder",
+  INSURANCE_COMPANY: "Insurance",
+  BANK: "Bank",
+};
+
+// Fixed mobile shorthand for the type pill so the long labels (Freight
+// forwarder, Insurance company, Clearing agent) do not push Tier 1 past
+// 375px. Same SoStatusPill two-span shape; full label stays on title +
+// the sm+ span (RESPONSIVE.md status/type-pill rule).
+const TYPE_SHORT: Record<CounterpartyType, string> = {
+  MANUFACTURER: "Mfr",
+  SUPPLIER: "Supplier",
+  CLEARING_AGENT: "Clearing",
+  FREIGHT_FORWARDER: "Forwarder",
   INSURANCE_COMPANY: "Insurance",
   BANK: "Bank",
 };
@@ -156,7 +170,7 @@ export default function CounterpartiesPage() {
 
   return (
     <div className="max-w-[1480px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] mb-1.5">Procurement / Suppliers &amp; counterparties</div>
           <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em] flex items-center gap-2">
@@ -185,14 +199,14 @@ export default function CounterpartiesPage() {
           e.preventDefault();
           navigate({ search: searchDraft });
         }}
-        className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex items-end gap-3 flex-wrap"
+        className={`bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 ${FILTER_FORM}`}
       >
         <Field label="Type">
           <select
             value={params.type}
             onChange={(e) => navigate({ type: e.target.value as CounterpartyType | "" })}
             data-testid="filter-type"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] ${FILTER_CONTROL}`}
           >
             <option value="">All types</option>
             {COUNTERPARTY_TYPE.map((t) => (
@@ -207,7 +221,7 @@ export default function CounterpartiesPage() {
             value={params.status}
             onChange={(e) => navigate({ status: e.target.value as CounterpartyStatus | "" })}
             data-testid="filter-status"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] ${FILTER_CONTROL}`}
           >
             <option value="">All statuses</option>
             <option value="ACTIVE">Active</option>
@@ -222,7 +236,7 @@ export default function CounterpartiesPage() {
               value={searchDraft}
               onChange={(e) => setSearchDraft(e.target.value)}
               placeholder="e.g. Lagos Freight"
-              className="h-[28px] w-[260px] pl-6 pr-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+              className="h-[28px] w-full sm:w-[260px] pl-6 pr-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
             />
           </div>
         </Field>
@@ -279,46 +293,49 @@ export default function CounterpartiesPage() {
               </div>
             )
           ) : (
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr>
-                  <Th>Name</Th>
-                  <Th>Type</Th>
-                  <Th>Status</Th>
-                  <Th>Contact</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((r, i) => (
-                  <tr
-                    key={r.id}
-                    className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] hover:bg-[var(--color-navy-50)]`}
-                  >
-                    <Td>
-                      <Link
-                        href={`/procurement/counterparties/${r.id}`}
-                        className="text-[var(--color-navy-700)] hover:underline font-medium"
-                      >
-                        {r.name}
-                      </Link>
-                    </Td>
-                    <Td>
-                      <TypePill type={r.type} />
-                    </Td>
-                    <Td>
-                      <StatusPill status={r.status} />
-                    </Td>
-                    <Td>
-                      {r.hasContact ? (
-                        <span className="text-[11.5px] text-[var(--color-ink-700)]">on file</span>
-                      ) : (
-                        <span className="text-[11.5px] text-[var(--color-ink-400)]">--</span>
-                      )}
-                    </Td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr>
+                    <Th>Name</Th>
+                    <Th>Type</Th>
+                    <Th>Status</Th>
+                    <Th className={COL.sm}>Contact</Th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {visible.map((r, i) => (
+                    <tr
+                      key={r.id}
+                      className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] hover:bg-[var(--color-navy-50)]`}
+                    >
+                      <Td>
+                        <Link
+                          href={`/procurement/counterparties/${r.id}`}
+                          title={r.name}
+                          className="text-[var(--color-navy-700)] hover:underline font-medium block max-w-[180px] sm:max-w-none truncate"
+                        >
+                          {r.name}
+                        </Link>
+                      </Td>
+                      <Td>
+                        <TypePill type={r.type} />
+                      </Td>
+                      <Td>
+                        <StatusPill status={r.status} />
+                      </Td>
+                      <Td className={COL.sm}>
+                        {r.hasContact ? (
+                          <span className="text-[11.5px] text-[var(--color-ink-700)]">on file</span>
+                        ) : (
+                          <span className="text-[11.5px] text-[var(--color-ink-400)]">--</span>
+                        )}
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
       )}
@@ -328,8 +345,12 @@ export default function CounterpartiesPage() {
 
 function TypePill({ type }: { type: CounterpartyType }) {
   return (
-    <span className="inline-flex items-center h-[18px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] bg-[var(--color-ink-100)] text-[var(--color-ink-700)]">
-      {TYPE_LABEL[type]}
+    <span
+      title={TYPE_LABEL[type]}
+      className="inline-flex items-center h-[18px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] whitespace-nowrap bg-[var(--color-ink-100)] text-[var(--color-ink-700)]"
+    >
+      <span className="sm:hidden">{TYPE_SHORT[type]}</span>
+      <span className="hidden sm:inline">{TYPE_LABEL[type]}</span>
     </span>
   );
 }
@@ -350,7 +371,7 @@ function StatusPill({ status }: { status: CounterpartyStatus }) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1">
+    <label className="flex flex-col gap-1 w-full sm:w-auto">
       <span className="text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">
         {label}
       </span>
@@ -359,17 +380,19 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) {
+function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <th className="text-left font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]">
+    <th
+      className={`text-left font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] ${className}`}
+    >
       {children}
     </th>
   );
 }
 
-function Td({ children }: { children: React.ReactNode }) {
+function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <td className="px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap">
+    <td className={`px-2 sm:px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${className}`}>
       {children}
     </td>
   );

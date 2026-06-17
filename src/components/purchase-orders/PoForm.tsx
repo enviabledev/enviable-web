@@ -210,7 +210,7 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
             Order details
           </h2>
         </header>
-        <div className="px-4 py-3.5 grid grid-cols-2 gap-x-5 gap-y-3">
+        <div className="px-4 py-3.5 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3">
           <Field label="Supplier" required>
             <select
               value={supplierId}
@@ -279,7 +279,8 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
             {productLoadError}
           </div>
         )}
-        <table className="w-full text-[13px]">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-[13px]">
           <thead>
             <tr>
               <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3 py-2 bg-[var(--color-ink-100)] border-b border-[var(--color-border-default)]">
@@ -365,6 +366,7 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
             </tr>
           </tfoot>
         </table>
+        </div>
       </section>
 
       {serverMessages.length > 0 && (
@@ -403,11 +405,11 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
         <button
           type="submit"
           disabled={submitting}
-          className="h-8 px-3.5 rounded-[3px] text-[13px] font-medium text-white disabled:opacity-50"
+          className="h-8 px-3.5 rounded-[3px] text-[13px] font-medium text-white disabled:opacity-50 inline-flex items-center justify-center"
           style={{ background: "var(--color-navy-700)" }}
         >
           {submitting ? (mode === "create" ? "Creating..." : "Saving...") : submitLabel ?? (mode === "create" ? "Create Draft" : "Save Changes")}

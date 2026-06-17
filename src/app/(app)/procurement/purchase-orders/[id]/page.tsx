@@ -22,6 +22,7 @@ import {
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatDateTime, formatNGN } from "@/lib/format";
+import { COL, DETAIL_GRID } from "@/lib/responsive";
 import { getById, listByType } from "@/lib/sync/mirror/store";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
@@ -258,7 +259,7 @@ export default function PurchaseOrderDetailPage() {
 
   return (
     <div className="max-w-[1080px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-5 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-5 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] flex items-center gap-1.5 mb-1.5 flex-wrap">
             <Link href="/procurement/purchase-orders" className="text-[var(--color-ink-500)] hover:text-[var(--color-navy-700)]">
@@ -283,11 +284,11 @@ export default function PurchaseOrderDetailPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
           {canEdit && (
             <Link
               href={`/procurement/purchase-orders/${po.id}/edit`}
-              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] hover:bg-[var(--color-ink-100)] inline-flex items-center"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] hover:bg-[var(--color-ink-100)] inline-flex items-center justify-center"
             >
               Edit
             </Link>
@@ -297,7 +298,7 @@ export default function PurchaseOrderDetailPage() {
               type="button"
               onClick={() => handleAction("submit")}
               disabled={action.status === "submitting"}
-              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center justify-center"
               style={{ background: "var(--color-navy-700)" }}
             >
               {action.status === "submitting" && action.action === "submit" ? "Submitting..." : "Submit for Approval"}
@@ -308,7 +309,7 @@ export default function PurchaseOrderDetailPage() {
               type="button"
               onClick={() => handleAction("approve")}
               disabled={action.status === "submitting"}
-              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center justify-center"
               style={{ background: "var(--color-success-700)" }}
             >
               {action.status === "submitting" && action.action === "approve" ? "Approving..." : "Approve"}
@@ -408,15 +409,15 @@ function SummaryCard({ po }: { po: PoDetail }) {
   ];
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Order identity</h2>
-        <span className="text-mono-id text-[11px] text-[var(--color-ink-500)]">{po.id}</span>
+        <span className="text-mono-id text-[11px] text-[var(--color-ink-500)] break-all">{po.id}</span>
       </header>
-      <div className="px-5 py-3 grid grid-cols-2 gap-x-12 gap-y-1">
+      <div className="px-4 sm:px-5 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-1">
         {rows.map((r, i) => (
           <div
             key={i}
-            className="grid grid-cols-[160px_1fr] gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0 text-[13px]"
+            className={`${DETAIL_GRID} gap-1 sm:gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0 text-[13px]`}
           >
             <span className="text-[12px] font-medium text-[var(--color-ink-500)]">{r.label}</span>
             <span
@@ -444,7 +445,7 @@ function LinesCard({
 }) {
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)]">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)]">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">
           Line items{" "}
           <span className="text-[11px] text-[var(--color-ink-500)] font-medium ml-2">
@@ -452,77 +453,97 @@ function LinesCard({
           </span>
         </h2>
       </header>
-      <table className="w-full text-[13px]">
-        <thead>
-          <tr>
-            <Th>Variant</Th>
-            <Th align="right">Quantity</Th>
-            <Th align="right">Unit Price</Th>
-            <Th align="right">Line Total</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {lines.map((l, i) => {
-            const v = variantsById.get(l.productVariantId);
-            const lineTotal = Number(l.unitPrice) * l.quantityOrdered;
-            return (
-              <tr key={l.id} className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)]`}>
-                <Td>
-                  {v ? (
-                    <>
-                      <div className="font-medium text-[var(--color-ink-900)]">{v.productName}{" "}
-                        {[v.attributes.model, v.attributes.colour].filter(Boolean).join(" ")}
-                      </div>
-                      <div className="font-mono text-[10.5px] text-[var(--color-ink-500)] font-medium mt-0.5">
-                        {v.label.match(/\[(.*)\]/)?.[1] ?? l.productVariantId}
-                      </div>
-                    </>
-                  ) : (
-                    <span className="font-mono text-[12px] text-[var(--color-ink-700)]">{l.productVariantId}</span>
-                  )}
-                </Td>
-                <NumTd>{l.quantityOrdered}</NumTd>
-                <NumTd mono>{formatNGN(l.unitPrice)}</NumTd>
-                <NumTd mono strong>{Number.isFinite(lineTotal) ? formatNGN(lineTotal) : "--"}</NumTd>
-              </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr className="bg-[var(--color-ink-100)]">
-            <td colSpan={3} className="px-3.5 py-2.5 text-right text-[12.5px] font-medium text-[var(--color-ink-700)]">
-              Total {currency && <span className="font-mono text-[11px] text-[var(--color-ink-500)]">{currency}</span>}
-            </td>
-            <td className="px-3.5 py-2.5 text-right tabular-nums font-mono text-[14px] font-semibold text-[var(--color-navy-800)]">
-              {formatNGN(totalValue)}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[13px]">
+          <thead>
+            <tr>
+              <Th>Variant</Th>
+              <Th align="right">Quantity</Th>
+              <Th align="right" className={COL.sm}>Unit Price</Th>
+              <Th align="right">Line Total</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((l, i) => {
+              const v = variantsById.get(l.productVariantId);
+              const lineTotal = Number(l.unitPrice) * l.quantityOrdered;
+              return (
+                <tr key={l.id} className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)]`}>
+                  <Td>
+                    {v ? (
+                      <>
+                        <div className="font-medium text-[var(--color-ink-900)]">{v.productName}{" "}
+                          {[v.attributes.model, v.attributes.colour].filter(Boolean).join(" ")}
+                        </div>
+                        <div className="font-mono text-[10.5px] text-[var(--color-ink-500)] font-medium mt-0.5 block max-w-[104px] sm:max-w-none truncate" title={v.label.match(/\[(.*)\]/)?.[1] ?? l.productVariantId}>
+                          {v.label.match(/\[(.*)\]/)?.[1] ?? l.productVariantId}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="font-mono text-[12px] text-[var(--color-ink-700)] block max-w-[104px] sm:max-w-none truncate" title={l.productVariantId}>{l.productVariantId}</span>
+                    )}
+                  </Td>
+                  <NumTd>{l.quantityOrdered}</NumTd>
+                  <NumTd mono className={COL.sm}>{formatNGN(l.unitPrice)}</NumTd>
+                  <NumTd mono strong>{Number.isFinite(lineTotal) ? formatNGN(lineTotal) : "--"}</NumTd>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="bg-[var(--color-ink-100)]">
+              <td colSpan={3} className="px-2 sm:px-3.5 py-2.5 text-right text-[12.5px] font-medium text-[var(--color-ink-700)]">
+                Total {currency && <span className="font-mono text-[11px] text-[var(--color-ink-500)]">{currency}</span>}
+              </td>
+              <td className="px-2 sm:px-3.5 py-2.5 text-right tabular-nums font-mono text-[14px] font-semibold text-[var(--color-navy-800)]">
+                {formatNGN(totalValue)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </section>
   );
 }
 
-function Th({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" }) {
+function Th({
+  children,
+  align = "left",
+  className = "",
+}: {
+  children: React.ReactNode;
+  align?: "left" | "right";
+  className?: string;
+}) {
   return (
     <th
-      className={`font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${
+      className={`font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${
         align === "right" ? "text-right" : "text-left"
-      }`}
+      } ${className}`}
     >
       {children}
     </th>
   );
 }
 
-function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3.5 py-2.5 align-middle text-[var(--color-ink-900)]">{children}</td>;
+function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <td className={`px-2 sm:px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] ${className}`}>{children}</td>;
 }
 
-function NumTd({ children, mono, strong }: { children: React.ReactNode; mono?: boolean; strong?: boolean }) {
+function NumTd({
+  children,
+  mono,
+  strong,
+  className = "",
+}: {
+  children: React.ReactNode;
+  mono?: boolean;
+  strong?: boolean;
+  className?: string;
+}) {
   return (
     <td
-      className={`px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[var(--color-ink-900)] ${mono ? "font-mono text-[12px]" : ""} ${strong ? "font-semibold" : ""}`}
+      className={`px-2 sm:px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[var(--color-ink-900)] ${mono ? "font-mono text-[12px]" : ""} ${strong ? "font-semibold" : ""} ${className}`}
     >
       {children}
     </td>

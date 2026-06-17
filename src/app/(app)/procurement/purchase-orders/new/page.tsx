@@ -21,7 +21,7 @@ export default function NewPurchaseOrderPage() {
 
   return (
     <div className="max-w-[1080px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-5 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-5 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] flex items-center gap-1.5 mb-1.5">
             <Link href="/procurement/purchase-orders" className="text-[var(--color-ink-500)] hover:text-[var(--color-navy-700)]">

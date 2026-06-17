@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
+import { COL } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
 
 type MirroredPo = Omit<PoListRow, "supplier">;
@@ -171,7 +172,7 @@ export default function PurchaseOrdersListPage() {
 
   return (
     <div className="max-w-[1480px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] flex items-center gap-1.5 mb-1.5">
             <span>Procurement</span>
@@ -195,7 +196,7 @@ export default function PurchaseOrdersListPage() {
           {canCreate && (
             <Link
               href="/procurement/purchase-orders/new"
-              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white inline-flex items-center"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white inline-flex items-center self-start"
               style={{ background: "var(--color-navy-700)" }}
             >
               + New Purchase Order
@@ -204,7 +205,7 @@ export default function PurchaseOrdersListPage() {
         </div>
       </header>
 
-      <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] p-3.5 mb-3.5 grid grid-cols-[1fr_1fr_auto] gap-3 items-end">
+      <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] p-3.5 mb-3.5 grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 sm:items-end">
         <div className="flex flex-col gap-1 min-w-0">
           <span className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)]">
             Status
@@ -253,17 +254,17 @@ export default function PurchaseOrdersListPage() {
         </button>
       </div>
 
-      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
+      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
             <tr>
               <Th>PO Number</Th>
-              <Th>Supplier</Th>
+              <Th className={COL.sm}>Supplier</Th>
               <Th>Status</Th>
               <Th align="right">Total</Th>
-              <Th>Currency</Th>
-              <Th>Expected Ship</Th>
-              <Th>Created</Th>
+              <Th className={COL.lg}>Currency</Th>
+              <Th className={COL.md}>Expected Ship</Th>
+              <Th className={COL.md}>Created</Th>
             </tr>
           </thead>
           <tbody>
@@ -301,12 +302,13 @@ export default function PurchaseOrdersListPage() {
                   <Td>
                     <Link
                       href={`/procurement/purchase-orders/${row.id}`}
-                      className="font-mono text-[12px] text-[var(--color-navy-700)] hover:underline tracking-[0.02em]"
+                      title={row.poNumber}
+                      className="block max-w-[104px] sm:max-w-none truncate font-mono text-[12px] text-[var(--color-navy-700)] hover:underline tracking-[0.02em]"
                     >
                       {row.poNumber}
                     </Link>
                   </Td>
-                  <Td>
+                  <Td className={COL.sm}>
                     <span className="font-medium text-[var(--color-ink-900)]">{row.supplier?.name ?? row.supplierId}</span>
                   </Td>
                   <Td>
@@ -317,13 +319,13 @@ export default function PurchaseOrdersListPage() {
                       {formatNGN(row.totalValue)}
                     </span>
                   </NumTd>
-                  <Td>
+                  <Td className={COL.lg}>
                     <span className="font-mono text-[11.5px] text-[var(--color-ink-700)]">{row.currency}</span>
                   </Td>
-                  <Td>
+                  <Td className={COL.md}>
                     {row.expectedShipDate ? formatDateShort(row.expectedShipDate) : <span className="text-[var(--color-ink-400)]">--</span>}
                   </Td>
-                  <Td>{formatDateShort(row.createdAt)}</Td>
+                  <Td className={COL.md}>{formatDateShort(row.createdAt)}</Td>
                 </tr>
               ))}
           </tbody>
@@ -333,22 +335,22 @@ export default function PurchaseOrdersListPage() {
   );
 }
 
-function Th({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" }) {
+function Th({ children, align = "left", className = "" }: { children: React.ReactNode; align?: "left" | "right"; className?: string }) {
   return (
     <th
-      className={`font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${
+      className={`font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${
         align === "right" ? "text-right" : "text-left"
-      }`}
+      } ${className}`}
     >
       {children}
     </th>
   );
 }
 
-function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] whitespace-nowrap">{children}</td>;
+function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <td className={`px-2 sm:px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] whitespace-nowrap ${className}`}>{children}</td>;
 }
 
-function NumTd({ children }: { children: React.ReactNode }) {
-  return <td className="px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[var(--color-ink-900)]">{children}</td>;
+function NumTd({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <td className={`px-2 sm:px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[var(--color-ink-900)] ${className}`}>{children}</td>;
 }

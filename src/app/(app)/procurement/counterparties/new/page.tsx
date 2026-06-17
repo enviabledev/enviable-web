@@ -160,7 +160,7 @@ export default function NewCounterpartyPage() {
           <legend className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium px-0">
             Contact (optional)
           </legend>
-          <div className="grid grid-cols-2 gap-3 mt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
             <Field label="Email">
               <input
                 type="email"
@@ -187,7 +187,7 @@ export default function NewCounterpartyPage() {
             <legend className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium px-0">
               Banking details (optional)
             </legend>
-            <div className="grid grid-cols-2 gap-3 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
               <Field label="SWIFT / BIC">
                 <input
                   type="text"
@@ -226,23 +226,23 @@ export default function NewCounterpartyPage() {
           </div>
         )}
 
-        <div className="flex items-center gap-2 pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2">
           <button
             type="submit"
             disabled={disabled}
             data-testid="cp-submit"
-            className="h-[32px] px-4 rounded-[3px] bg-[var(--color-navy-700)] text-white text-[12.5px] font-medium disabled:opacity-50"
+            className="h-[32px] px-4 w-full sm:w-auto inline-flex items-center justify-center rounded-[3px] bg-[var(--color-navy-700)] text-white text-[12.5px] font-medium disabled:opacity-50"
           >
             {state.status === "submitting" ? "Creating..." : "Create counterparty"}
           </button>
           <Link
             href="/procurement/counterparties"
-            className="h-[32px] px-3 inline-flex items-center rounded-[3px] border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] text-[12.5px] font-medium hover:bg-[var(--color-ink-100)]"
+            className="h-[32px] px-3 w-full sm:w-auto inline-flex items-center justify-center rounded-[3px] border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] text-[12.5px] font-medium hover:bg-[var(--color-ink-100)]"
           >
             Cancel
           </Link>
           {connState === "offline" && (
-            <span className="text-[11.5px] text-[var(--color-warning-700)] ml-2">
+            <span className="text-[11.5px] text-[var(--color-warning-700)] sm:ml-2">
               Disabled offline. Counterparty creation requires a connection.
             </span>
           )}

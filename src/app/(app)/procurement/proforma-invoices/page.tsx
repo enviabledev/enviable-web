@@ -33,6 +33,7 @@ import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
 import { proformaInvoiceDoc } from "@/lib/invoices/pdf";
+import { COL, FILTER_CONTROL, FILTER_FORM } from "@/lib/responsive";
 import { useMirrorFreshness } from "@/lib/sync/mirror/freshness";
 import { listByType } from "@/lib/sync/mirror/store";
 import {
@@ -79,6 +80,15 @@ type Row = {
 
 const STATUS_LABEL: Record<ProformaInvoiceStatus, string> = {
   PENDING_REVIEW: "Pending review",
+  ACTIVE: "Active",
+  SUPERSEDED: "Superseded",
+  REJECTED: "Rejected",
+};
+
+// Fixed mobile shorthand (status-pill standard, RESPONSIVE.md): same input
+// always yields the same short output; full label stays on title + sm+.
+const SHORT_LABEL: Record<ProformaInvoiceStatus, string> = {
+  PENDING_REVIEW: "Pending",
   ACTIVE: "Active",
   SUPERSEDED: "Superseded",
   REJECTED: "Rejected",
@@ -231,7 +241,7 @@ export default function ProformaInvoicesPage() {
 
   return (
     <div className="max-w-[1620px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] mb-1.5">Procurement / Proforma invoices</div>
           <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em] flex items-center gap-2">
@@ -251,14 +261,14 @@ export default function ProformaInvoicesPage() {
           e.preventDefault();
           navigate({ search: searchDraft });
         }}
-        className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex items-end gap-3 flex-wrap"
+        className={`bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 ${FILTER_FORM}`}
       >
         <Field label="Status">
           <select
             value={params.status}
             onChange={(e) => navigate({ status: e.target.value as ProformaInvoiceStatus | "" })}
             data-testid="filter-status"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] ${FILTER_CONTROL}`}
           >
             <option value="">All statuses</option>
             {PROFORMA_INVOICE_STATUS.map((s) => (
@@ -269,20 +279,20 @@ export default function ProformaInvoicesPage() {
           </select>
         </Field>
         <Field label="Search PI# / PO# / supplier">
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-[12px] h-[12px] text-[var(--color-ink-500)]" />
             <input
               type="text"
               value={searchDraft}
               onChange={(e) => setSearchDraft(e.target.value)}
               placeholder="e.g. PI-FIXT or PO-FIXTURE"
-              className="h-[28px] w-[280px] pl-6 pr-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+              className="h-[28px] w-full sm:w-[280px] pl-6 pr-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
             />
           </div>
         </Field>
         <button
           type="submit"
-          className="h-[28px] px-3 rounded-[3px] bg-[var(--color-navy-700)] text-white text-[12.5px] font-medium"
+          className={`h-[28px] px-3 rounded-[3px] bg-[var(--color-navy-700)] text-white text-[12.5px] font-medium ${FILTER_CONTROL}`}
         >
           Search
         </button>
@@ -293,7 +303,7 @@ export default function ProformaInvoicesPage() {
               setSearchDraft("");
               navigate({ status: "", search: "" });
             }}
-            className="h-[28px] px-3 rounded-[3px] bg-white border border-[var(--color-border-default)] text-[var(--color-ink-700)] text-[12px] hover:border-[var(--color-navy-700)] hover:text-[var(--color-navy-700)]"
+            className={`h-[28px] px-3 rounded-[3px] bg-white border border-[var(--color-border-default)] text-[var(--color-ink-700)] text-[12px] hover:border-[var(--color-navy-700)] hover:text-[var(--color-navy-700)] ${FILTER_CONTROL}`}
           >
             Clear
           </button>
@@ -334,18 +344,19 @@ export default function ProformaInvoicesPage() {
               </div>
             )
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
                 <tr>
                   <Th>PI Number</Th>
-                  <Th>Rev</Th>
-                  <Th>Supplier</Th>
-                  <Th>Purchase Order</Th>
+                  <Th className={COL.lg}>Rev</Th>
+                  <Th className={COL.sm}>Supplier</Th>
+                  <Th className={COL.md}>Purchase Order</Th>
                   <Th>Status</Th>
-                  <Th>Issued</Th>
-                  <Th>Valid until</Th>
+                  <Th className={COL.md}>Issued</Th>
+                  <Th className={COL.md}>Valid until</Th>
                   <Th align="right">Total (CIF)</Th>
-                  <Th align="right">Document</Th>
+                  <Th align="right" className={COL.lg}>Document</Th>
                 </tr>
               </thead>
               <tbody>
@@ -357,14 +368,15 @@ export default function ProformaInvoicesPage() {
                     <Td mono>
                       <Link
                         href={`/procurement/proforma-invoices/${r.id}`}
-                        className="text-[var(--color-navy-700)] hover:underline font-medium"
+                        title={r.piNumber}
+                        className="block max-w-[104px] sm:max-w-none truncate text-[var(--color-navy-700)] hover:underline font-medium"
                       >
                         {r.piNumber}
                       </Link>
                     </Td>
-                    <Td mono>r{r.revisionNumber}</Td>
-                    <Td>{r.supplierName}</Td>
-                    <Td mono>
+                    <Td mono className={COL.lg}>r{r.revisionNumber}</Td>
+                    <Td className={COL.sm}>{r.supplierName}</Td>
+                    <Td mono className={COL.md}>
                       <Link
                         href={`/procurement/purchase-orders/${r.poId}`}
                         className="text-[var(--color-navy-700)] hover:underline"
@@ -375,12 +387,12 @@ export default function ProformaInvoicesPage() {
                     <Td>
                       <StatusPill status={r.status} />
                     </Td>
-                    <Td>
+                    <Td className={COL.md}>
                       {r.issueDate ? formatDateShort(r.issueDate) : (
                         <span className="text-[var(--color-ink-400)]">--</span>
                       )}
                     </Td>
-                    <Td>
+                    <Td className={COL.md}>
                       {r.validityUntil ? formatDateShort(r.validityUntil) : (
                         <span className="text-[var(--color-ink-400)]">--</span>
                       )}
@@ -390,7 +402,7 @@ export default function ProformaInvoicesPage() {
                         {formatNGN(r.totalValue)}
                       </span>
                     </Td>
-                    <Td align="right">
+                    <Td align="right" className={COL.lg}>
                       <span className="inline-flex items-center gap-1.5">
                         <Link
                           href={`/procurement/proforma-invoices/${r.id}/document`}
@@ -409,6 +421,7 @@ export default function ProformaInvoicesPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </section>
       )}
@@ -420,17 +433,19 @@ function StatusPill({ status }: { status: ProformaInvoiceStatus }) {
   const tone = STATUS_TONE[status];
   return (
     <span
-      className={`inline-flex items-center gap-1 h-[18px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] ${tone.bg} ${tone.fg}`}
+      title={STATUS_LABEL[status]}
+      className={`inline-flex items-center gap-1 h-[18px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] whitespace-nowrap ${tone.bg} ${tone.fg}`}
     >
       <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${tone.dot}`} aria-hidden />
-      {STATUS_LABEL[status]}
+      <span className="sm:hidden">{SHORT_LABEL[status]}</span>
+      <span className="hidden sm:inline">{STATUS_LABEL[status]}</span>
     </span>
   );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1">
+    <label className="flex flex-col gap-1 w-full sm:w-auto">
       <span className="text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">
         {label}
       </span>
@@ -442,13 +457,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Th({
   children,
   align = "left",
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
+  className?: string;
 }) {
   return (
     <th
-      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]`}
+      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] ${className}`}
     >
       {children}
     </th>
@@ -459,16 +476,18 @@ function Td({
   children,
   align = "left",
   mono = false,
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
   mono?: boolean;
+  className?: string;
 }) {
   return (
     <td
-      className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap text-${align} ${
+      className={`px-2 sm:px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap text-${align} ${
         mono ? "font-mono text-[12px] tracking-[0.02em]" : ""
-      }`}
+      } ${className}`}
     >
       {children}
     </td>

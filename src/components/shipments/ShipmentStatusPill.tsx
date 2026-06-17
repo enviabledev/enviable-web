@@ -48,15 +48,32 @@ export function formatShipmentStatus(status: ShipmentStatus): string {
     .join("");
 }
 
+// Fixed mobile shorthand (RESPONSIVE.md status-pill rule): same input -> same
+// output, full label at sm+.
+const SHORT_LABEL: Record<ShipmentStatus, string> = {
+  IN_TRANSIT: "Transit",
+  AT_PORT: "At Port",
+  CLEARING: "Clearing",
+  CLEARED: "Cleared",
+  RECEIVED: "Received",
+  CLOSED: "Closed",
+};
+
+export function shortShipmentStatus(status: ShipmentStatus): string {
+  return SHORT_LABEL[status];
+}
+
 export default function ShipmentStatusPill({ status }: { status: ShipmentStatus }) {
   const tone = TONE_MAP[status];
   const c = TONE_CLASSES[tone];
   return (
     <span
+      title={formatShipmentStatus(status)}
       className={`inline-flex items-center gap-1 h-4 px-1.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.02em] whitespace-nowrap ${c.bg} ${c.fg}`}
     >
       <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${c.dot}`} aria-hidden />
-      {formatShipmentStatus(status)}
+      <span className="sm:hidden">{shortShipmentStatus(status)}</span>
+      <span className="hidden sm:inline">{formatShipmentStatus(status)}</span>
     </span>
   );
 }

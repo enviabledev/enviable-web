@@ -56,15 +56,37 @@ export function formatPoStatus(status: PoStatus): string {
     .join("");
 }
 
+// Fixed mobile shorthand (RESPONSIVE.md status-pill rule): same input -> same
+// output, full label at sm+. PO statuses are long, so shorthand keeps the
+// primary metric (Total) in view at 375.
+const SHORT_LABEL: Record<PoStatus, string> = {
+  DRAFT: "Draft",
+  PENDING_APPROVAL: "Pending",
+  APPROVED: "Approved",
+  SENT_TO_SUPPLIER: "Sent",
+  PI_RECEIVED: "PI Recd",
+  AWAITING_SHIPMENT: "Awaiting",
+  PARTIALLY_RECEIVED: "Partial",
+  FULLY_RECEIVED: "Received",
+  CLOSED: "Closed",
+  CANCELLED: "Cancelled",
+};
+
+export function shortPoStatus(status: PoStatus): string {
+  return SHORT_LABEL[status];
+}
+
 export default function PoStatusPill({ status }: { status: PoStatus }) {
   const tone = TONE_MAP[status];
   const c = TONE_CLASSES[tone];
   return (
     <span
+      title={formatPoStatus(status)}
       className={`inline-flex items-center gap-1 h-4 px-1.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.02em] whitespace-nowrap ${c.bg} ${c.fg}`}
     >
       <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${c.dot}`} aria-hidden />
-      {formatPoStatus(status)}
+      <span className="sm:hidden">{shortPoStatus(status)}</span>
+      <span className="hidden sm:inline">{formatPoStatus(status)}</span>
     </span>
   );
 }

@@ -39,6 +39,7 @@ import {
 } from "@/lib/api";
 import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
+import { DETAIL_GRID } from "@/lib/responsive";
 import { useConnectivity } from "@/lib/sync/connectivity";
 import { formatDateShort } from "@/lib/format";
 import { getById, listByType } from "@/lib/sync/mirror/store";
@@ -50,6 +51,17 @@ const TYPE_LABEL: Record<CounterpartyType, string> = {
   CLEARING_AGENT: "Clearing agent",
   FREIGHT_FORWARDER: "Freight forwarder",
   INSURANCE_COMPANY: "Insurance company",
+  BANK: "Bank",
+};
+
+// Fixed mobile shorthand for the type pill, matching the list page so the
+// long labels do not crowd the header at 375px (RESPONSIVE.md type-pill rule).
+const TYPE_SHORT: Record<CounterpartyType, string> = {
+  MANUFACTURER: "Mfr",
+  SUPPLIER: "Supplier",
+  CLEARING_AGENT: "Clearing",
+  FREIGHT_FORWARDER: "Forwarder",
+  INSURANCE_COMPANY: "Insurance",
   BANK: "Bank",
 };
 
@@ -343,10 +355,10 @@ export default function CounterpartyDetailPage() {
               <StatusPill status={cp.status} />
               {fromMirror && <FreshnessBadge />}
             </div>
-            <div className="text-[12px] text-[var(--color-ink-500)] mt-1 font-mono">{cp.id}</div>
+            <div className="text-[12px] text-[var(--color-ink-500)] mt-1 font-mono break-all">{cp.id}</div>
           </div>
           {canManage && edit.status === "idle" && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={beginEdit}
@@ -384,7 +396,7 @@ export default function CounterpartyDetailPage() {
             to this counterparty on POs, shipments, and other records are unchanged. This is not
             reversible from the UI.
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={doDelete}
@@ -423,13 +435,13 @@ export default function CounterpartyDetailPage() {
       )}
 
       <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
-        <header className="px-5 py-3 border-b border-[var(--color-border-default)]">
+        <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)]">
           <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Profile</h2>
         </header>
-        <dl className="text-[12.5px] grid grid-cols-2 gap-x-12 px-5 py-3">
+        <dl className="text-[12.5px] grid grid-cols-1 sm:grid-cols-2 gap-x-12 px-4 sm:px-5 py-3">
           <Row label="Email">
             {contact.contact_email ? (
-              <a href={`mailto:${contact.contact_email}`} className="text-[var(--color-navy-700)] hover:underline">
+              <a href={`mailto:${contact.contact_email}`} className="text-[var(--color-navy-700)] hover:underline break-all">
                 {contact.contact_email}
               </a>
             ) : (
@@ -492,9 +504,9 @@ function EditForm({
   const draft = state.draft;
   const submitting = state.status === "submitting";
   return (
-    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5 px-5 py-4">
+    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5 px-4 sm:px-5 py-4">
       <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)] mb-3">Edit profile</h2>
-      <div className="grid grid-cols-2 gap-3 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <Field label="Name">
           <input
             type="text"
@@ -593,7 +605,7 @@ function RelatedEntitiesPanel({
 }) {
   if (!related) {
     return (
-      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-5 py-5 text-[12.5px] text-[var(--color-ink-500)]">
+      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-4 sm:px-5 py-5 text-[12.5px] text-[var(--color-ink-500)]">
         Loading related records...
       </section>
     );
@@ -699,7 +711,7 @@ function RelatedEntitiesPanel({
 
   if (surfaced.length === 0) {
     return (
-      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-5 py-6 text-[12.5px] text-[var(--color-ink-500)] text-center">
+      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-4 sm:px-5 py-6 text-[12.5px] text-[var(--color-ink-500)] text-center">
         No related records found in the local mirror.
       </section>
     );
@@ -709,20 +721,22 @@ function RelatedEntitiesPanel({
     <div className="space-y-5">
       {surfaced.map((s) => (
         <section key={s.key} className="bg-white border border-[var(--color-border-default)] rounded-[4px]" data-testid={`section-${s.key}`}>
-          <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+          <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between gap-2">
             <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">{s.title}</h2>
-            <span className="text-[11px] text-[var(--color-ink-500)]">
+            <span className="text-[11px] text-[var(--color-ink-500)] whitespace-nowrap">
               {s.count} {s.count === 1 ? "record" : "records"}
             </span>
           </header>
           {s.count === 0 ? (
-            <div className="px-5 py-6 text-center text-[12.5px] text-[var(--color-ink-500)]">
+            <div className="px-4 sm:px-5 py-6 text-center text-[12.5px] text-[var(--color-ink-500)]">
               None on file in the local mirror.
             </div>
           ) : (
-            <table className="w-full text-[13px]">
-              {s.rows}
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]">
+                {s.rows}
+              </table>
+            </div>
           )}
         </section>
       ))}
@@ -732,8 +746,12 @@ function RelatedEntitiesPanel({
 
 function TypePill({ type }: { type: CounterpartyType }) {
   return (
-    <span className="inline-flex items-center h-[20px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] bg-[var(--color-ink-100)] text-[var(--color-ink-700)]">
-      {TYPE_LABEL[type]}
+    <span
+      title={TYPE_LABEL[type]}
+      className="inline-flex items-center h-[20px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] whitespace-nowrap bg-[var(--color-ink-100)] text-[var(--color-ink-700)]"
+    >
+      <span className="sm:hidden">{TYPE_SHORT[type]}</span>
+      <span className="hidden sm:inline">{TYPE_LABEL[type]}</span>
     </span>
   );
 }
@@ -771,9 +789,9 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[160px_1fr] gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0">
+    <div className={`${DETAIL_GRID} gap-1 sm:gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0`}>
       <dt className="text-[12px] font-medium text-[var(--color-ink-500)]">{label}</dt>
-      <dd className="m-0 text-[var(--color-ink-900)]">{children}</dd>
+      <dd className="m-0 text-[var(--color-ink-900)] break-words min-w-0">{children}</dd>
     </div>
   );
 }
@@ -781,7 +799,7 @@ function Row({
 function Td({ children, mono = false }: { children: React.ReactNode; mono?: boolean }) {
   return (
     <td
-      className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${mono ? "font-mono text-[12px] tracking-[0.02em]" : ""}`}
+      className={`px-2 sm:px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${mono ? "font-mono text-[12px] tracking-[0.02em]" : ""}`}
     >
       {children}
     </td>

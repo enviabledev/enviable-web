@@ -25,6 +25,7 @@ import {
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
+import { COL, DETAIL_GRID } from "@/lib/responsive";
 import { getById, listByType } from "@/lib/sync/mirror/store";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
@@ -298,7 +299,7 @@ export default function ShipmentDetailPage() {
 
   return (
     <div className="max-w-[1120px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-5 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-5 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] flex items-center gap-1.5 mb-1.5 flex-wrap">
             <Link href="/procurement/shipments" className="text-[var(--color-ink-500)] hover:text-[var(--color-navy-700)]">
@@ -329,11 +330,11 @@ export default function ShipmentDetailPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
           {showReceiveAction && (
             <Link
               href={`/procurement/shipments/${shipment.id}/receive`}
-              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white inline-flex items-center"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white inline-flex items-center justify-center"
               style={{ background: "var(--color-navy-700)" }}
             >
               Receive Units
@@ -344,7 +345,7 @@ export default function ShipmentDetailPage() {
               type="button"
               onClick={() => runAction("complete", () => completeReceipt(shipment.id))}
               disabled={action.status === "submitting"}
-              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center justify-center"
               style={{ background: "var(--color-success-700)" }}
             >
               {action.status === "submitting" && action.action === "complete" ? "Completing..." : "Complete Receipt"}
@@ -356,7 +357,7 @@ export default function ShipmentDetailPage() {
               onClick={() => runAction("close", () => closeShipment(shipment.id))}
               disabled={action.status === "submitting" || hasUnresolved}
               title={closeDisabledReason ?? undefined}
-              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center justify-center"
               style={{ background: hasUnresolved ? "var(--color-ink-400)" : "var(--color-navy-700)" }}
             >
               {action.status === "submitting" && action.action === "close" ? "Closing..." : "Close Shipment"}
@@ -442,15 +443,15 @@ function IdentityCard({ shipment }: { shipment: ShipmentDetail }) {
   ];
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Shipment identity</h2>
-        <span className="text-mono-id text-[11px] text-[var(--color-ink-500)]">{shipment.id}</span>
+        <span className="text-mono-id text-[11px] text-[var(--color-ink-500)] break-all">{shipment.id}</span>
       </header>
-      <div className="px-5 py-3 grid grid-cols-2 gap-x-12 gap-y-1">
+      <div className="px-4 sm:px-5 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-1">
         {rows.map((r, i) => (
           <div
             key={i}
-            className="grid grid-cols-[170px_1fr] gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0 text-[13px]"
+            className={`${DETAIL_GRID} gap-1 sm:gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0 text-[13px]`}
           >
             <span className="text-[12px] font-medium text-[var(--color-ink-500)]">{r.label}</span>
             <span
@@ -477,8 +478,8 @@ function ManifestCard({
   const totalDeclared = lines.reduce((s, l) => s + l.quantityDeclared, 0);
   const totalReceived = lines.reduce((s, l) => s + l.quantityReceived, 0);
   return (
-    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5 overflow-x-auto">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">
           Manifest
           <span className="text-[11px] text-[var(--color-ink-500)] font-medium ml-2">
@@ -489,11 +490,11 @@ function ManifestCard({
       <table className="w-full text-[13px]">
         <thead>
           <tr>
-            <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]">Variant</th>
-            <th className="text-right font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] w-[120px]">Declared</th>
-            <th className="text-right font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] w-[120px]">Received</th>
-            <th className="text-right font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] w-[120px]">Variance</th>
-            <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]">Variance Reason</th>
+            <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]">Variant</th>
+            <th className="text-right font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] w-[120px]">Declared</th>
+            <th className="text-right font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] w-[120px]">Received</th>
+            <th className="text-right font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] w-[120px]">Variance</th>
+            <th className={`text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] ${COL.lg}`}>Variance Reason</th>
           </tr>
         </thead>
         <tbody>
@@ -507,7 +508,7 @@ function ManifestCard({
                   : "text-[var(--color-danger-700)]";
             return (
               <tr key={l.id} className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)]`}>
-                <td className="px-3.5 py-2.5 align-middle">
+                <td className="px-2 sm:px-3.5 py-2.5 align-middle">
                   {v ? (
                     <>
                       <div className="font-medium text-[var(--color-ink-900)] text-[12.5px] leading-tight">
@@ -521,19 +522,19 @@ function ManifestCard({
                     <span className="font-mono text-[12px] text-[var(--color-ink-700)]">{l.productVariantId}</span>
                   )}
                 </td>
-                <td className="px-3.5 py-2.5 text-right tabular-nums font-mono text-[12px] text-[var(--color-ink-900)]">
+                <td className="px-2 sm:px-3.5 py-2.5 text-right tabular-nums font-mono text-[12px] text-[var(--color-ink-900)]">
                   {l.quantityDeclared}
                 </td>
-                <td className="px-3.5 py-2.5 text-right tabular-nums font-mono text-[12px] text-[var(--color-ink-900)] font-semibold">
+                <td className="px-2 sm:px-3.5 py-2.5 text-right tabular-nums font-mono text-[12px] text-[var(--color-ink-900)] font-semibold">
                   {l.quantityReceived}
                 </td>
-                <td className={`px-3.5 py-2.5 text-right tabular-nums font-mono text-[12px] font-semibold ${varianceTone}`}>
+                <td className={`px-2 sm:px-3.5 py-2.5 text-right tabular-nums font-mono text-[12px] font-semibold ${varianceTone}`}>
                   {l.variance === 0 ? "0" : l.variance > 0 ? `+${l.variance}` : l.variance}
                   {l.varianceResolvedAt && (
                     <span className="ml-1 text-[10px] text-[var(--color-ink-500)] font-normal">resolved</span>
                   )}
                 </td>
-                <td className="px-3.5 py-2.5 text-[12px] text-[var(--color-ink-700)]">
+                <td className={`px-2 sm:px-3.5 py-2.5 text-[12px] text-[var(--color-ink-700)] ${COL.lg}`}>
                   {l.varianceReason || <Muted>--</Muted>}
                 </td>
               </tr>
@@ -542,17 +543,17 @@ function ManifestCard({
         </tbody>
         <tfoot>
           <tr className="bg-[var(--color-ink-100)]">
-            <td className="px-3.5 py-2.5 text-right text-[12.5px] font-medium text-[var(--color-ink-700)]">Totals</td>
-            <td className="px-3.5 py-2.5 text-right tabular-nums font-mono text-[12.5px] font-semibold text-[var(--color-ink-900)]">
+            <td className="px-2 sm:px-3.5 py-2.5 text-right text-[12.5px] font-medium text-[var(--color-ink-700)]">Totals</td>
+            <td className="px-2 sm:px-3.5 py-2.5 text-right tabular-nums font-mono text-[12.5px] font-semibold text-[var(--color-ink-900)]">
               {totalDeclared}
             </td>
-            <td className="px-3.5 py-2.5 text-right tabular-nums font-mono text-[12.5px] font-semibold text-[var(--color-navy-800)]">
+            <td className="px-2 sm:px-3.5 py-2.5 text-right tabular-nums font-mono text-[12.5px] font-semibold text-[var(--color-navy-800)]">
               {totalReceived}
             </td>
-            <td className="px-3.5 py-2.5 text-right tabular-nums font-mono text-[12.5px] font-semibold text-[var(--color-ink-700)]">
+            <td className="px-2 sm:px-3.5 py-2.5 text-right tabular-nums font-mono text-[12.5px] font-semibold text-[var(--color-ink-700)]">
               {totalReceived - totalDeclared === 0 ? "0" : totalReceived - totalDeclared > 0 ? `+${totalReceived - totalDeclared}` : `${totalReceived - totalDeclared}`}
             </td>
-            <td />
+            <td className={COL.lg} />
           </tr>
         </tfoot>
       </table>
@@ -578,7 +579,7 @@ function VarianceResolutionCard({
   const hasAnyDraft = Object.values(drafts).some((s) => s.trim().length > 0);
   return (
     <section className="bg-white border border-[var(--color-warning-100)] rounded-[4px] mb-5">
-      <header className="px-5 py-3 border-b border-[var(--color-warning-100)] bg-[var(--color-warning-50)]">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-warning-100)] bg-[var(--color-warning-50)]">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-warning-700)]">
           Resolve variances
           <span className="text-[11px] font-medium ml-2">
@@ -590,12 +591,12 @@ function VarianceResolutionCard({
           unresolved (Invariant I-7).
         </p>
       </header>
-      <div className="px-5 py-3 space-y-3">
+      <div className="px-4 sm:px-5 py-3 space-y-3">
         {lines.map((l) => {
           const v = variantsById.get(l.productVariantId);
           return (
-            <div key={l.id} className="flex items-start gap-3">
-              <div className="w-[240px] flex-shrink-0">
+            <div key={l.id} className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3">
+              <div className="w-full sm:w-[240px] flex-shrink-0">
                 <div className="font-medium text-[12.5px] text-[var(--color-ink-900)]">
                   {v ? `${v.productName} ${[v.attributes.model, v.attributes.colour].filter(Boolean).join(" ")}` : l.productVariantId}
                 </div>
@@ -635,7 +636,7 @@ function VarianceResolutionCard({
 function UnitsReceivedCard({ units }: { units: readonly { id: string; engineNumber: string; status: string }[] }) {
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)]">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)]">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">
           Received units
           <span className="text-[11px] text-[var(--color-ink-500)] font-medium ml-2">{units.length} on this shipment</span>

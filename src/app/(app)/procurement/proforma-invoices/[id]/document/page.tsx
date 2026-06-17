@@ -26,6 +26,7 @@ import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
 import { proformaInvoiceDoc } from "@/lib/invoices/pdf";
+import { DETAIL_GRID } from "@/lib/responsive";
 import { useMirrorFreshness } from "@/lib/sync/mirror/freshness";
 import { getById } from "@/lib/sync/mirror/store";
 
@@ -153,7 +154,7 @@ export default function ProformaInvoiceDocumentPage() {
           <span className="text-[var(--color-ink-900)] font-medium">Document</span>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em] font-mono">
+          <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em] font-mono break-all">
             {summary?.piNumber ?? "Proforma"}
           </h1>
           {summary && (
@@ -184,16 +185,16 @@ export default function ProformaInvoiceDocumentPage() {
 function SummaryCard({ summary }: { summary: Summary | null }) {
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-4">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)]">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)]">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">
           Proforma invoice
         </h2>
       </header>
-      <div className="px-5 py-3">
+      <div className="px-4 sm:px-5 py-3">
         {!summary ? (
           <div className="text-[12.5px] text-[var(--color-ink-500)]">Loading...</div>
         ) : (
-          <div className="grid grid-cols-[160px_1fr] gap-x-3 gap-y-2 text-[13px]">
+          <div className={`${DETAIL_GRID} gap-x-3 gap-y-1 sm:gap-y-2 text-[13px]`}>
             <Cell k="PI number">
               <span className="font-mono font-semibold text-[var(--color-navy-700)]">
                 {summary.piNumber}
