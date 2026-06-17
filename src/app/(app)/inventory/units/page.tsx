@@ -12,6 +12,7 @@ import MultiSelectFilter, {
 } from "@/components/units/MultiSelectFilter";
 import StatusPill from "@/components/units/StatusPill";
 import { usePermissions } from "@/lib/auth";
+import { COL } from "@/lib/responsive";
 import {
   listUnits,
   UNIT_STATUS,
@@ -336,26 +337,26 @@ export default function UnitsListingPage() {
           <table className="w-full text-[13px]">
             <thead>
               <tr>
-                <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap">
+                <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap">
                   Engine Number
                 </th>
-                <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap">
+                <th className={`text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${COL.md}`}>
                   Chassis Number
                 </th>
-                <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap">
+                <th className={`text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${COL.sm}`}>
                   Variant
                 </th>
-                <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap">
+                <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap">
                   Status
                 </th>
-                <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap">
+                <th className={`text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${COL.md}`}>
                   Received
                 </th>
-                <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap">
+                <th className={`text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${COL.lg}`}>
                   Current Warehouse
                 </th>
                 {showLandedCost && (
-                  <th className="text-right font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap">
+                  <th className={`text-right font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${COL.lg}`}>
                     Landed Cost
                   </th>
                 )}
@@ -455,15 +456,19 @@ function UnitRow({
   const cellBg = even ? "bg-[#FBFBFC]" : "bg-white";
   return (
     <tr className={`${cellBg} hover:bg-[var(--color-navy-50)] transition-colors`}>
-      <td className="px-3.5 py-2.5 border-b border-[var(--color-border-default)] font-mono text-[12px] text-[var(--color-ink-900)] tracking-[0.02em] whitespace-nowrap">
-        <Link href={href} className="text-[var(--color-navy-700)] hover:underline">
+      <td className="px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] font-mono text-[12px] text-[var(--color-ink-900)] tracking-[0.02em] whitespace-nowrap">
+        <Link
+          href={href}
+          title={row.engineNumber}
+          className="block max-w-[104px] sm:max-w-none truncate text-[var(--color-navy-700)] hover:underline"
+        >
           {row.engineNumber}
         </Link>
       </td>
-      <td className="px-3.5 py-2.5 border-b border-[var(--color-border-default)] font-mono text-[12px] text-[var(--color-ink-900)] tracking-[0.02em] whitespace-nowrap">
+      <td className={`px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] font-mono text-[12px] text-[var(--color-ink-900)] tracking-[0.02em] whitespace-nowrap ${COL.md}`}>
         {row.chassisNumber}
       </td>
-      <td className="px-3.5 py-2.5 border-b border-[var(--color-border-default)] align-middle whitespace-nowrap">
+      <td className={`px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] align-middle whitespace-nowrap ${COL.sm}`}>
         <div className="font-medium text-[var(--color-ink-900)] text-[12.5px] leading-tight">
           {formatVariantAbbreviation(row.productVariant)}
         </div>
@@ -471,16 +476,16 @@ function UnitRow({
           {row.productVariant.supplierSkuCode}
         </div>
       </td>
-      <td className="px-3.5 py-2.5 border-b border-[var(--color-border-default)] whitespace-nowrap">
+      <td className="px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] whitespace-nowrap">
         <StatusPill status={row.status} />
       </td>
-      <td className="px-3.5 py-2.5 border-b border-[var(--color-border-default)] tabular-nums whitespace-nowrap">
+      <td className={`px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] tabular-nums whitespace-nowrap ${COL.md}`}>
         {formatDateShort(row.createdAt)}
         <span className="block text-[11px] text-[var(--color-ink-500)] mt-px">
           {relativeTime(row.createdAt)}
         </span>
       </td>
-      <td className="px-3.5 py-2.5 border-b border-[var(--color-border-default)] text-[var(--color-ink-900)] whitespace-nowrap">
+      <td className={`px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] text-[var(--color-ink-900)] whitespace-nowrap ${COL.lg}`}>
         {row.currentWarehouseId ? (
           row.currentWarehouseId === "seed-wh-lagos" ? "Lagos Main" : row.currentWarehouseId
         ) : (
@@ -488,7 +493,7 @@ function UnitRow({
         )}
       </td>
       {showLandedCost && (
-        <td className="px-3.5 py-2.5 border-b border-[var(--color-border-default)] text-right tabular-nums font-mono text-[12px] whitespace-nowrap">
+        <td className={`px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] text-right tabular-nums font-mono text-[12px] whitespace-nowrap ${COL.lg}`}>
           {row.landedCost !== undefined ? formatNGN(row.landedCost) : <span className="text-[var(--color-ink-400)]">--</span>}
         </td>
       )}
@@ -514,7 +519,7 @@ function FilterBar({
   disabledReset: boolean;
 }) {
   return (
-    <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] p-3.5 mb-3.5 grid grid-cols-[repeat(5,1fr)_auto] gap-3 items-end">
+    <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] p-3.5 mb-3.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[repeat(5,1fr)_auto] gap-3 sm:items-end">
       <MultiSelectFilter
         label="Variant"
         placeholder="All variants"
@@ -631,7 +636,7 @@ function Pagination({
   }
 
   return (
-    <div className="flex items-center gap-4 px-3.5 py-3 border-t border-[var(--color-border-default)] bg-[#FBFBFB] text-[12.5px] text-[var(--color-ink-700)]">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3.5 py-3 border-t border-[var(--color-border-default)] bg-[#FBFBFB] text-[12.5px] text-[var(--color-ink-700)]">
       <span>
         Rows per page:&nbsp;
         <select
@@ -646,8 +651,8 @@ function Pagination({
           ))}
         </select>
       </span>
-      <span className="text-[var(--color-ink-300)]">|</span>
-      <span>
+      <span className="hidden sm:inline text-[var(--color-ink-300)]">|</span>
+      <span className="hidden sm:inline">
         Showing{" "}
         <b className="text-[var(--color-ink-900)] tabular-nums">
           {total === 0 ? 0 : start} - {end}

@@ -8,6 +8,7 @@ import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import { listUnits, startAssembly, type UnitListRow, type UnitStatus } from "@/lib/api";
 import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
+import { COL } from "@/lib/responsive";
 import { queueStartAssembly } from "@/lib/sync/actions/assembly";
 import { useConnectivity } from "@/lib/sync/connectivity";
 import { listByType } from "@/lib/sync/mirror/store";
@@ -338,7 +339,7 @@ export default function StartAssemblyPage() {
           )}
 
           <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-4">
-            <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex items-center justify-between">
+            <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
               <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)] flex items-center gap-2">
                 Eligible units{" "}
                 <span className="text-[11px] text-[var(--color-ink-500)] font-medium ml-1">
@@ -367,67 +368,71 @@ export default function StartAssemblyPage() {
                   : "No units are currently in CKD. Receive and stock CKD units before starting assembly."}
               </div>
             ) : (
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr>
-                    <th className="w-[40px] bg-[var(--color-ink-100)] border-b border-[var(--color-border-default)]" />
-                    <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]">
-                      Engine Number
-                    </th>
-                    <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]">
-                      Chassis Number
-                    </th>
-                    <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]">
-                      Variant
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {state.units.map((u, i) => {
-                    const checked = selected.has(u.id);
-                    return (
-                      <tr
-                        key={u.id}
-                        onClick={() => toggle(u.id)}
-                        className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] cursor-pointer ${
-                          checked ? "bg-[var(--color-navy-50)]" : "hover:bg-[var(--color-navy-50)]"
-                        }`}
-                      >
-                        <td className="px-3.5 py-2.5 text-center">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggle(u.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            aria-label={`Select ${u.engineNumber}`}
-                          />
-                        </td>
-                        <td className="px-3.5 py-2.5 font-mono text-[12px] text-[var(--color-ink-900)] tracking-[0.02em] whitespace-nowrap">
-                          {u.engineNumber}
-                        </td>
-                        <td className="px-3.5 py-2.5 font-mono text-[12px] text-[var(--color-ink-700)] tracking-[0.02em] whitespace-nowrap">
-                          {u.chassisNumber}
-                        </td>
-                        <td className="px-3.5 py-2.5 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap">
-                          {u.variantLabel}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr>
+                      <th className="w-[40px] bg-[var(--color-ink-100)] border-b border-[var(--color-border-default)]" />
+                      <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap">
+                        Engine Number
+                      </th>
+                      <th className={`text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${COL.md}`}>
+                        Chassis Number
+                      </th>
+                      <th className={`text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${COL.sm}`}>
+                        Variant
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.units.map((u, i) => {
+                      const checked = selected.has(u.id);
+                      return (
+                        <tr
+                          key={u.id}
+                          onClick={() => toggle(u.id)}
+                          className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] cursor-pointer ${
+                            checked ? "bg-[var(--color-navy-50)]" : "hover:bg-[var(--color-navy-50)]"
+                          }`}
+                        >
+                          <td className="px-2 sm:px-3.5 py-2.5 text-center">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggle(u.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label={`Select ${u.engineNumber}`}
+                            />
+                          </td>
+                          <td className="px-2 sm:px-3.5 py-2.5 font-mono text-[12px] text-[var(--color-ink-900)] tracking-[0.02em] whitespace-nowrap">
+                            <span title={u.engineNumber} className="block max-w-[140px] sm:max-w-none truncate">
+                              {u.engineNumber}
+                            </span>
+                          </td>
+                          <td className={`px-2 sm:px-3.5 py-2.5 font-mono text-[12px] text-[var(--color-ink-700)] tracking-[0.02em] whitespace-nowrap ${COL.md}`}>
+                            {u.chassisNumber}
+                          </td>
+                          <td className={`px-2 sm:px-3.5 py-2.5 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${COL.sm}`}>
+                            {u.variantLabel}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </section>
 
-          <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-4 py-3 flex items-center justify-between">
+          <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="text-[12.5px] text-[var(--color-ink-700)]">
               <span className="font-semibold text-[var(--color-ink-900)] tabular-nums">{selected.size}</span>{" "}
               unit{selected.size === 1 ? "" : "s"} selected
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Link
                 href="/inventory/assembly-jobs"
-                className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] hover:bg-[var(--color-ink-100)] inline-flex items-center"
+                className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] hover:bg-[var(--color-ink-100)] inline-flex items-center justify-center"
               >
                 Cancel
               </Link>
@@ -440,7 +445,7 @@ export default function StartAssemblyPage() {
                   submit.status === "confirming" ||
                   submit.status === "queued-offline"
                 }
-                className="h-8 px-4 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center"
+                className="h-8 px-4 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center justify-center"
                 style={{ background: "var(--color-navy-700)" }}
               >
                 {submit.status === "submitting"

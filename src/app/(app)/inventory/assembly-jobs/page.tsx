@@ -16,6 +16,7 @@ import {
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
+import { COL } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
 
 // The row shape the renderer consumes. Built by reconstruct(), which joins the
@@ -204,7 +205,7 @@ export default function AssemblyJobsListPage() {
 
   return (
     <div className="max-w-[1480px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] flex items-center gap-1.5 mb-1.5">
             <span>Inventory</span>
@@ -229,7 +230,7 @@ export default function AssemblyJobsListPage() {
         {canPerform && (
           <Link
             href="/inventory/assembly-jobs/new"
-            className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white inline-flex items-center"
+            className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white inline-flex items-center self-start"
             style={{ background: "var(--color-navy-700)" }}
           >
             + Start Assembly
@@ -237,17 +238,17 @@ export default function AssemblyJobsListPage() {
         )}
       </header>
 
-      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
+      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
             <tr>
               <Th>Unit</Th>
-              <Th>Variant</Th>
-              <Th>Unit Status</Th>
+              <Th className={COL.sm}>Variant</Th>
+              <Th className={COL.md}>Unit Status</Th>
               <Th>Job Status</Th>
-              <Th>Started</Th>
-              <Th>Completed</Th>
-              <Th>Supervisor</Th>
+              <Th className={COL.md}>Started</Th>
+              <Th className={COL.lg}>Completed</Th>
+              <Th className={COL.lg}>Supervisor</Th>
             </tr>
           </thead>
           <tbody>
@@ -283,19 +284,20 @@ export default function AssemblyJobsListPage() {
                   <Td>
                     <Link
                       href={`/inventory/assembly-jobs/${row.id}`}
-                      className="font-mono text-[12px] text-[var(--color-navy-700)] hover:underline tracking-[0.02em]"
+                      title={row.engineNumber}
+                      className="block max-w-[104px] sm:max-w-none truncate font-mono text-[12px] text-[var(--color-navy-700)] hover:underline tracking-[0.02em]"
                     >
                       {row.engineNumber}
                     </Link>
                   </Td>
-                  <Td>
+                  <Td className={COL.sm}>
                     {row.variantLabel ? (
                       <span className="text-[12.5px] text-[var(--color-ink-900)]">{row.variantLabel}</span>
                     ) : (
                       <span className="text-[var(--color-ink-400)]">--</span>
                     )}
                   </Td>
-                  <Td>
+                  <Td className={COL.md}>
                     {row.unitStatus ? (
                       <StatusPill status={row.unitStatus} />
                     ) : (
@@ -305,21 +307,21 @@ export default function AssemblyJobsListPage() {
                   <Td>
                     <AssemblyStatusPill status={row.status} />
                   </Td>
-                  <Td>
+                  <Td className={COL.md}>
                     {row.startedAt ? (
                       <span className="text-[12px] text-[var(--color-ink-700)]">{formatDateTime(row.startedAt)}</span>
                     ) : (
                       <span className="text-[var(--color-ink-400)]">--</span>
                     )}
                   </Td>
-                  <Td>
+                  <Td className={COL.lg}>
                     {row.completedAt ? (
                       <span className="text-[12px] text-[var(--color-ink-700)]">{formatDateTime(row.completedAt)}</span>
                     ) : (
                       <span className="text-[var(--color-ink-400)]">--</span>
                     )}
                   </Td>
-                  <Td>
+                  <Td className={COL.lg}>
                     {row.supervisorName ? (
                       <span className="text-[12px] text-[var(--color-ink-700)]">{row.supervisorName}</span>
                     ) : (
@@ -335,14 +337,14 @@ export default function AssemblyJobsListPage() {
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) {
+function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <th className="font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap text-left">
+    <th className={`font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap text-left ${className}`}>
       {children}
     </th>
   );
 }
 
-function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] whitespace-nowrap">{children}</td>;
+function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <td className={`px-2 sm:px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] whitespace-nowrap ${className}`}>{children}</td>;
 }

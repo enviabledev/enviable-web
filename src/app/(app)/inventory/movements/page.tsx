@@ -44,8 +44,10 @@ import {
   type SparePartMovementListRow,
   type ApiResult,
 } from "@/lib/api";
-import { formatDateTime } from "@/lib/format";
+import MovementTypeLabel from "@/components/movements/MovementTypeLabel";
+import { formatDateShort, formatDateTime } from "@/lib/format";
 import { resolveReferenceSummary } from "@/lib/movements/reference";
+import { COL } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
 import { formatMovementType } from "@/lib/units/format";
 
@@ -156,7 +158,7 @@ export default function StockMovementsListPage() {
 
   return (
     <div className="max-w-[1620px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] mb-1.5">Inventory / Stock movements</div>
           <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em] flex items-center gap-2">
@@ -245,13 +247,13 @@ function FiltersBar({
         e.preventDefault();
         onChange({ search: searchDraft });
       }}
-      className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex items-end gap-3 flex-wrap"
+      className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex flex-col sm:flex-row sm:items-end gap-3 sm:flex-wrap"
     >
       <Field label="Type">
         <select
           value={params.movementType}
           onChange={(e) => onChange({ movementType: e.target.value })}
-          className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+          className="h-[28px] w-full sm:w-auto px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
         >
           <option value="">All types</option>
           {typeOptions.map((t) => (
@@ -266,7 +268,7 @@ function FiltersBar({
           type="date"
           value={params.occurredFrom}
           onChange={(e) => onChange({ occurredFrom: e.target.value })}
-          className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+          className="h-[28px] w-full sm:w-auto px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
         />
       </Field>
       <Field label="To">
@@ -274,7 +276,7 @@ function FiltersBar({
           type="date"
           value={params.occurredTo}
           onChange={(e) => onChange({ occurredTo: e.target.value })}
-          className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+          className="h-[28px] w-full sm:w-auto px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
         />
       </Field>
       <Field label={searchLabel}>
@@ -283,7 +285,7 @@ function FiltersBar({
           value={searchDraft}
           onChange={(e) => setSearchDraft(e.target.value)}
           placeholder="e.g. TVSKGS25E0001211"
-          className="h-[28px] w-[240px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] font-mono"
+          className="h-[28px] w-full sm:w-[240px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] font-mono"
         />
       </Field>
       <button
@@ -627,7 +629,7 @@ function MovementsTable(props: MovementsTableProps) {
   const lastPage = Math.max(1, Math.ceil(props.total / props.pageSize));
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
-      <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)] flex items-center gap-2">
           {props.kind === "stock" ? "Unit movements" : "Spare-part movements"}
           <span className="text-[11px] text-[var(--color-ink-500)] font-medium ml-1">
@@ -660,34 +662,36 @@ function MovementsTable(props: MovementsTableProps) {
           No movements match the current filters.
         </div>
       ) : (
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr>
-              <Th>Occurred</Th>
-              <Th>Type</Th>
-              <Th>{props.kind === "stock" ? "Engine number" : "Spare part"}</Th>
-              <Th>{props.kind === "stock" ? "State change" : "Quantity"}</Th>
-              <Th>Actor</Th>
-              <Th>Reference</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {props.kind === "stock"
-              ? props.rows.map((r, i) => (
-                  <StockRow key={r.id} row={r} odd={i % 2 === 1} refCtx={props.refCtx} />
-                ))
-              : props.rows.map((r, i) => (
-                  <SpareRow
-                    key={r.id}
-                    row={r}
-                    odd={i % 2 === 1}
-                    refCtx={props.refCtx}
-                    sparePartById={props.sparePartById}
-                    actorById={props.actorById}
-                  />
-                ))}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr>
+                <Th>Occurred</Th>
+                <Th>Type</Th>
+                <Th>{props.kind === "stock" ? "Engine number" : "Spare part"}</Th>
+                <Th className={COL.sm}>{props.kind === "stock" ? "State change" : "Quantity"}</Th>
+                <Th className={COL.md}>Actor</Th>
+                <Th className={COL.lg}>Reference</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {props.kind === "stock"
+                ? props.rows.map((r, i) => (
+                    <StockRow key={r.id} row={r} odd={i % 2 === 1} refCtx={props.refCtx} />
+                  ))
+                : props.rows.map((r, i) => (
+                    <SpareRow
+                      key={r.id}
+                      row={r}
+                      odd={i % 2 === 1}
+                      refCtx={props.refCtx}
+                      sparePartById={props.sparePartById}
+                      actorById={props.actorById}
+                    />
+                  ))}
+            </tbody>
+          </table>
+        </div>
       )}
       <footer className="px-4 py-2 border-t border-[var(--color-border-default)] flex items-center justify-between text-[11.5px] text-[var(--color-ink-500)]">
         <span>
@@ -716,20 +720,28 @@ function MovementsTable(props: MovementsTableProps) {
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) {
+function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <th className="text-left font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]">
+    <th className={`text-left font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${className}`}>
       {children}
     </th>
   );
 }
 
-function Td({ children, mono = false }: { children: React.ReactNode; mono?: boolean }) {
+function Td({
+  children,
+  mono = false,
+  className = "",
+}: {
+  children: React.ReactNode;
+  mono?: boolean;
+  className?: string;
+}) {
   return (
     <td
-      className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${
+      className={`px-2 sm:px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${
         mono ? "font-mono text-[12px] tracking-[0.02em]" : ""
-      }`}
+      } ${className}`}
     >
       {children}
     </td>
@@ -753,14 +765,22 @@ function StockRow({
       <Td>
         <Link
           href={`/inventory/movements/${row.id}`}
+          title={formatDateTime(row.occurredAt)}
           className="text-[var(--color-navy-700)] hover:underline"
         >
-          {formatDateTime(row.occurredAt)}
+          <span className="sm:hidden">{formatDateShort(row.occurredAt)}</span>
+          <span className="hidden sm:inline">{formatDateTime(row.occurredAt)}</span>
         </Link>
       </Td>
-      <Td>{formatMovementType(row.movementType)}</Td>
-      <Td mono>{row.unit.engineNumber}</Td>
       <Td>
+        <MovementTypeLabel type={row.movementType} />
+      </Td>
+      <Td mono>
+        <span title={row.unit.engineNumber} className="block max-w-[104px] sm:max-w-none truncate">
+          {row.unit.engineNumber}
+        </span>
+      </Td>
+      <Td className={COL.sm}>
         {row.fromState || row.toState ? (
           <span className="text-[var(--color-ink-700)]">
             {row.fromState ?? "--"} <span className="text-[var(--color-ink-400)]">to</span>{" "}
@@ -770,8 +790,8 @@ function StockRow({
           <span className="text-[var(--color-ink-400)]">--</span>
         )}
       </Td>
-      <Td>{row.actor.fullName}</Td>
-      <Td>{summary.label || <span className="text-[var(--color-ink-400)]">--</span>}</Td>
+      <Td className={COL.md}>{row.actor.fullName}</Td>
+      <Td className={COL.lg}>{summary.label || <span className="text-[var(--color-ink-400)]">--</span>}</Td>
     </tr>
   );
 }
@@ -799,30 +819,37 @@ function SpareRow({
       <Td>
         <Link
           href={`/inventory/movements/${row.id}?kind=spare`}
+          title={formatDateTime(row.occurredAt)}
           className="text-[var(--color-navy-700)] hover:underline"
         >
-          {formatDateTime(row.occurredAt)}
+          <span className="sm:hidden">{formatDateShort(row.occurredAt)}</span>
+          <span className="hidden sm:inline">{formatDateTime(row.occurredAt)}</span>
         </Link>
       </Td>
-      <Td>{formatMovementType(row.movementType)}</Td>
+      <Td>
+        <MovementTypeLabel type={row.movementType} />
+      </Td>
       <Td>
         {part ? (
-          <>
+          <span
+            title={`${part.name} ${part.sku}`}
+            className="block max-w-[140px] sm:max-w-none truncate"
+          >
             <span className="font-medium">{part.name}</span>{" "}
             <span className="text-[11px] text-[var(--color-ink-500)] font-mono ml-1">{part.sku}</span>
-          </>
+          </span>
         ) : (
           <span className="font-mono text-[11.5px] text-[var(--color-ink-500)]">{row.sparePartId}</span>
         )}
       </Td>
-      <Td>
+      <Td className={COL.sm}>
         <span className={row.quantity >= 0 ? "text-[var(--color-success-700)]" : "text-[var(--color-danger-700)]"}>
           {row.quantity >= 0 ? "+" : ""}
           {row.quantity}
         </span>
       </Td>
-      <Td>{actor?.fullName ?? <span className="text-[var(--color-ink-400)]">--</span>}</Td>
-      <Td>{summary.label || <span className="text-[var(--color-ink-400)]">--</span>}</Td>
+      <Td className={COL.md}>{actor?.fullName ?? <span className="text-[var(--color-ink-400)]">--</span>}</Td>
+      <Td className={COL.lg}>{summary.label || <span className="text-[var(--color-ink-400)]">--</span>}</Td>
     </tr>
   );
 }

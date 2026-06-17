@@ -1,5 +1,10 @@
 import type { UnitStatus } from "@/lib/api";
-import { formatUnitStatus, toneOfUnitStatus, type PillTone } from "@/lib/units/format";
+import {
+  formatUnitStatus,
+  shortUnitStatus,
+  toneOfUnitStatus,
+  type PillTone,
+} from "@/lib/units/format";
 
 const TONE_CLASSES: Record<PillTone, { bg: string; fg: string; dot: string }> = {
   navy: {
@@ -34,10 +39,13 @@ export default function StatusPill({ status }: { status: UnitStatus }) {
   const c = TONE_CLASSES[tone];
   return (
     <span
+      title={formatUnitStatus(status)}
       className={`inline-flex items-center gap-1 h-4 px-1.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.02em] whitespace-nowrap ${c.bg} ${c.fg}`}
     >
       <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${c.dot}`} aria-hidden />
-      {formatUnitStatus(status)}
+      {/* Shorthand on mobile so the primary metric stays in view; full label at sm+. */}
+      <span className="sm:hidden">{shortUnitStatus(status)}</span>
+      <span className="hidden sm:inline">{formatUnitStatus(status)}</span>
     </span>
   );
 }

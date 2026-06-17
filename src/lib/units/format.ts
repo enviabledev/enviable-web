@@ -31,6 +31,37 @@ export function formatUnitStatus(status: string): string {
     .join("");
 }
 
+/**
+ * Consistent mobile shorthand for unit statuses, so a units table's Tier 1
+ * (identity + status + primary metric) fits at 375px. Same input always maps
+ * to the same output; the detail page shows the full status. Fixed map, not
+ * computed. Mirrors the status-pill shorthand rule in RESPONSIVE.md.
+ */
+const SHORT_UNIT_STATUS: Record<UnitStatus, string> = {
+  IN_TRANSIT: "Transit",
+  IN_WAREHOUSE_CKD: "WH CKD",
+  IN_ASSEMBLY: "Assembly",
+  IN_WAREHOUSE_CBU: "WH CBU",
+  SOLD_AS_CKD: "Sold CKD",
+  SOLD_AS_CBU: "Sold CBU",
+  DAMAGED: "Damaged",
+  IN_REPAIR: "Repair",
+  DEMO: "Demo",
+  INTERNAL_USE: "Internal",
+  TRANSFERRED: "Transfer",
+  RETURNED: "Returned",
+  WRITTEN_OFF: "Written",
+};
+
+/**
+ * Shorthand for a UnitStatus; tolerant of arbitrary strings (StockMovement
+ * from/to states are typed String). Unknown values fall back to the compact
+ * full label so nothing renders blank.
+ */
+export function shortUnitStatus(status: string): string {
+  return SHORT_UNIT_STATUS[status as UnitStatus] ?? formatUnitStatus(status);
+}
+
 export type PillTone = "navy" | "amber" | "success" | "danger" | "grey";
 
 export function toneOfUnitStatus(status: UnitStatus): PillTone {
@@ -98,4 +129,31 @@ export function formatMovementType(t: string): string {
     .split("_")
     .map((part, idx) => (idx === 0 ? part.charAt(0).toUpperCase() + part.slice(1) : part))
     .join(" ");
+}
+
+/**
+ * Consistent mobile shorthand for movement types so a movements table's Tier 1
+ * fits at 375px. Movement types are event categories, not a state machine, but
+ * the same fixed-map shorthand pattern applies (RESPONSIVE.md). Unknown values
+ * fall back to the full label.
+ */
+const SHORT_MOVEMENT_TYPE: Record<string, string> = {
+  RECEIPT: "Receipt",
+  ASSEMBLY_START: "Start",
+  ASSEMBLY_COMPLETE: "Complete",
+  SALE: "Sale",
+  RETURN: "Return",
+  DAMAGE: "Damage",
+  WRITE_OFF: "Write-off",
+  DEMO: "Demo",
+  INTERNAL_USE: "Internal",
+  TRANSFER: "Transfer",
+  REPAIR_IN: "Repair In",
+  REPAIR_OUT: "Repair Out",
+  RESTOCK_FROM_REPAIR: "Restock",
+  ADJUSTMENT: "Adjust",
+};
+
+export function shortMovementType(t: string): string {
+  return SHORT_MOVEMENT_TYPE[t] ?? formatMovementType(t);
 }

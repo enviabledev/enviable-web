@@ -39,12 +39,14 @@ import {
   type SparePartDetail,
   type SparePartMovementEntry,
 } from "@/lib/api";
+import MovementTypeLabel from "@/components/movements/MovementTypeLabel";
+import SparePartStatusPill from "@/components/spare-parts/SparePartStatusPill";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime, formatNGN } from "@/lib/format";
 import { resolveReferenceSummary } from "@/lib/movements/reference";
+import { COL } from "@/lib/responsive";
 import { getById, listByType } from "@/lib/sync/mirror/store";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
-import { formatMovementType } from "@/lib/units/format";
 
 type SparePartMirror = {
   id: string;
@@ -239,22 +241,14 @@ export default function SparePartDetailPage() {
           <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em]">
             {part.name}
           </h1>
-          <span
-            className={`inline-flex items-center h-[20px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] ${
-              part.status === "ACTIVE"
-                ? "bg-[var(--color-success-100)] text-[var(--color-success-700)]"
-                : "bg-[var(--color-ink-100)] text-[var(--color-ink-700)]"
-            }`}
-          >
-            {part.status === "ACTIVE" ? "Active" : "Discontinued"}
-          </span>
+          <SparePartStatusPill status={part.status} />
           {fromMirror && <FreshnessBadge />}
         </div>
         <div className="text-[12.5px] text-[var(--color-ink-500)] mt-1 font-mono">{part.sku}</div>
       </header>
 
       <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
-        <header className="px-5 py-3 border-b border-[var(--color-border-default)]">
+        <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)]">
           <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Catalogue</h2>
         </header>
         <dl className="text-[12.5px] divide-y divide-[var(--color-border-default)]">
@@ -301,77 +295,81 @@ function MovementHistoryCard({
 }) {
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Movement history</h2>
         <span className="text-[11px] text-[var(--color-ink-500)]">
           {movements.length} {movements.length === 1 ? "entry" : "entries"}
         </span>
       </header>
       {movements.length === 0 ? (
-        <div className="px-5 py-8 text-center text-[12.5px] text-[var(--color-ink-500)]">
+        <div className="px-4 sm:px-5 py-8 text-center text-[12.5px] text-[var(--color-ink-500)]">
           No movements recorded for this spare part yet.
         </div>
       ) : (
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr>
-              <Th>Occurred</Th>
-              <Th>Type</Th>
-              <Th align="right">Quantity</Th>
-              <Th>Actor</Th>
-              <Th>Reference</Th>
-              <Th>Notes</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {movements.map((m, i) => {
-              const ref = resolveReferenceSummary(m.referenceType, m.referenceId, refCtx);
-              return (
-                <tr
-                  key={m.id}
-                  className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] last:border-b-0`}
-                >
-                  <Td>
-                    <Link
-                      href={`/inventory/movements/${m.id}?kind=spare`}
-                      className="text-[var(--color-navy-700)] hover:underline"
-                    >
-                      {formatDateTime(m.occurredAt)}
-                    </Link>
-                  </Td>
-                  <Td>{formatMovementType(m.movementType)}</Td>
-                  <Td align="right">
-                    <span
-                      className={
-                        m.quantity >= 0
-                          ? "text-[var(--color-success-700)] font-mono font-semibold"
-                          : "text-[var(--color-danger-700)] font-mono font-semibold"
-                      }
-                    >
-                      {m.quantity >= 0 ? "+" : ""}
-                      {m.quantity}
-                    </span>
-                  </Td>
-                  <Td>{m.actor?.fullName ?? <span className="text-[var(--color-ink-400)]">--</span>}</Td>
-                  <Td>
-                    {ref.label ? (
-                      ref.href ? (
-                        <Link href={ref.href} className="text-[var(--color-navy-700)] hover:underline">
-                          {ref.label}
-                        </Link>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr>
+                <Th>Occurred</Th>
+                <Th>Type</Th>
+                <Th align="right">Quantity</Th>
+                <Th className={COL.md}>Actor</Th>
+                <Th className={COL.md}>Reference</Th>
+                <Th className={COL.lg}>Notes</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {movements.map((m, i) => {
+                const ref = resolveReferenceSummary(m.referenceType, m.referenceId, refCtx);
+                return (
+                  <tr
+                    key={m.id}
+                    className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] last:border-b-0`}
+                  >
+                    <Td>
+                      <Link
+                        href={`/inventory/movements/${m.id}?kind=spare`}
+                        className="text-[var(--color-navy-700)] hover:underline"
+                      >
+                        {formatDateTime(m.occurredAt)}
+                      </Link>
+                    </Td>
+                    <Td>
+                      <MovementTypeLabel type={m.movementType} />
+                    </Td>
+                    <Td align="right">
+                      <span
+                        className={
+                          m.quantity >= 0
+                            ? "text-[var(--color-success-700)] font-mono font-semibold"
+                            : "text-[var(--color-danger-700)] font-mono font-semibold"
+                        }
+                      >
+                        {m.quantity >= 0 ? "+" : ""}
+                        {m.quantity}
+                      </span>
+                    </Td>
+                    <Td className={COL.md}>{m.actor?.fullName ?? <span className="text-[var(--color-ink-400)]">--</span>}</Td>
+                    <Td className={COL.md}>
+                      {ref.label ? (
+                        ref.href ? (
+                          <Link href={ref.href} className="text-[var(--color-navy-700)] hover:underline">
+                            {ref.label}
+                          </Link>
+                        ) : (
+                          <span className="text-[var(--color-ink-700)]">{ref.label}</span>
+                        )
                       ) : (
-                        <span className="text-[var(--color-ink-700)]">{ref.label}</span>
-                      )
-                    ) : (
-                      <span className="text-[var(--color-ink-400)]">--</span>
-                    )}
-                  </Td>
-                  <Td>{m.notes ?? <span className="text-[var(--color-ink-400)]">--</span>}</Td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                        <span className="text-[var(--color-ink-400)]">--</span>
+                      )}
+                    </Td>
+                    <Td className={COL.lg}>{m.notes ?? <span className="text-[var(--color-ink-400)]">--</span>}</Td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
@@ -387,10 +385,10 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="px-5 py-2.5 grid grid-cols-[200px_1fr] gap-3 items-baseline">
+    <div className="px-4 sm:px-5 py-2.5 grid grid-cols-1 sm:grid-cols-[200px_1fr] gap-1 sm:gap-3 items-baseline">
       <dt className="text-[12px] font-medium text-[var(--color-ink-500)]">{label}</dt>
       <dd
-        className={`m-0 text-[var(--color-ink-900)] ${mono ? "font-mono text-[12px] tracking-[0.02em]" : ""}`}
+        className={`m-0 text-[var(--color-ink-900)] ${mono ? "font-mono text-[12px] tracking-[0.02em] break-all" : ""}`}
       >
         {children}
       </dd>
@@ -401,13 +399,15 @@ function Row({
 function Th({
   children,
   align = "left",
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
+  className?: string;
 }) {
   return (
     <th
-      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]`}
+      className={`${align === "right" ? "text-right" : "text-left"} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${className}`}
     >
       {children}
     </th>
@@ -417,13 +417,15 @@ function Th({
 function Td({
   children,
   align = "left",
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
+  className?: string;
 }) {
   return (
     <td
-      className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap text-${align}`}
+      className={`px-2 sm:px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${align === "right" ? "text-right" : "text-left"} ${className}`}
     >
       {children}
     </td>

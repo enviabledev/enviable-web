@@ -35,12 +35,54 @@ Status: **strategy confirmed; implementation in progress.**
     all 9 Sales screens at 375/768/1280, Tier-4 column hidden at 375 + shown at
     lg, invoices reflow to cards on mobile + table on desktop. Full suite
     (shell + invoices + sales) green; desktop regression-clean.
-- **Pausing for the visual walkthrough of the Sales cluster** before
-  propagating to inventory / procurement / reports / admin (Phases 3 continued
-  + 4). One open question for the walkthrough: on the narrowest screens a few
-  list tables scroll horizontally to reach the primary metric (Total) because
-  the identity column (full SO number) is long; acceptable as-is, or truncate
-  identity to keep Total in view without scroll?
+- **Phase 3 Inventory cluster: DONE and verified.** Applied the full standard
+  to all 8 Inventory screens (units list+detail, spare-parts list+detail,
+  stock-movements list [both tabs] + detail [both kinds], assembly-jobs
+  list+detail+new). Column-tier classes, identity truncation, per-entity
+  status-pill shorthand, `px-2 sm:px-3.5` padding, stacked filters, detail-grid
+  collapse, action-bar stacking, and the `overflow-x-auto` safety net on every
+  table.
+  - **Status pills got the shorthand (per-entity, fixed map, SoStatusPill
+    shape):** `UnitStatusPill` (`src/components/units/StatusPill.tsx`, via
+    `shortUnitStatus` in `lib/units/format.ts`: `IN_WAREHOUSE_CKD` -> "WH CKD"
+    etc.), `AssemblyStatusPill` (`IN_PROGRESS` -> "Active", `COMPLETED` ->
+    "Done"), and `SparePartStatusPill` (new, `DISCONTINUED` -> "Disc.").
+  - **Movement type is a LABEL, not a coloured pill.** The existing movements
+    design renders the type as plain text, so `MovementTypeLabel`
+    (`src/components/movements/MovementTypeLabel.tsx`) applies the same
+    two-span mobile-shorthand pattern as text (`shortMovementType`:
+    `ASSEMBLY_START` -> "Start", `ASSEMBLY_COMPLETE` -> "Complete"), without
+    introducing colour. Used by the movements list (both tabs) and the
+    spare-part detail history. Deviation from the doc's "MovementTypePill"
+    naming is deliberate: a responsive pass should not change the visual.
+  - **Per-table Tier-1 calls (recorded so reviewers can confirm the standard,
+    not bespoke judgement):**
+    - Units list: Engine# (T1) + Status (T1); Variant T2/sm; Chassis# +
+      Received T3/md; Current Warehouse + Landed Cost T4/lg (cost-gated column
+      stays T4).
+    - Spare-parts list: SKU (T1) + Quantity-on-hand (T1, the
+      permission-independent primary metric) + Status (T1); Name T2/sm; Landed
+      cost T4/lg (cost-gated). Confirms the permission-dependent-metric
+      refinement: quantity is always Tier 1, cost is the optional T4 column.
+    - Stock-movements (heterogeneous, shared table for both tabs): deliberate
+      Tier-1 = Occurred (the row link; short date < sm, full datetime sm+) +
+      Type + entity ref (engine number / spare part, truncated). State
+      change / Quantity T2/sm; Actor T3/md; Reference T4/lg. Desktop column
+      order unchanged.
+    - Assembly-jobs list: Unit-engine (T1) + Job Status (T1); Variant T2/sm;
+      Unit Status + Started T3/md; Completed + Supervisor T4/lg.
+  - **`Th`/`Td` className passthrough added** to the four screens that had
+    hard-coded cell helpers (spare-parts list+detail, movements list,
+    assembly-jobs list) so each column's paired header+cell take the same tier
+    class, matching the Sales cluster's pattern.
+  - **Units/spare-parts pagination footers** wrap (`flex-wrap`) and the
+    redundant middle "Showing X-Y of Z" span hides < sm (the top count already
+    carries it), so the page-button row never overflows at 375.
+  - Verified in `e2e/inventory-responsive.spec.ts`: no document overflow across
+    all 11 Inventory URLs at 375/768/1280, Tier-1-fits-without-table-scroll at
+    375 on all 5 list tables, units hides Current Warehouse (T4) + movements
+    hides Actor/Reference (T3/T4) at 375 and both reveal at lg. Desktop
+    regression-clean.
 
 ## How this was measured
 

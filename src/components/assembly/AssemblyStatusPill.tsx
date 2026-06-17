@@ -41,14 +41,24 @@ const STATUS_LABEL: Record<AssemblyJobStatus, string> = {
   FAILED: "Failed",
 };
 
+// Fixed mobile shorthand (RESPONSIVE.md): same input -> same output, full label at sm+.
+const SHORT_LABEL: Record<AssemblyJobStatus, string> = {
+  IN_PROGRESS: "Active",
+  COMPLETED: "Done",
+  FAILED: "Failed",
+};
+
 export default function AssemblyStatusPill({ status }: { status: AssemblyJobStatus }) {
   const c = TONE_CLASSES[STATUS_TONE[status]];
   return (
     <span
+      title={STATUS_LABEL[status]}
       className={`inline-flex items-center gap-1 h-4 px-1.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.02em] whitespace-nowrap ${c.bg} ${c.fg}`}
     >
       <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${c.dot}`} aria-hidden />
-      {STATUS_LABEL[status]}
+      {/* Shorthand on mobile so the primary metric stays in view; full label at sm+. */}
+      <span className="sm:hidden">{SHORT_LABEL[status]}</span>
+      <span className="hidden sm:inline">{STATUS_LABEL[status]}</span>
     </span>
   );
 }

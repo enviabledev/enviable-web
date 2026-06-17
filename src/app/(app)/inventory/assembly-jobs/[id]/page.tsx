@@ -21,6 +21,7 @@ import {
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
+import { DETAIL_GRID } from "@/lib/responsive";
 import { queueCompleteAssembly, queueFailAssembly } from "@/lib/sync/actions/assembly";
 import { useConnectivity } from "@/lib/sync/connectivity";
 import { getById } from "@/lib/sync/mirror/store";
@@ -297,7 +298,7 @@ export default function AssemblyJobDetailPage() {
 
   return (
     <div className="max-w-[1080px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-5 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-5 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] flex items-center gap-1.5 mb-1.5 flex-wrap">
             <Link href="/inventory/assembly-jobs" className="text-[var(--color-ink-500)] hover:text-[var(--color-navy-700)]">
@@ -330,12 +331,12 @@ export default function AssemblyJobDetailPage() {
         </div>
 
         {showActions && action.status !== "confirming" && action.status !== "queued-offline" && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setAction({ status: "confirming", action: "complete" })}
               disabled={action.status === "submitting"}
-              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50 inline-flex items-center justify-center"
               style={{ background: "var(--color-success-700)" }}
             >
               {action.status === "submitting" && action.action === "complete" ? "Completing..." : "Complete Assembly"}
@@ -344,14 +345,14 @@ export default function AssemblyJobDetailPage() {
               type="button"
               onClick={() => setAction({ status: "confirming", action: "fail" })}
               disabled={action.status === "submitting"}
-              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-danger-700)] bg-white text-[var(--color-danger-700)] hover:bg-[var(--color-danger-50)] disabled:opacity-50 inline-flex items-center"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-danger-700)] bg-white text-[var(--color-danger-700)] hover:bg-[var(--color-danger-50)] disabled:opacity-50 inline-flex items-center justify-center"
             >
               {action.status === "submitting" && action.action === "fail" ? "Failing..." : "Fail Assembly"}
             </button>
           </div>
         )}
         {actionable && !canPerform && (
-          <span className="text-[11px] text-[var(--color-ink-500)] self-end">
+          <span className="text-[11px] text-[var(--color-ink-500)] sm:self-end">
             No actions available (requires assembly.perform)
           </span>
         )}
@@ -515,11 +516,11 @@ function LifecycleCard({ unitStatus, jobStatus }: { unitStatus: UnitStatus | nul
   const failed = jobStatus === "FAILED";
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Unit lifecycle</h2>
         {unitStatus && <StatusPill status={unitStatus} />}
       </header>
-      <div className="px-5 py-4 flex items-center gap-2 flex-wrap">
+      <div className="px-4 sm:px-5 py-4 flex items-center gap-2 flex-wrap">
         {steps.map((step, i) => {
           const active = unitStatus === step.match;
           return (
@@ -567,15 +568,15 @@ function DetailCard({ d }: { d: AssemblyDetail }) {
   ];
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Job detail</h2>
-        <span className="text-[11px] text-[var(--color-ink-500)] font-mono">{d.id}</span>
+        <span className="text-[11px] text-[var(--color-ink-500)] font-mono break-all">{d.id}</span>
       </header>
-      <div className="px-5 py-3 grid grid-cols-2 gap-x-12 gap-y-1">
+      <div className="px-4 sm:px-5 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-1">
         {rows.map((r, i) => (
           <div
             key={i}
-            className="grid grid-cols-[160px_1fr] gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0 text-[13px]"
+            className={`${DETAIL_GRID} gap-1 sm:gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0 text-[13px]`}
           >
             <span className="text-[12px] font-medium text-[var(--color-ink-500)]">{r.label}</span>
             <span className={`text-[var(--color-ink-900)] font-medium ${r.mono ? "font-mono text-[13px] tracking-[0.02em]" : ""}`}>

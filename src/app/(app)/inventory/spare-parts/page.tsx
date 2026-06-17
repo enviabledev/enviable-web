@@ -29,8 +29,10 @@ import {
   type SparePartStatus,
 } from "@/lib/api";
 import { isTransientFailure } from "@/lib/api/client";
+import SparePartStatusPill from "@/components/spare-parts/SparePartStatusPill";
 import { usePermissions } from "@/lib/auth";
 import { formatNGN } from "@/lib/format";
+import { COL } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
 
 const PAGE_SIZES = [25, 50, 100, 250] as const;
@@ -185,13 +187,13 @@ export default function SparePartsListPage() {
           e.preventDefault();
           navigate({ search: searchDraft, page: 1 });
         }}
-        className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex items-end gap-3 flex-wrap"
+        className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex flex-col sm:flex-row sm:items-end gap-3 sm:flex-wrap"
       >
         <Field label="Status">
           <select
             value={params.status}
             onChange={(e) => navigate({ status: e.target.value as SparePartStatus | "", page: 1 })}
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className="h-[28px] w-full sm:w-auto px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
           >
             <option value="">All statuses</option>
             {SPARE_PART_STATUS.map((s) => (
@@ -209,7 +211,7 @@ export default function SparePartsListPage() {
               value={searchDraft}
               onChange={(e) => setSearchDraft(e.target.value)}
               placeholder="e.g. Brake Pad"
-              className="h-[28px] w-[260px] pl-6 pr-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+              className="h-[28px] w-full sm:w-[260px] pl-6 pr-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
             />
           </div>
         </Field>
@@ -242,7 +244,7 @@ export default function SparePartsListPage() {
       )}
       {!errMsg && data && (
         <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
-          <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex items-center justify-between">
+          <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
             <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)] flex items-center gap-2">
               Catalogue
               <span className="text-[11px] text-[var(--color-ink-500)] font-medium ml-1">
@@ -275,66 +277,61 @@ export default function SparePartsListPage() {
               No spare parts match the current filters.
             </div>
           ) : (
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr>
-                  <Th>SKU</Th>
-                  <Th>Name</Th>
-                  <Th align="right">Quantity on hand</Th>
-                  {showCost && <Th align="right">Landed cost / unit</Th>}
-                  <Th>Status</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.data.map((p, i) => (
-                  <tr
-                    key={p.id}
-                    className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] hover:bg-[var(--color-navy-50)]`}
-                  >
-                    <Td mono>
-                      <Link
-                        href={`/inventory/spare-parts/${p.id}`}
-                        className="text-[var(--color-navy-700)] hover:underline"
-                      >
-                        {p.sku}
-                      </Link>
-                    </Td>
-                    <Td>{p.name}</Td>
-                    <Td align="right" mono>
-                      <span
-                        className={
-                          p.quantityOnHand === 0
-                            ? "text-[var(--color-warning-700)] font-semibold"
-                            : "text-[var(--color-ink-900)]"
-                        }
-                      >
-                        {p.quantityOnHand.toLocaleString()}
-                      </span>
-                    </Td>
-                    {showCost && (
-                      <Td align="right" mono>
-                        {p.landedCostPerUnit != null ? (
-                          formatNGN(p.landedCostPerUnit)
-                        ) : (
-                          <span className="text-[var(--color-ink-400)]">--</span>
-                        )}
-                      </Td>
-                    )}
-                    <Td>
-                      <span
-                        className={`inline-flex items-center h-[18px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] ${
-                          p.status === "ACTIVE"
-                            ? "bg-[var(--color-success-100)] text-[var(--color-success-700)]"
-                            : "bg-[var(--color-ink-100)] text-[var(--color-ink-700)]"
-                        }`}
-                      >
-                        {p.status === "ACTIVE" ? "Active" : "Discontinued"}
-                      </span>
-                    </Td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr>
+                    <Th>SKU</Th>
+                    <Th className={COL.sm}>Name</Th>
+                    <Th align="right">Quantity on hand</Th>
+                    {showCost && <Th align="right" className={COL.lg}>Landed cost / unit</Th>}
+                    <Th>Status</Th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.data.map((p, i) => (
+                    <tr
+                      key={p.id}
+                      className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] hover:bg-[var(--color-navy-50)]`}
+                    >
+                      <Td mono>
+                        <Link
+                          href={`/inventory/spare-parts/${p.id}`}
+                          title={p.sku}
+                          className="block max-w-[104px] sm:max-w-none truncate text-[var(--color-navy-700)] hover:underline"
+                        >
+                          {p.sku}
+                        </Link>
+                      </Td>
+                      <Td className={COL.sm}>{p.name}</Td>
+                      <Td align="right" mono>
+                        <span
+                          className={
+                            p.quantityOnHand === 0
+                              ? "text-[var(--color-warning-700)] font-semibold"
+                              : "text-[var(--color-ink-900)]"
+                          }
+                        >
+                          {p.quantityOnHand.toLocaleString()}
+                        </span>
+                      </Td>
+                      {showCost && (
+                        <Td align="right" mono className={COL.lg}>
+                          {p.landedCostPerUnit != null ? (
+                            formatNGN(p.landedCostPerUnit)
+                          ) : (
+                            <span className="text-[var(--color-ink-400)]">--</span>
+                          )}
+                        </Td>
+                      )}
+                      <Td>
+                        <SparePartStatusPill status={p.status} />
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           <PageFooter
             page={data.page}
@@ -375,13 +372,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Th({
   children,
   align = "left",
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
+  className?: string;
 }) {
   return (
     <th
-      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]`}
+      className={`${align === "right" ? "text-right" : "text-left"} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${className}`}
     >
       {children}
     </th>
@@ -392,16 +391,18 @@ function Td({
   children,
   align = "left",
   mono = false,
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
   mono?: boolean;
+  className?: string;
 }) {
   return (
     <td
-      className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap text-${align} ${
+      className={`px-2 sm:px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${align === "right" ? "text-right" : "text-left"} ${
         mono ? "font-mono text-[12px] tracking-[0.02em]" : ""
-      }`}
+      } ${className}`}
     >
       {children}
     </td>

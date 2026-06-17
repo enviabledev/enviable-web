@@ -28,6 +28,7 @@ import { usePermissions } from "@/lib/auth";
 import { type MovementType, type SparePartMovementType } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { resolveReferenceSummary, type ReferenceSummary } from "@/lib/movements/reference";
+import { DETAIL_GRID } from "@/lib/responsive";
 import { getById, listByType } from "@/lib/sync/mirror/store";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 import { formatMovementType } from "@/lib/units/format";
@@ -262,7 +263,7 @@ function StockSubject({ d }: { d: ResolvedDetail }) {
   const m = d.movement as StockMovementMirror;
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)]">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)]">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Subject</h2>
       </header>
       <dl className="text-[12.5px] divide-y divide-[var(--color-border-default)]">
@@ -314,7 +315,7 @@ function SpareSubject({ d }: { d: ResolvedDetail }) {
   const m = d.movement as SparePartMovementMirror;
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)]">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)]">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Subject</h2>
       </header>
       <dl className="text-[12.5px] divide-y divide-[var(--color-border-default)]">
@@ -349,10 +350,10 @@ function ReferenceCard({ d }: { d: ResolvedDetail }) {
   const m = d.movement;
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)]">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)]">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Reference</h2>
       </header>
-      <div className="px-5 py-3 text-[12.5px]">
+      <div className="px-4 sm:px-5 py-3 text-[12.5px]">
         {!m.referenceType ? (
           <span className="text-[var(--color-ink-500)]">
             No reference entity. {m.notes ? `Reason recorded on notes: "${m.notes}".` : ""}
@@ -420,11 +421,11 @@ function RawCard({ d, id }: { d: ResolvedDetail; id: string }) {
   const m = d.movement;
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-4 sm:px-5 py-3 border-b border-[var(--color-border-default)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Audit fields</h2>
-        <span className="text-[11px] text-[var(--color-ink-500)] font-mono">{id}</span>
+        <span className="text-[11px] text-[var(--color-ink-500)] font-mono break-all">{id}</span>
       </header>
-      <dl className="text-[12.5px] grid grid-cols-2 gap-x-12 px-5 py-3">
+      <dl className="text-[12.5px] grid grid-cols-1 sm:grid-cols-2 gap-x-12 px-4 sm:px-5 py-3">
         <Row label="Movement id" mono>
           {m.id}
         </Row>
@@ -451,10 +452,10 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[160px_1fr] gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0">
+    <div className={`${DETAIL_GRID} gap-1 sm:gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0`}>
       <span className="text-[12px] font-medium text-[var(--color-ink-500)]">{label}</span>
       <span
-        className={`text-[var(--color-ink-900)] ${mono ? "font-mono text-[12px] tracking-[0.02em]" : ""}`}
+        className={`text-[var(--color-ink-900)] ${mono ? "font-mono text-[12px] tracking-[0.02em] break-all" : ""}`}
       >
         {children}
       </span>

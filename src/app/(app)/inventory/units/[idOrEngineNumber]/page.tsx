@@ -15,6 +15,7 @@ import {
   type UnitStatus,
   type VariantAttributes,
 } from "@/lib/api";
+import { DETAIL_GRID } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 import {
@@ -371,19 +372,19 @@ function SummaryCard({ unit }: { unit: UnitDetail }) {
 
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-6">
-      <header className="px-5 py-3.5 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-4 sm:px-5 py-3.5 border-b border-[var(--color-border-default)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 className="m-0 text-[14px] font-semibold text-[var(--color-ink-900)] flex items-center gap-2.5">
           Unit identity
         </h2>
-        <span className="text-mono-id text-[11px] text-[var(--color-ink-500)]">
+        <span className="text-mono-id text-[11px] text-[var(--color-ink-500)] break-all">
           {unit.id}
         </span>
       </header>
-      <div className="px-6 py-5 grid grid-cols-2 gap-x-16 gap-y-1">
+      <div className="px-4 sm:px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-1">
         {kvs.map((kv, i) => (
           <div
             key={i}
-            className="grid grid-cols-[160px_1fr] gap-4 items-baseline py-2.5 border-b border-dashed border-[var(--color-border-default)] last:border-b-0 text-[13px]"
+            className={`${DETAIL_GRID} gap-1 sm:gap-4 items-baseline py-2.5 border-b border-dashed border-[var(--color-border-default)] last:border-b-0 text-[13px]`}
           >
             <span className="text-[12px] font-medium text-[var(--color-ink-500)]">{kv.label}</span>
             <span
@@ -425,7 +426,7 @@ function TimelineCard({
 
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
-      <header className="px-5 py-3.5 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-4 sm:px-5 py-3.5 border-b border-[var(--color-border-default)] flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 className="m-0 text-[14px] font-semibold text-[var(--color-ink-900)] flex items-center gap-2.5">
           Movement timeline
           <span className="text-[11px] text-[var(--color-ink-500)] font-medium bg-[var(--color-ink-100)] px-2 py-0.5 rounded-full">
@@ -436,7 +437,7 @@ function TimelineCard({
           Current state: <span className="font-medium text-[var(--color-ink-900)]">{formatUnitStatus(currentStatus)}</span>
         </span>
       </header>
-      <div className="px-7 py-7 relative">
+      <div className="px-4 sm:px-7 py-7 relative">
         <div
           aria-hidden
           className="absolute left-[46px] top-7 bottom-7 w-px bg-[var(--color-border-default)]"
