@@ -298,9 +298,9 @@ export default function CounterpartiesPage() {
                 <thead>
                   <tr>
                     <Th>Name</Th>
-                    <Th>Type</Th>
+                    <Th className={COL.sm}>Type</Th>
                     <Th>Status</Th>
-                    <Th className={COL.sm}>Contact</Th>
+                    <Th className={COL.md}>Contact</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -318,13 +318,13 @@ export default function CounterpartiesPage() {
                           {r.name}
                         </Link>
                       </Td>
-                      <Td>
+                      <Td className={COL.sm}>
                         <TypePill type={r.type} />
                       </Td>
                       <Td>
                         <StatusPill status={r.status} />
                       </Td>
-                      <Td className={COL.sm}>
+                      <Td className={COL.md}>
                         {r.hasContact ? (
                           <span className="text-[11.5px] text-[var(--color-ink-700)]">on file</span>
                         ) : (

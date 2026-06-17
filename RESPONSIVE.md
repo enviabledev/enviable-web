@@ -367,7 +367,13 @@ Most propagation is mechanical, but a few per-table calls need thought:
 ## Running the responsive suite
 
 `npm run e2e:responsive` runs the shell spec + every `*-responsive.spec.ts`
-(auto-includes new clusters by filename match). Each cluster spec asserts, at
+(auto-includes new clusters by filename match). It runs `--workers=1` (serial):
+these are heavy integration sweeps that each fill the IndexedDB mirror and hit
+one dev server + one backend, so running two concurrently saturates the dev
+server and inflates `page.goto` times until per-test budgets blow (observed as
+intermittent timeouts only in the full multi-cluster run, never standalone).
+Serial means each spec runs at its fast standalone speed and the suite is
+reliable; the trade-off is longer wall-clock (sum, not max). Each cluster spec asserts, at
 375/768/1280: no document overflow, Tier-1-fits-without-table-scroll at 375,
 and desktop regression-clean. Needs backend :3000 + dev :3100 + the broad-read
 fixture user (md-demo). Prompt 29 closes when this is green across all clusters.
