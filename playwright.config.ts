@@ -18,6 +18,11 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
+  // Generous timeouts: the view paints its summary from the IndexedDB mirror,
+  // which only fills after the post-login sync download, so assertions on
+  // mirror-derived text need room to retry.
+  timeout: 60_000,
+  expect: { timeout: 20_000 },
   reporter: [["list"]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3100",

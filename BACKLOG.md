@@ -11,39 +11,29 @@ to make before the fix can land. Remove an entry once the work ships.
 
 ## Pending
 
-### Invoice view + Print: live Playwright run pending backend availability
+### BACKEND: invoice template assets land in the wrong dist path
 
-The invoice view screens (`/sales/invoices/[id]`,
-`/procurement/proforma-invoices/[id]/document`) and the Print buttons
-(SO detail invoice card, invoices-payments rows, proforma-invoices rows,
-PI detail, and the views themselves) are built and statically verified:
-`npm run typecheck`, `npm run lint`, and `npm run e2e:typecheck` are
-green, and a grep confirms the load-bearing negative property (no
-`window.print()`, no `@media print` / `@page` stylesheet anywhere in
-`src/`). The single render path is the backend PDF; the view embeds the
-backend HTML endpoint in a sandboxed iframe.
+Found while booting the backend to run the invoice e2e suite. The
+backend (`enviable-system`) crashes on startup with
+`ENOENT ... dist/src/documents/templates/invoice-styles.css`. The
+compiled `InvoiceTemplateEngine` (`dist/src/documents/template-engine.js`)
+reads templates and font/logo assets from its own `__dirname`, i.e.
+`dist/src/documents/templates` and `dist/src/documents/assets`. But
+`nest-cli.json` copies those assets to `dist/documents/templates` and
+`dist/documents/assets` (the `assets` entries use `outDir: "dist"` with
+includes relative to `sourceRoot: "src"`, so they land one level above
+where the engine looks). Result: a clean `nest build` + run cannot render
+any invoice PDF/HTML; the module fails to instantiate.
 
-What is NOT yet done: the live visible-outcome Playwright run. The suite
-exists at `e2e/invoices.spec.ts` and codifies all six assertions
-(a render, b/f Print-downloads-PDF-and-never-window.print, c proforma,
-d permission gating, e honest offline). It could not be executed in the
-frontend build session because (1) the backend was not running on :3000,
-so the HTML/PDF endpoints and the login/auth flow were unreachable, and
-(2) Chromium is not yet fetched (`npx playwright install chromium`).
+Interim (verification only, no source edit): the assets were copied into
+`dist/src/documents/templates` and `dist/src/documents/assets` by hand so
+the backend could boot for the e2e run.
 
-**Action when picked up (needs the backend up):**
-1. Start the backend on :3000 and seed one invoice + one proforma
-   fixture (and a user WITHOUT salesorder.read / pi.read for assertion d).
-2. `npx playwright install chromium`.
-3. Set the `E2E_*` env vars documented in the spec header (ids, numbers,
-   credentials) and run `npm run e2e`.
-4. If any assertion surfaces a UI issue, fix and re-run until green, then
-   remove this entry.
-
-Note: the prompt's done-criteria list these Playwright assertions; they
-are wired and ready but await a session where the backend is reachable.
-This matches the project's verification split (data/static checks here,
-the live browser pass when the full environment is up).
+**Action (backend session, not this repo):** fix the `nest-cli.json`
+asset `outDir` to `dist/src` (or change the engine's base path), so a
+plain `nest build` places the templates/fonts/logo where the engine
+reads them. Add a smoke check that the PdfRendererService instantiates
+after a clean build.
 
 ### Product / variant catalogue has no management surface
 

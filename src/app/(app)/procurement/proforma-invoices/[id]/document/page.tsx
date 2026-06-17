@@ -26,6 +26,7 @@ import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
 import { proformaInvoiceDoc } from "@/lib/invoices/pdf";
+import { useMirrorFreshness } from "@/lib/sync/mirror/freshness";
 import { getById } from "@/lib/sync/mirror/store";
 
 type MirroredPi = {
@@ -83,6 +84,11 @@ export default function ProformaInvoiceDocumentPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [fromMirror, setFromMirror] = useState(false);
 
+  // Mirror-only read freshness (sixth meta-discipline): re-read the summary as
+  // the mirror progresses so the page reflects the PI once it syncs, rather
+  // than snapshotting null at mount. See the sales invoice view for the rationale.
+  const watermark = useMirrorFreshness();
+
   useEffect(() => {
     if (!id || !canRead) return;
     let cancelled = false;
@@ -110,7 +116,7 @@ export default function ProformaInvoiceDocumentPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, canRead]);
+  }, [id, canRead, watermark]);
 
   if (!canRead) {
     return (

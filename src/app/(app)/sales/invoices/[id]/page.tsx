@@ -25,6 +25,7 @@ import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime, formatNGN } from "@/lib/format";
 import { salesInvoiceDoc } from "@/lib/invoices/pdf";
+import { useMirrorFreshness } from "@/lib/sync/mirror/freshness";
 import { getById } from "@/lib/sync/mirror/store";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
@@ -63,6 +64,15 @@ export default function SalesInvoiceViewPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [fromMirror, setFromMirror] = useState(false);
 
+  // Mirror-only read freshness (sixth meta-discipline): the summary is read
+  // exclusively from the mirror with no network revalidate of its own (the
+  // network call is the rendered-HTML fetch, a separate surface), so without
+  // re-reading on mirror progress the page would snapshot at mount and miss
+  // the invoice if it had not synced yet. The watermark updates on every
+  // download-window commit and reconcile, so depending on it re-runs the read
+  // until the invoice lands.
+  const watermark = useMirrorFreshness();
+
   useEffect(() => {
     if (!id || !canRead) return;
     let cancelled = false;
@@ -90,7 +100,7 @@ export default function SalesInvoiceViewPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, canRead]);
+  }, [id, canRead, watermark]);
 
   if (!canRead) {
     return (
