@@ -213,6 +213,28 @@ same constants rather than re-deriving the breakpoints. Each list table's
 `Th`/`Td` gain a `className` passthrough; the paired header+cell for a column
 get the SAME tier class.
 
+### Identity-column truncation (standard)
+Tier 1 must FIT at 375px, not merely be nominally present. The identity column
+gets a width cap that bites only on mobile (`max-w-[~104px] sm:max-w-none`) with
+`truncate` on a block child, plus `title={fullValue}` (desktop hover) and the
+row's detail link (mobile affordance). Production ID formats are short
+(`SO-2026-0001` 12 chars, `INV-2026-0001` 13 chars), so they fit under the cap
+and never truncate; only long outliers elide. No collision risk: production IDs
+display in full, so distinct IDs never collapse to the same string; truncation
+only fires on outliers where the full value remains on title + detail page.
+(Middle-truncation was prototyped but inline-flex does not enforce its cap
+inside a nowrap table cell; block `truncate` is the reliable table-cell pattern.
+Since production IDs never truncate, end-vs-middle is academic here.)
+
+### Status-pill shorthand (standard)
+When a long status would push the primary metric out of view, the pill shows a
+consistent shorthand on mobile and the full label at `sm+` (two spans,
+`sm:hidden` / `hidden sm:inline`; full value also on `title`). The mapping is a
+fixed table so the same input always yields the same output across clusters
+(e.g. `READY_FOR_DISPATCH` -> "Ready", `PAYMENT_RECEIVED` -> "Received"). See
+`shortSoStatus` in `SoStatusPill.tsx`; each status enum gets its own map as its
+cluster is done. Plus mobile table cells use `px-2 sm:px-3.5` to reclaim margin.
+
 ### No-info-dropped verification (per table)
 Before a table hides a column at mobile, confirm that column's field is
 actually rendered on the row's detail page (the detail link is the affordance

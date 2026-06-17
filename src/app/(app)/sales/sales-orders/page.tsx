@@ -288,7 +288,8 @@ export default function SalesOrdersListPage() {
                   <Td>
                     <Link
                       href={`/sales/sales-orders/${row.id}`}
-                      className="font-mono text-[12px] text-[var(--color-navy-700)] hover:underline tracking-[0.02em]"
+                      title={row.soNumber}
+                      className="block max-w-[104px] sm:max-w-none truncate font-mono text-[12px] text-[var(--color-navy-700)] hover:underline tracking-[0.02em]"
                     >
                       {row.soNumber}
                     </Link>
@@ -297,10 +298,10 @@ export default function SalesOrdersListPage() {
                   <Td>
                     <SoStatusPill status={row.status} />
                   </Td>
-                  <td className={`px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[var(--color-ink-900)] ${COL.md}`}>
+                  <td className={`px-2 sm:px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[var(--color-ink-900)] ${COL.md}`}>
                     {row._count?.lines ?? "--"}
                   </td>
-                  <td className="px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap font-mono text-[12px] font-semibold text-[var(--color-ink-900)]">
+                  <td className="px-2 sm:px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap font-mono text-[12px] font-semibold text-[var(--color-ink-900)]">
                     {formatNGN(row.total)}
                   </td>
                   <Td className={COL.lg}>
@@ -327,7 +328,7 @@ function Th({
 }) {
   return (
     <th
-      className={`font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${
+      className={`font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${
         align === "right" ? "text-right" : "text-left"
       } ${className}`}
     >
@@ -338,7 +339,7 @@ function Th({
 
 function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <td className={`px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] whitespace-nowrap ${className}`}>
+    <td className={`px-2 sm:px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] whitespace-nowrap ${className}`}>
       {children}
     </td>
   );

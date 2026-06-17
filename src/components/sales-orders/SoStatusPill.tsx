@@ -53,15 +53,42 @@ export function formatSoStatus(status: SoStatus): string {
     .join("");
 }
 
+/**
+ * Consistent mobile shorthand for long statuses, so Tier 1 (identity + status
+ * + primary metric) fits at 375px. Same input always maps to the same output;
+ * the detail page shows the full status. Mirrors the truncation rule in
+ * RESPONSIVE.md.
+ */
+const SHORT_LABEL: Record<SoStatus, string> = {
+  DRAFT: "Draft",
+  AWAITING_PAYMENT: "Awaiting",
+  PAYMENT_RECEIVED: "Received",
+  RELEASE_AUTHORISED: "Released",
+  PICKING: "Picking",
+  READY_FOR_DISPATCH: "Ready",
+  DISPATCHED: "Dispatched",
+  DELIVERED: "Delivered",
+  CLOSED: "Closed",
+  CANCELLED: "Cancelled",
+  REFUNDED: "Refunded",
+};
+
+export function shortSoStatus(status: SoStatus): string {
+  return SHORT_LABEL[status];
+}
+
 export default function SoStatusPill({ status }: { status: SoStatus }) {
   const tone = TONE_MAP[status];
   const c = TONE_CLASSES[tone];
   return (
     <span
+      title={formatSoStatus(status)}
       className={`inline-flex items-center gap-1 h-4 px-1.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.02em] whitespace-nowrap ${c.bg} ${c.fg}`}
     >
       <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${c.dot}`} aria-hidden />
-      {formatSoStatus(status)}
+      {/* Shorthand on mobile so the primary metric stays in view; full label at sm+. */}
+      <span className="sm:hidden">{shortSoStatus(status)}</span>
+      <span className="hidden sm:inline">{formatSoStatus(status)}</span>
     </span>
   );
 }

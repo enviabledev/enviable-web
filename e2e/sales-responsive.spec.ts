@@ -78,6 +78,35 @@ test("no horizontal overflow across the Sales cluster", async ({ page }) => {
   expect(violations, `overflow:\n${violations.join("\n")}`).toEqual([]);
 });
 
+test("Tier 1 (incl primary metric) fits at 375 without table scroll", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await login(page);
+  await page.goto("/sales/sales-orders");
+  for (let i = 0; i < 30; i++) {
+    if ((await mirrorCount(page)) > 450) break;
+    await page.waitForTimeout(2000);
+  }
+  const TABLE_SCREENS = [
+    "/sales/sales-orders",
+    "/sales/customers",
+    "/sales/deliveries",
+    "/sales/price-lists",
+  ];
+  const scrolling: string[] = [];
+  for (const path of TABLE_SCREENS) {
+    await page.goto(path, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1400);
+    const bad = await page.evaluate(() =>
+      Array.from(document.querySelectorAll(".overflow-x-auto"))
+        .filter((e) => e.scrollWidth > e.clientWidth + 1)
+        .map((e) => `${e.scrollWidth}>${e.clientWidth}`),
+    );
+    if (bad.length) scrolling.push(`${path}: ${bad.join(",")}`);
+  }
+  expect(scrolling, `table scrolls (Tier 1 doesn't fit):\n${scrolling.join("\n")}`).toEqual([]);
+});
+
 test("sales-orders table hides Tier-4 column on mobile, keeps identity+status", async ({
   page,
 }) => {
