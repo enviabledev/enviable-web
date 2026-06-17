@@ -659,6 +659,7 @@ function LinesCard({ lines, so }: { lines: readonly SalesOrderLine[]; so: SalesO
           <span className="text-[11px] text-[var(--color-ink-500)] font-medium ml-2">{lines.length} line{lines.length === 1 ? "" : "s"}</span>
         </h2>
       </header>
+      <div className="overflow-x-auto">
       <table className="w-full text-[13px]">
         <thead>
           <tr>
@@ -699,6 +700,7 @@ function LinesCard({ lines, so }: { lines: readonly SalesOrderLine[]; so: SalesO
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }
@@ -861,7 +863,7 @@ function PaymentsCard({
       {showRecord && (
         <div className="px-5 py-3 border-b border-[var(--color-border-default)] bg-[var(--color-navy-50)]">
           <h3 className="m-0 mb-2 text-[12.5px] font-semibold text-[var(--color-ink-900)]">Record payment (PENDING)</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3gap-3 mb-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
             <label className="block">
               <span className="block text-[10.5px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)] mb-1">Amount (NGN)</span>
               <input
@@ -911,6 +913,7 @@ function PaymentsCard({
         </div>
       )}
 
+      <div className="overflow-x-auto">
       <table className="w-full text-[13px]">
         <thead>
           <tr>
@@ -969,6 +972,7 @@ function PaymentsCard({
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }

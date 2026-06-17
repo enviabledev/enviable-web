@@ -111,6 +111,18 @@ to `px-2 sm:px-3.5`, and the filter controls became full-width on mobile). Both
 already passed Tier-1-fits but sat without the refinements; this is the
 "refining a shipped cluster sweeps ALL its screens, not just the latest" rule.
 
+**SO detail tables (surfaced by the full-suite run under parallel load).** The
+sales-orders detail had two tables (line items, payments) NOT wrapped in
+`overflow-x-auto`, plus an inert `sm:grid-cols-3gap-3` class (missing space, so
+the record-payment form never went 3-up). They passed the Sales overflow spec
+in isolation because narrow render states happened to fit at 768, but the full
+6-spec `e2e:responsive` run (heavy parallel load -> a wider phase-2 render state
+landed mid-measurement) caught the line-items table pushing the page +199px at
+768. Wrapped both tables (structurally eliminates the overflow regardless of
+render timing) and fixed the class. Lesson: a nested detail table without the
+`overflow-x-auto` safety net is a latent overflow even if a given fixture's
+render happens to fit; the integrated suite under load is what exposes it.
+
 ## How this was measured
 
 A Playwright sweep logged in (Managing Director, broad read perms), waited
