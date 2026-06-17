@@ -149,7 +149,8 @@ export default function CustomersListPage() {
                 <td className="px-3 h-[30px] border-b border-[var(--color-border-default)]">
                   <Link
                     href={`/sales/customers/${c.id}`}
-                    className="text-[var(--color-navy-700)] hover:underline font-medium"
+                    title={c.name}
+                    className="block max-w-[180px] sm:max-w-none truncate text-[var(--color-navy-700)] hover:underline font-medium"
                   >
                     {c.name}
                   </Link>

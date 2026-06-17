@@ -84,6 +84,33 @@ Status: **strategy confirmed; implementation in progress.**
     hides Actor/Reference (T3/T4) at 375 and both reveal at lg. Desktop
     regression-clean.
 
+## Cluster scope: verify the page-file count before starting (operational rule)
+
+Before applying the standard to a cluster, list every `page.tsx` under that
+cluster's route and confirm the count matches the planned scope; surface any
+discrepancy before writing code. The handoff/plan can undercount (CLAUDE.md
+warns it lists fewer states/screens than the running app). Concretely:
+`find "src/app/(app)/<cluster>" -name page.tsx`. The Procurement cluster was
+planned as 4 screens (proforma-invoices + counterparties) but the route holds
+~13 page files (it also includes shipments and purchase-orders, none
+responsive-treated, and `proc-po-list` was the audit's worst overflow at
++786px). Reports (4: revenue/customers/audit-log/stocks) and Admin
+(3: historical-load + users/roles placeholders) matched their plans. Same
+verify-the-count discipline that caught the Modal overcount (5 claimed, 1 real)
+in Phase 2, applied to scope.
+
+## Retroactive sweep done (customers + deliveries)
+
+Per the price-lists finding, the identity-truncation + status-shorthand
+refinements (added to the Sales standard after the first propagation) were
+swept across the remaining Sales list tables: `sales/customers` (Name column
+gained `max-w-[180px] sm:max-w-none truncate`) and `sales/deliveries` (SO
+number gained `max-w-[104px]` truncation, the inline delivery `StatusPill`
+gained a fixed mobile shorthand so "Ready for dispatch" -> "Ready", cells moved
+to `px-2 sm:px-3.5`, and the filter controls became full-width on mobile). Both
+already passed Tier-1-fits but sat without the refinements; this is the
+"refining a shipped cluster sweeps ALL its screens, not just the latest" rule.
+
 ## How this was measured
 
 A Playwright sweep logged in (Managing Director, broad read perms), waited

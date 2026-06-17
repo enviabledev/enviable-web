@@ -82,6 +82,16 @@ const STATUS_LABEL: Record<DeliveryStatus, string> = {
   DELIVERED: "Delivered",
 };
 
+// Fixed mobile shorthand (RESPONSIVE.md status-pill rule) so the long
+// "Ready for dispatch" label does not push the SO number out of view at 375.
+const STATUS_SHORT: Record<DeliveryStatus, string> = {
+  RELEASE_AUTHORISED: "Released",
+  PICKING: "Picking",
+  READY_FOR_DISPATCH: "Ready",
+  DISPATCHED: "Dispatched",
+  DELIVERED: "Delivered",
+};
+
 const STATUS_TONE: Record<DeliveryStatus, { bg: string; fg: string; dot: string }> = {
   RELEASE_AUTHORISED: {
     bg: "bg-[var(--color-ink-100)]",
@@ -268,7 +278,7 @@ export default function DeliveriesPage() {
           <select
             value={params.status}
             onChange={(e) => navigate({ status: e.target.value as DeliveryStatus | "" })}
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className="h-[28px] w-full sm:w-auto px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
           >
             <option value="">All in-flight</option>
             {ALL_DELIVERY_STATUSES.map((s) => (
@@ -286,7 +296,7 @@ export default function DeliveriesPage() {
               value={searchDraft}
               onChange={(e) => setSearchDraft(e.target.value)}
               placeholder="e.g. SO-2026-001"
-              className="h-[28px] w-[260px] pl-6 pr-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+              className="h-[28px] w-full sm:w-[260px] pl-6 pr-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
             />
           </div>
         </Field>
@@ -364,7 +374,8 @@ export default function DeliveriesPage() {
                     <Td mono>
                       <Link
                         href={`/sales/sales-orders/${r.id}`}
-                        className="text-[var(--color-navy-700)] hover:underline font-medium"
+                        title={r.soNumber}
+                        className="block max-w-[104px] sm:max-w-none truncate text-[var(--color-navy-700)] hover:underline font-medium"
                       >
                         {r.soNumber}
                       </Link>
@@ -403,10 +414,12 @@ function StatusPill({ status }: { status: DeliveryStatus }) {
   const tone = STATUS_TONE[status];
   return (
     <span
-      className={`inline-flex items-center gap-1 h-[18px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] ${tone.bg} ${tone.fg}`}
+      title={STATUS_LABEL[status]}
+      className={`inline-flex items-center gap-1 h-[18px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] whitespace-nowrap ${tone.bg} ${tone.fg}`}
     >
       <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${tone.dot}`} aria-hidden />
-      {STATUS_LABEL[status]}
+      <span className="sm:hidden">{STATUS_SHORT[status]}</span>
+      <span className="hidden sm:inline">{STATUS_LABEL[status]}</span>
     </span>
   );
 }
@@ -424,7 +437,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <th className={`text-left font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] ${className}`}>
+    <th className={`text-left font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] ${className}`}>
       {children}
     </th>
   );
@@ -441,7 +454,7 @@ function Td({
 }) {
   return (
     <td
-      className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${
+      className={`px-2 sm:px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${
         mono ? "font-mono text-[12px] tracking-[0.02em]" : ""
       } ${className}`}
     >
