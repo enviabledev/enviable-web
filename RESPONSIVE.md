@@ -248,6 +248,29 @@ A new list table added later must apply ALL of: column-tier classes, identity
 truncation, the entity's status-pill shorthand, `px-2 sm:px-3.5` padding, the
 stacked filter form, and the `overflow-x-auto` table container.
 
+## Cluster-specific propagation notes (judgment calls to make per cluster)
+
+Most propagation is mechanical, but a few per-table calls need thought:
+
+- **Permission-dependent primary metric (refinement to the tier rule).** When a
+  table's primary metric varies by permission (spare parts shows
+  `quantityOnHand` to all, but a cost-gated `landedCost` only to cost-permission
+  holders), apply the tier rule to the columns that user actually sees: the
+  primary-metric Tier 1 slot is whatever metric is available to them. The
+  backend's CostVisibilityInterceptor already strips cost fields, so the column
+  simply shows what's present; just confirm Tier 1 still fits for both the
+  cost-visible and cost-blind views.
+- **Stock movements is heterogeneous** (RECEIPT, ASSEMBLY_START,
+  ASSEMBLY_COMPLETE, ASSEMBLY_FAIL, TRANSFER, ...) with per-type reference
+  resolution. Decide Tier 1 ordering deliberately: "entity ref + movement type
+  + timestamp" vs "movement type + entity ref + timestamp" by which answers the
+  user's scanning question first. Movement *types* are event categories, not a
+  state machine, but the same pill-shorthand pattern applies
+  (ASSEMBLY_START -> "Start", ASSEMBLY_COMPLETE -> "Complete",
+  ASSEMBLY_FAIL -> "Fail"; RECEIPT/TRANSFER are already short).
+- **Spare-part `quantityOnHand`** is a number; it needs no responsive
+  special-casing beyond the tier slot.
+
 ## Running the responsive suite
 
 `npm run e2e:responsive` runs the shell spec + every `*-responsive.spec.ts`
