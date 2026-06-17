@@ -13,7 +13,7 @@ function initialsOf(fullName: string): string {
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
-export default function Topbar() {
+export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const principal = usePrincipal();
   const [notifOpen, setNotifOpen] = useState(false);
   const popRef = useRef<HTMLDivElement | null>(null);
@@ -30,12 +30,21 @@ export default function Topbar() {
   }, [notifOpen]);
 
   return (
-    <header className="h-topbar sticky top-0 z-30 bg-white border-b border-[var(--color-border-default)] flex items-center gap-3 px-3.5 flex-shrink-0">
-      <div className="flex items-center text-[12.5px] font-semibold text-[var(--color-ink-900)] tracking-[-0.005em] h-6 pr-3.5 border-r border-[var(--color-border-default)]">
+    <header className="h-topbar sticky top-0 z-30 bg-white border-b border-[var(--color-border-default)] flex items-center gap-3 px-3 sm:px-3.5 flex-shrink-0">
+      <button
+        type="button"
+        onClick={onMenuClick}
+        aria-label="Open navigation menu"
+        className="lg:hidden -ml-0.5 w-[30px] h-[30px] grid place-items-center rounded-[4px] text-[var(--color-ink-700)] hover:bg-[var(--color-ink-100)] hover:text-[var(--color-ink-900)] flex-shrink-0"
+      >
+        <MenuIcon />
+      </button>
+
+      <div className="hidden sm:flex items-center text-[12.5px] font-semibold text-[var(--color-ink-900)] tracking-[-0.005em] h-6 pr-3.5 border-r border-[var(--color-border-default)]">
         Enviable&nbsp;<span className="text-[var(--color-navy-700)]">Tricycle</span>
       </div>
 
-      <label className="flex-1 max-w-[420px] mx-auto h-[26px] flex items-center gap-2 px-2.5 rounded-[4px] bg-[var(--color-ink-100)] border border-transparent text-[var(--color-ink-500)] text-[12px] focus-within:bg-white focus-within:border-[var(--color-navy-700)] focus-within:shadow-[0_0_0_3px_rgba(31,78,121,0.10)] transition-colors">
+      <label className="hidden lg:flex min-w-0 flex-1 max-w-[420px] mx-auto h-[26px] items-center gap-2 px-2.5 rounded-[4px] bg-[var(--color-ink-100)] border border-transparent text-[var(--color-ink-500)] text-[12px] focus-within:bg-white focus-within:border-[var(--color-navy-700)] focus-within:shadow-[0_0_0_3px_rgba(31,78,121,0.10)] transition-colors">
         <SearchIcon width={14} height={14} />
         <input
           type="text"
@@ -47,15 +56,15 @@ export default function Topbar() {
         </span>
       </label>
 
-      <div className="flex items-center gap-2 relative">
+      <div className="flex items-center gap-2 relative ml-auto">
         <SyncStatusIndicator />
 
-        <div className="w-px h-[22px] bg-[var(--color-border-default)] mx-0.5" />
+        <div className="hidden sm:block w-px h-[22px] bg-[var(--color-border-default)] mx-0.5" />
 
         <button
           type="button"
           title="Help"
-          className="w-[26px] h-[26px] grid place-items-center rounded-[4px] text-[var(--color-ink-700)] hover:bg-[var(--color-ink-100)] hover:text-[var(--color-ink-900)]"
+          className="hidden sm:grid w-[26px] h-[26px] place-items-center rounded-[4px] text-[var(--color-ink-700)] hover:bg-[var(--color-ink-100)] hover:text-[var(--color-ink-900)]"
         >
           <HelpIcon />
         </button>
@@ -87,7 +96,7 @@ export default function Topbar() {
           >
             {principal ? initialsOf(principal.fullName) : "?"}
           </div>
-          <div className="flex flex-col gap-px leading-[1.1]">
+          <div className="hidden lg:flex flex-col gap-px leading-[1.1]">
             <div className="text-[12px] font-medium text-[var(--color-ink-900)] whitespace-nowrap">
               {principal?.fullName ?? "Unknown"}
             </div>
@@ -95,7 +104,7 @@ export default function Topbar() {
               {principal?.roles[0] ?? ""}
             </div>
           </div>
-          <ChevronDownIcon style={{ color: "var(--color-ink-400)" }} />
+          <ChevronDownIcon className="hidden lg:block" style={{ color: "var(--color-ink-400)" }} />
         </div>
 
         {notifOpen && (
@@ -117,5 +126,22 @@ export default function Topbar() {
         )}
       </div>
     </header>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 18 18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <path d="M3 5h12M3 9h12M3 13h12" />
+    </svg>
   );
 }

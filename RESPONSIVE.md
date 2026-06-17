@@ -1,9 +1,19 @@
 # Responsive pass: audit + strategy (prompt 29, phases a + b)
 
-Status: **audit done, strategy proposed, awaiting confirmation before
-implementation.** No responsive code has been written yet. This document is
-the thing to sign off on; once the table decision and the sidebar-drawer
-approach are confirmed, implementation proceeds per the sequence at the end.
+Status: **strategy confirmed; implementation in progress.**
+
+- Decisions confirmed: tables = progressive column-hiding default / card-reflow
+  for finance-comparison tables / horizontal-scroll for nested line items;
+  sidebar drawer below `lg`; extract a shared Dialog primitive.
+- **Phase 1 (shell): DONE and verified.** Sidebar collapses to an off-canvas
+  drawer below `lg` (persistent rail at `lg+`, unchanged desktop); topbar gains
+  a hamburger and drops the search box + user-name to `lg+` so it fits tablet;
+  content padding `p-4 sm:p-6`. Verified at 375/768/1280 in `e2e/shell.spec.ts`
+  (drawer toggles, nav closes it, main reclaims full width, no shell-induced
+  overflow); the invoice suite still passes through the new shell (desktop
+  regression-clean).
+- Next: Phase 2 (primitives), Phase 3 (per-cluster), Phase 4 (per-cluster
+  Playwright). Pausing for check-in at each boundary.
 
 ## How this was measured
 
@@ -125,10 +135,27 @@ Recommendation, matching the prompt's weak lean:
   `overflow-x-auto` with a visible scroll affordance, where every column is
   essential and hiding any is wrong. Never the default for a top-level list.
 
-The column-priority tiers (which columns survive at which breakpoint) will be
-defined per table in the implementation phase and listed back for review;
-they follow a consistent rule (identity + status + primary amount = always
-visible; references/dates/codes = `md`+; secondary metadata = `lg`+).
+**Column-priority rule (the standard, applied consistently across every
+table, not per-table judgement):**
+
+- **Tier 1 (always visible, including mobile `< sm`):** the row identity
+  (SO/PI/PO number, unit engine no, SKU, customer name) + the primary status
+  pill + the primary metric (total / quantity / amount). This is the minimum
+  that makes a row scannable and tappable.
+- **Tier 2 (reveal at `sm` 640+):** the most useful secondary reference (e.g.
+  the counterparty/customer when identity is a document number, or the linked
+  PO/SO).
+- **Tier 3 (reveal at `md` 768+):** dates (issued / created / due), codes
+  (customer code, supplier ref), and secondary references.
+- **Tier 4 (reveal at `lg` 1024+):** tertiary metadata (channel, notes,
+  secondary timestamps, secondary metrics).
+
+Hidden columns are never dropped silently: the row links to its detail page,
+which carries every field. When a table applies this rule, the per-table
+column-to-tier assignment is recorded in the cluster commit so reviewers can
+confirm it follows the standard rather than bespoke judgement. The same
+column type gets the same tier across clusters (a "created" date is Tier 3
+everywhere; a status pill is Tier 1 everywhere).
 
 ### Filters
 - `< sm`: stack the filter controls vertically, each full-width and fully

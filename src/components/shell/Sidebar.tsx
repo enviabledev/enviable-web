@@ -15,7 +15,13 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  className = "",
+  onNavigate,
+}: {
+  className?: string;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const { hasAll } = usePermissions();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -28,7 +34,7 @@ export default function Sidebar() {
     .filter((group) => group.items.length > 0);
 
   return (
-    <aside className="w-sidebar flex h-screen flex-col flex-shrink-0 bg-[var(--color-sidebar-bg)] text-[var(--color-sidebar-fg)] text-[12.5px] sticky top-0 self-start">
+    <aside className={`w-sidebar h-screen flex-col flex-shrink-0 bg-[var(--color-sidebar-bg)] text-[var(--color-sidebar-fg)] text-[12.5px] ${className}`}>
       <div className="h-topbar flex items-center gap-2.5 px-2.5 border-b border-white/[0.08] flex-shrink-0">
         <div className="w-6 h-6 rounded-[3px] grid place-items-center text-[11px] font-bold tracking-wider text-white"
              style={{ background: "linear-gradient(135deg, #2c5e8e, #5a82a8)" }}>
@@ -63,7 +69,12 @@ export default function Sidebar() {
               {!isCollapsed && (
                 <div>
                   {group.items.map((item) => (
-                    <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
+                    <NavLink
+                      key={item.href}
+                      item={item}
+                      active={isActive(pathname, item.href)}
+                      onNavigate={onNavigate}
+                    />
                   ))}
                 </div>
               )}
@@ -89,7 +100,15 @@ export default function Sidebar() {
   );
 }
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+function NavLink({
+  item,
+  active,
+  onNavigate,
+}: {
+  item: NavItem;
+  active: boolean;
+  onNavigate?: () => void;
+}) {
   const Icon = item.icon;
   const snapshot = useSyncSnapshot();
   // Only one entry currently shows a count badge; render conditionally to
@@ -102,6 +121,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   return (
     <Link
       href={item.href}
+      onClick={onNavigate}
       className={`relative flex items-center gap-2.5 px-2.5 py-1 rounded-[3px] text-[12px] leading-snug whitespace-nowrap ${
         active
           ? "bg-[var(--color-navy-700)] text-white font-medium"
