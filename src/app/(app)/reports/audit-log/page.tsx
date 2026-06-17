@@ -38,6 +38,8 @@ import HorizonDisclosure from "@/components/sync/HorizonDisclosure";
 import { getAuditLog, type AuditLogEntry, type AuditLogResponse } from "@/lib/api";
 import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
+import { formatDateShort, formatDateTime } from "@/lib/format";
+import { COL, FILTER_CONTROL, FILTER_FORM } from "@/lib/responsive";
 import { listAuditLogFromMirror } from "@/lib/sync/mirror/recompute/audit-log";
 import { listByType } from "@/lib/sync/mirror/store";
 
@@ -270,14 +272,14 @@ export default function AuditLogPage() {
 
       <form
         onSubmit={(e) => e.preventDefault()}
-        className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex items-end gap-3 flex-wrap"
+        className={`bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 ${FILTER_FORM}`}
       >
         <Field label="Actor">
           <select
             value={params.actorUserId}
             onChange={(e) => navigate({ actorUserId: e.target.value, page: 1 })}
             data-testid="filter-actor"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] min-w-[200px]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] sm:min-w-[200px] ${FILTER_CONTROL}`}
           >
             <option value="">All actors</option>
             {actors.map((u) => (
@@ -294,7 +296,7 @@ export default function AuditLogPage() {
             onChange={(e) => navigate({ action: e.target.value, page: 1 })}
             placeholder="e.g. payment.confirm"
             data-testid="filter-action"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] font-mono min-w-[180px]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] font-mono sm:min-w-[180px] ${FILTER_CONTROL}`}
           />
         </Field>
         <Field label="Entity type">
@@ -302,7 +304,7 @@ export default function AuditLogPage() {
             value={params.entityType}
             onChange={(e) => navigate({ entityType: e.target.value, page: 1 })}
             data-testid="filter-entityType"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] min-w-[160px]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] sm:min-w-[160px] ${FILTER_CONTROL}`}
           >
             <option value="">All types</option>
             {entityTypes.map((t) => (
@@ -319,7 +321,7 @@ export default function AuditLogPage() {
             onChange={(e) => navigate({ entityId: e.target.value, page: 1 })}
             placeholder="exact match"
             data-testid="filter-entityId"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] font-mono min-w-[200px]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] font-mono sm:min-w-[200px] ${FILTER_CONTROL}`}
           />
         </Field>
         <Field label="From">
@@ -328,7 +330,7 @@ export default function AuditLogPage() {
             value={isoToDateInput(params.occurredFrom)}
             onChange={(e) => navigate({ occurredFrom: isoDateInputToIso(e.target.value, false), page: 1 })}
             data-testid="filter-occurredFrom"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] ${FILTER_CONTROL}`}
           />
         </Field>
         <Field label="To (inclusive)">
@@ -337,14 +339,14 @@ export default function AuditLogPage() {
             value={isoToDateInput(params.occurredTo)}
             onChange={(e) => navigate({ occurredTo: isoDateInputToIso(e.target.value, true), page: 1 })}
             data-testid="filter-occurredTo"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] ${FILTER_CONTROL}`}
           />
         </Field>
         <Field label="Page size">
           <select
             value={params.pageSize}
             onChange={(e) => navigate({ pageSize: Number(e.target.value), page: 1 })}
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] ${FILTER_CONTROL}`}
           >
             {PAGE_SIZES.map((n) => (
               <option key={n} value={n}>
@@ -379,28 +381,30 @@ export default function AuditLogPage() {
               No audit entries match the current filters.
             </div>
           ) : (
-            <table className="w-full text-[13px]" data-testid="audit-table">
-              <thead>
-                <tr>
-                  <Th>When</Th>
-                  <Th>Actor</Th>
-                  <Th>Action</Th>
-                  <Th>Entity</Th>
-                  <Th align="right">{""}</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <Row
-                    key={r.id}
-                    row={r}
-                    odd={i % 2 === 1}
-                    expanded={expandedId === r.id}
-                    onToggle={() => setExpandedId(expandedId === r.id ? null : r.id)}
-                  />
-                ))}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]" data-testid="audit-table">
+                <thead>
+                  <tr>
+                    <Th>When</Th>
+                    <Th className={COL.sm}>Actor</Th>
+                    <Th>Action</Th>
+                    <Th>Entity</Th>
+                    <Th align="right">{""}</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <Row
+                      key={r.id}
+                      row={r}
+                      odd={i % 2 === 1}
+                      expanded={expandedId === r.id}
+                      onToggle={() => setExpandedId(expandedId === r.id ? null : r.id)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           {lastPage > 1 && (
             <footer className="px-4 py-2.5 border-t border-[var(--color-border-default)] flex items-center justify-end gap-2">
@@ -440,14 +444,10 @@ function Row({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const dateStr = new Date(row.occurredAt).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  // Full datetime kept for sm+; a short date shows on mobile so the When
+  // column stays in Tier 1 without crowding Action / Entity at 375.
+  const dateStr = formatDateTime(row.occurredAt);
+  const shortDateStr = formatDateShort(row.occurredAt);
   const route = row.entityId ? ENTITY_ROUTE[row.entityType] : undefined;
   const href = route ? route(row.entityId!) : null;
   const bg = odd ? "bg-[#FBFBFC]" : "bg-white";
@@ -458,10 +458,15 @@ function Row({
         className={`${bg} border-b border-[var(--color-border-default)] last:border-b-0 cursor-pointer hover:bg-[var(--color-ink-100)]`}
         onClick={onToggle}
       >
-        <Td mono>{dateStr}</Td>
-        <Td>{row.actor?.fullName ?? <span className="text-[var(--color-ink-500)]">system</span>}</Td>
         <Td mono>
-          <span className="text-[var(--color-navy-700)]">{row.action}</span>
+          <span className="sm:hidden">{shortDateStr}</span>
+          <span className="hidden sm:inline">{dateStr}</span>
+        </Td>
+        <Td className={COL.sm}>{row.actor?.fullName ?? <span className="text-[var(--color-ink-500)]">system</span>}</Td>
+        <Td mono>
+          <span className="block max-w-[120px] sm:max-w-none truncate text-[var(--color-navy-700)]" title={row.action}>
+            {row.action}
+          </span>
         </Td>
         <Td>
           <span className="text-[var(--color-ink-500)] mr-1.5">{row.entityType}</span>
@@ -471,14 +476,16 @@ function Row({
                 href={href}
                 onClick={(e) => e.stopPropagation()}
                 data-testid={`audit-entity-link-${row.id}`}
-                className="font-mono text-[12px] text-[var(--color-navy-700)] hover:underline"
+                title={row.entityId}
+                className="font-mono text-[12px] text-[var(--color-navy-700)] hover:underline inline-block max-w-[120px] sm:max-w-none truncate align-bottom"
               >
                 {row.entityId}
               </Link>
             ) : (
               <span
                 data-testid={`audit-entity-plain-${row.id}`}
-                className="font-mono text-[12px] text-[var(--color-ink-700)]"
+                title={row.entityId}
+                className="font-mono text-[12px] text-[var(--color-ink-700)] inline-block max-w-[120px] sm:max-w-none truncate align-bottom"
               >
                 {row.entityId}
               </span>
@@ -519,7 +526,7 @@ function DiffPanel({ row }: { row: AuditLogEntry }) {
   //    semantics carry the meaning.
   const beforeReason = beforeStateAbsenceReason(row);
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
       <JsonBlock title="Context" value={row.context} />
       <JsonBlock title="Before" value={row.beforeState} emptyReason={beforeReason} />
       <JsonBlock title="After" value={row.afterState} />
@@ -589,13 +596,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Th({
   children,
   align = "left",
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
+  className?: string;
 }) {
   return (
     <th
-      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]`}
+      className={`${align === "right" ? "text-right" : "text-left"} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] ${className}`}
     >
       {children}
     </th>
@@ -606,16 +615,18 @@ function Td({
   children,
   align = "left",
   mono = false,
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
   mono?: boolean;
+  className?: string;
 }) {
   return (
     <td
-      className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap text-${align} ${
+      className={`px-2 sm:px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${align === "right" ? "text-right" : "text-left"} ${
         mono ? "font-mono text-[12px] tracking-[0.02em]" : ""
-      }`}
+      } ${className}`}
     >
       {children}
     </td>

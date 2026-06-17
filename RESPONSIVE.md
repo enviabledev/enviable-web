@@ -274,6 +274,18 @@ everywhere; a status pill is Tier 1 everywhere).
   count at `lg`). Applied consistently across every detail page so a
   label/value block reads the same way on every screen.
 
+### KPI / headline-metric grids (standard, added in the Reports cluster)
+Headline KPI cards (the "big number" summary row at the top of a report or
+dashboard) use `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-N` where N is the
+desktop column count (the number of KPIs, capped at the screen's natural count,
+typically 3-4). One card per row on mobile (each KPI's 22px number stays
+readable), two-up at sm, full N-up at lg. Multi-section breakdown layouts below
+the KPIs (e.g. two side-by-side breakdown tables) use
+`grid grid-cols-1 lg:grid-cols-2` with any full-width section marked
+`lg:col-span-2` (so the `col-span` only applies once the grid actually has two
+columns). Reference: `reports/revenue` KpiCards + Breakdowns. Report breakdown
+tables themselves follow the column-tier rule and sit in `overflow-x-auto`.
+
 ### Tier classes (shared, so the tier rule is identical everywhere)
 `src/lib/responsive.ts` exports the column-tier utility strings
 (`COL.sm`/`COL.md`/`COL.lg` = `hidden sm:table-cell` etc.) and the detail-grid

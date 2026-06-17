@@ -231,7 +231,7 @@ function ShipmentSection({ onCreated }: { onCreated: (shipmentId: string) => voi
       title="Historical shipment"
       description="Create a one-off PO + PI + Shipment as a historical arrival. The shipment is created directly in RECEIVED state. Once it exists, load its units via the section below using the returned shipment id."
     >
-      <div className="grid grid-cols-2 gap-3 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <Field label="Supplier (required)">
           <select
             value={form.supplierId}
@@ -334,13 +334,13 @@ function ShipmentSection({ onCreated }: { onCreated: (shipmentId: string) => voi
         </Field>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
         <button
           type="button"
           onClick={() => setConfirming(true)}
           disabled={!canSubmit}
           data-testid="hist-shipment-commit"
-          className="h-[28px] px-4 rounded-[3px] bg-[var(--color-navy-700)] text-white text-[12.5px] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center justify-center w-full sm:w-auto h-[28px] px-4 rounded-[3px] bg-[var(--color-navy-700)] text-white text-[12.5px] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {state.status === "submitting" ? "Creating..." : "Create historical shipment"}
         </button>
@@ -569,13 +569,13 @@ function CsvUploadSection({
         />
       </Field>
 
-      <div className="flex items-center gap-2 mt-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-3">
         <button
           type="button"
           onClick={() => runLoad("dry")}
           disabled={dryRunDisabled}
           data-testid={`hist-${kind}-dry`}
-          className="h-[28px] px-4 rounded-[3px] border border-[var(--color-navy-700)] text-[var(--color-navy-700)] text-[12.5px] font-medium bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center justify-center w-full sm:w-auto h-[28px] px-4 rounded-[3px] border border-[var(--color-navy-700)] text-[var(--color-navy-700)] text-[12.5px] font-medium bg-white disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {state.status === "running" && state.mode === "dry" ? "Running..." : "Run dry-run"}
         </button>
@@ -584,7 +584,7 @@ function CsvUploadSection({
           onClick={() => setConfirming(true)}
           disabled={!commitGated}
           data-testid={`hist-${kind}-commit`}
-          className="h-[28px] px-4 rounded-[3px] bg-[var(--color-danger-700)] text-white text-[12.5px] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center justify-center w-full sm:w-auto h-[28px] px-4 rounded-[3px] bg-[var(--color-danger-700)] text-white text-[12.5px] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {state.status === "running" && state.mode === "commit"
             ? "Committing..."
@@ -722,7 +722,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-5 py-4">
+    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-4 sm:px-5 py-4">
       <header className="mb-3">
         <h2 className="m-0 text-[14px] font-semibold text-[var(--color-ink-900)]">{title}</h2>
         <p className="m-0 mt-1 text-[12px] text-[var(--color-ink-500)] leading-[1.5] max-w-[820px]">

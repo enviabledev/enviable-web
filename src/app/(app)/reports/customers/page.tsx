@@ -31,6 +31,7 @@ import {
 import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
+import { COL, FILTER_CONTROL, FILTER_FORM } from "@/lib/responsive";
 import { recomputeCustomersFromMirror } from "@/lib/sync/mirror/recompute/customers";
 import { listByType } from "@/lib/sync/mirror/store";
 
@@ -222,7 +223,7 @@ export default function CustomersReportPage() {
 
       <form
         onSubmit={(e) => e.preventDefault()}
-        className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex items-end gap-3 flex-wrap"
+        className={`bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 ${FILTER_FORM}`}
       >
         <Field label="From">
           <input
@@ -230,7 +231,7 @@ export default function CustomersReportPage() {
             value={isoToDateInput(params.from)}
             onChange={(e) => navigate({ from: dateInputToIso(e.target.value, false), page: 1 })}
             data-testid="filter-from"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] ${FILTER_CONTROL}`}
           />
         </Field>
         <Field label="To (inclusive)">
@@ -239,7 +240,7 @@ export default function CustomersReportPage() {
             value={isoToDateInput(params.to)}
             onChange={(e) => navigate({ to: dateInputToIso(e.target.value, true), page: 1 })}
             data-testid="filter-to"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] ${FILTER_CONTROL}`}
           />
         </Field>
         <Field label="Tier">
@@ -247,7 +248,7 @@ export default function CustomersReportPage() {
             value={params.tierId}
             onChange={(e) => navigate({ tierId: e.target.value, page: 1 })}
             data-testid="filter-tier"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] min-w-[160px]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] sm:min-w-[160px] ${FILTER_CONTROL}`}
           >
             <option value="">All tiers</option>
             {tiers.map((t) => (
@@ -262,7 +263,7 @@ export default function CustomersReportPage() {
             value={params.status}
             onChange={(e) => navigate({ status: e.target.value, page: 1 })}
             data-testid="filter-status"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] min-w-[140px]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] sm:min-w-[140px] ${FILTER_CONTROL}`}
           >
             <option value="">All statuses</option>
             {STATUSES.map((s) => (
@@ -276,7 +277,7 @@ export default function CustomersReportPage() {
           <select
             value={params.pageSize}
             onChange={(e) => navigate({ pageSize: Number(e.target.value), page: 1 })}
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className={`h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)] ${FILTER_CONTROL}`}
           >
             {PAGE_SIZES.map((n) => (
               <option key={n} value={n}>
@@ -285,7 +286,7 @@ export default function CustomersReportPage() {
             ))}
           </select>
         </Field>
-        <span className="text-[11px] text-[var(--color-ink-500)] leading-[1.5] max-w-[300px]">
+        <span className="text-[11px] text-[var(--color-ink-500)] leading-[1.5] sm:max-w-[300px]">
           Date range scopes order metrics (createdAt). To-bound is exclusive (start of day after).
         </span>
       </form>
@@ -328,7 +329,7 @@ function KpiCards({
   topRow: { name: string; totalOrderValue: string } | null;
 }) {
   return (
-    <section className="grid grid-cols-4 gap-3 mb-4">
+    <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
       <KpiCard
         label="Customers in scope"
         value={`${totalCustomers}`}
@@ -413,52 +414,58 @@ function CustomersTable({
           No customers match the current filters.
         </div>
       ) : (
-        <table className="w-full text-[13px]" data-testid="customers-table">
-          <thead>
-            <tr>
-              <Th>Customer</Th>
-              <Th>Type</Th>
-              <Th>Tier</Th>
-              <Th>Status</Th>
-              <Th align="right">Orders</Th>
-              <Th align="right">Total order value</Th>
-              <Th>Last order</Th>
-              <Th align="right">Outstanding</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr
-                key={r.customerId}
-                data-testid={`customer-row-${r.customerId}`}
-                className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] last:border-b-0`}
-              >
-                <Td>{r.name}</Td>
-                <Td>{r.type}</Td>
-                <Td>{r.tier?.name ?? "--"}</Td>
-                <Td>
-                  <StatusPill status={r.status} />
-                </Td>
-                <Td align="right" mono>
-                  {r.totalOrders}
-                </Td>
-                <Td align="right" mono>
-                  {formatNGN(r.totalOrderValue)}
-                </Td>
-                <Td>{r.lastOrderDate ? formatDateShort(r.lastOrderDate) : "--"}</Td>
-                <Td align="right" mono>
-                  {Number(r.outstandingBalance) > 0 ? (
-                    <span className="text-[var(--color-warning-700)]">
-                      {formatNGN(r.outstandingBalance)}
-                    </span>
-                  ) : (
-                    formatNGN(r.outstandingBalance)
-                  )}
-                </Td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]" data-testid="customers-table">
+            <thead>
+              <tr>
+                <Th>Customer</Th>
+                <Th className={COL.sm}>Type</Th>
+                <Th className={COL.md}>Tier</Th>
+                <Th>Status</Th>
+                <Th align="right" className={COL.sm}>Orders</Th>
+                <Th align="right">Total order value</Th>
+                <Th className={COL.md}>Last order</Th>
+                <Th align="right" className={COL.sm}>Outstanding</Th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr
+                  key={r.customerId}
+                  data-testid={`customer-row-${r.customerId}`}
+                  className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] last:border-b-0`}
+                >
+                  <Td>
+                    <span className="block max-w-[160px] sm:max-w-none truncate" title={r.name}>
+                      {r.name}
+                    </span>
+                  </Td>
+                  <Td className={COL.sm}>{r.type}</Td>
+                  <Td className={COL.md}>{r.tier?.name ?? "--"}</Td>
+                  <Td>
+                    <StatusPill status={r.status} />
+                  </Td>
+                  <Td align="right" mono className={COL.sm}>
+                    {r.totalOrders}
+                  </Td>
+                  <Td align="right" mono>
+                    {formatNGN(r.totalOrderValue)}
+                  </Td>
+                  <Td className={COL.md}>{r.lastOrderDate ? formatDateShort(r.lastOrderDate) : "--"}</Td>
+                  <Td align="right" mono className={COL.sm}>
+                    {Number(r.outstandingBalance) > 0 ? (
+                      <span className="text-[var(--color-warning-700)]">
+                        {formatNGN(r.outstandingBalance)}
+                      </span>
+                    ) : (
+                      formatNGN(r.outstandingBalance)
+                    )}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       {lastPage > 1 && (
         <footer className="px-4 py-2.5 border-t border-[var(--color-border-default)] flex items-center justify-end gap-2">
@@ -484,6 +491,14 @@ function CustomersTable({
   );
 }
 
+// Fixed mobile shorthand so a long status never pushes the primary metric out
+// of view at 375; full label returns at sm+ (two spans, per the standard).
+const SHORT_STATUS: Record<string, string> = {
+  ACTIVE: "Act.",
+  INACTIVE: "Inact.",
+  BLOCKED: "Block.",
+};
+
 function StatusPill({ status }: { status: string }) {
   const tone =
     status === "ACTIVE"
@@ -491,11 +506,14 @@ function StatusPill({ status }: { status: string }) {
       : status === "BLOCKED"
         ? "bg-[var(--color-danger-100)] text-[var(--color-danger-700)]"
         : "bg-[var(--color-ink-100)] text-[var(--color-ink-700)]";
+  const short = SHORT_STATUS[status] ?? status;
   return (
     <span
+      title={status}
       className={`inline-flex items-center px-2 py-[2px] rounded-[2px] text-[11px] uppercase tracking-[0.04em] font-medium ${tone}`}
     >
-      {status}
+      <span className="sm:hidden">{short}</span>
+      <span className="hidden sm:inline">{status}</span>
     </span>
   );
 }
@@ -514,13 +532,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Th({
   children,
   align = "left",
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
+  className?: string;
 }) {
   return (
     <th
-      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]`}
+      className={`${align === "right" ? "text-right" : "text-left"} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] ${className}`}
     >
       {children}
     </th>
@@ -531,16 +551,18 @@ function Td({
   children,
   align = "left",
   mono = false,
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
   mono?: boolean;
+  className?: string;
 }) {
   return (
     <td
-      className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap text-${align} ${
+      className={`px-2 sm:px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${align === "right" ? "text-right" : "text-left"} ${
         mono ? "font-mono text-[12px] tracking-[0.02em]" : ""
-      }`}
+      } ${className}`}
     >
       {children}
     </td>

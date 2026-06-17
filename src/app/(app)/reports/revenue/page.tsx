@@ -35,6 +35,7 @@ import {
 import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
+import { COL } from "@/lib/responsive";
 import { recomputeRevenueFromMirror } from "@/lib/sync/mirror/recompute/revenue";
 
 function defaultFromIso(): string {
@@ -198,7 +199,7 @@ export default function RevenueReportPage() {
         onSubmit={(e) => {
           e.preventDefault();
         }}
-        className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex items-end gap-3 flex-wrap"
+        className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex flex-col sm:flex-row sm:items-end gap-3 sm:flex-wrap"
       >
         <Field label="From">
           <input
@@ -206,7 +207,7 @@ export default function RevenueReportPage() {
             value={isoToDateInput(fromIso)}
             onChange={(e) => navigate({ from: dateInputToIso(e.target.value, false) })}
             data-testid="filter-from"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className="h-[28px] w-full sm:w-auto px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
           />
         </Field>
         <Field label="To (inclusive)">
@@ -215,7 +216,7 @@ export default function RevenueReportPage() {
             value={isoToDateInput(toIso)}
             onChange={(e) => navigate({ to: dateInputToIso(e.target.value, true) })}
             data-testid="filter-to"
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
+            className="h-[28px] w-full sm:w-auto px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] text-[var(--color-ink-900)]"
           />
         </Field>
         <span className="text-[11px] text-[var(--color-ink-500)] leading-[1.5] max-w-[340px]">
@@ -261,7 +262,7 @@ function KpiCards({ report, showCost }: { report: RevenueReport; showCost: boole
     });
   }
   return (
-    <section className="grid grid-cols-3 gap-3 mb-4">
+    <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
       {kpis.map((k) => (
         <div
           key={k.label}
@@ -285,7 +286,7 @@ function KpiCards({ report, showCost }: { report: RevenueReport; showCost: boole
 
 function Breakdowns({ report, showCost }: { report: RevenueReport; showCost: boolean }) {
   return (
-    <div className="grid grid-cols-[1fr_1fr] gap-3 mb-3">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
       <VariantTable rows={report.revenueByVariant} showCost={showCost} />
       <CustomerTable rows={report.revenueByCustomer} />
       <TrendTable rows={report.trend} />
@@ -308,36 +309,42 @@ function VariantTable({
       {rows.length === 0 ? (
         <Empty />
       ) : (
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr>
-              <Th>SKU</Th>
-              <Th align="right">Units</Th>
-              <Th align="right">Revenue (net)</Th>
-              {showCost && <Th align="right">Cost</Th>}
-              {showCost && <Th align="right">Margin</Th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={r.productVariantId} className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] last:border-b-0`}>
-                <Td mono>{r.sku}</Td>
-                <Td align="right" mono>{r.unitsSold}</Td>
-                <Td align="right" mono>{formatNGN(r.revenue)}</Td>
-                {showCost && (
-                  <Td align="right" mono>
-                    {r.landedCost != null ? formatNGN(r.landedCost) : <span className="text-[var(--color-ink-400)]">--</span>}
-                  </Td>
-                )}
-                {showCost && (
-                  <Td align="right" mono>
-                    {r.margin != null ? formatNGN(r.margin) : <span className="text-[var(--color-ink-400)]">--</span>}
-                  </Td>
-                )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr>
+                <Th>SKU</Th>
+                <Th align="right">Units</Th>
+                <Th align="right">Revenue (net)</Th>
+                {showCost && <Th align="right" className={COL.sm}>Cost</Th>}
+                {showCost && <Th align="right" className={COL.sm}>Margin</Th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.productVariantId} className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] last:border-b-0`}>
+                  <Td mono>
+                    <span title={r.sku} className="block max-w-[120px] sm:max-w-none truncate">
+                      {r.sku}
+                    </span>
+                  </Td>
+                  <Td align="right" mono>{r.unitsSold}</Td>
+                  <Td align="right" mono>{formatNGN(r.revenue)}</Td>
+                  {showCost && (
+                    <Td align="right" mono className={COL.sm}>
+                      {r.landedCost != null ? formatNGN(r.landedCost) : <span className="text-[var(--color-ink-400)]">--</span>}
+                    </Td>
+                  )}
+                  {showCost && (
+                    <Td align="right" mono className={COL.sm}>
+                      {r.margin != null ? formatNGN(r.margin) : <span className="text-[var(--color-ink-400)]">--</span>}
+                    </Td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
@@ -352,24 +359,30 @@ function CustomerTable({ rows }: { rows: RevenueReport["revenueByCustomer"] }) {
       {rows.length === 0 ? (
         <Empty />
       ) : (
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr>
-              <Th>Customer</Th>
-              <Th align="right">Orders</Th>
-              <Th align="right">Revenue (gross)</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={r.customerId} className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] last:border-b-0`}>
-                <Td>{r.name}</Td>
-                <Td align="right" mono>{r.orders}</Td>
-                <Td align="right" mono>{formatNGN(r.revenue)}</Td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr>
+                <Th>Customer</Th>
+                <Th align="right">Orders</Th>
+                <Th align="right">Revenue (gross)</Th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.customerId} className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] last:border-b-0`}>
+                  <Td>
+                    <span title={r.name} className="block max-w-[130px] sm:max-w-none truncate">
+                      {r.name}
+                    </span>
+                  </Td>
+                  <Td align="right" mono>{r.orders}</Td>
+                  <Td align="right" mono>{formatNGN(r.revenue)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
@@ -377,31 +390,33 @@ function CustomerTable({ rows }: { rows: RevenueReport["revenueByCustomer"] }) {
 
 function TrendTable({ rows }: { rows: RevenueReport["trend"] }) {
   return (
-    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] col-span-2">
+    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] lg:col-span-2">
       <header className="px-4 py-2.5 border-b border-[var(--color-border-default)]">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Daily trend</h2>
       </header>
       {rows.length === 0 ? (
         <Empty />
       ) : (
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr>
-              <Th>Date</Th>
-              <Th align="right">Revenue (gross)</Th>
-              <Th align="right">Units</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={r.date} className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] last:border-b-0`}>
-                <Td>{formatDateShort(r.date)}</Td>
-                <Td align="right" mono>{formatNGN(r.revenue)}</Td>
-                <Td align="right" mono>{r.unitsSold}</Td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr>
+                <Th>Date</Th>
+                <Th align="right">Revenue (gross)</Th>
+                <Th align="right">Units</Th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.date} className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] last:border-b-0`}>
+                  <Td>{formatDateShort(r.date)}</Td>
+                  <Td align="right" mono>{formatNGN(r.revenue)}</Td>
+                  <Td align="right" mono>{r.unitsSold}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
@@ -429,13 +444,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Th({
   children,
   align = "left",
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
+  className?: string;
 }) {
   return (
     <th
-      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]`}
+      className={`${align === "right" ? "text-right" : "text-left"} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${className}`}
     >
       {children}
     </th>
@@ -446,16 +463,18 @@ function Td({
   children,
   align = "left",
   mono = false,
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
   mono?: boolean;
+  className?: string;
 }) {
   return (
     <td
-      className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap text-${align} ${
+      className={`px-2 sm:px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${align === "right" ? "text-right" : "text-left"} ${
         mono ? "font-mono text-[12px] tracking-[0.02em]" : ""
-      }`}
+      } ${className}`}
     >
       {children}
     </td>

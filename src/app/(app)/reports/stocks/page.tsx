@@ -12,6 +12,7 @@ import {
   formatNGN,
   formatNGNCompact,
 } from "@/lib/format";
+import { COL } from "@/lib/responsive";
 import { recomputeStocksFromMirror } from "@/lib/sync/mirror/recompute/stocks";
 
 type LoadState =
@@ -148,7 +149,7 @@ export default function StocksReportPage() {
 
       {isFromMirror && <ComputedDisclosure className="mb-4" />}
 
-      <section className="grid grid-cols-3 gap-3 mb-5">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
         <KpiCard label="Total Units">
           <KpiValue>
             {formatCount(r.kpis.totalUnits)} <span className="text-[12px] font-medium text-[var(--color-ink-500)] ml-0.5">units</span>
@@ -198,13 +199,13 @@ export default function StocksReportPage() {
             <thead>
               <tr>
                 <Th>Variant</Th>
-                <Th align="right" sub="in warehouse">CKD</Th>
-                <Th align="right">In Assembly</Th>
-                <Th align="right" sub="in warehouse">CBU</Th>
-                <Th align="right">Sold</Th>
-                <Th align="right">Other</Th>
+                <Th align="right" sub="in warehouse" className={COL.md}>CKD</Th>
+                <Th align="right" className={COL.lg}>In Assembly</Th>
+                <Th align="right" sub="in warehouse" className={COL.md}>CBU</Th>
+                <Th align="right" className={COL.lg}>Sold</Th>
+                <Th align="right" className={COL.lg}>Other</Th>
                 <Th align="right">Total</Th>
-                <Th align="right">Market Price &middot; NGN</Th>
+                <Th align="right" className={COL.sm}>Market Price &middot; NGN</Th>
                 <Th align="right">Market Value &middot; NGN</Th>
               </tr>
             </thead>
@@ -219,13 +220,13 @@ export default function StocksReportPage() {
                       {v.sku}
                     </div>
                   </Td>
-                  <NumTd zero={v.counts.ckd === 0}>{formatCount(v.counts.ckd)}</NumTd>
-                  <NumTd zero={v.counts.inAssembly === 0}>{formatCount(v.counts.inAssembly)}</NumTd>
-                  <NumTd zero={v.counts.cbu === 0}>{formatCount(v.counts.cbu)}</NumTd>
-                  <NumTd zero={v.counts.sold === 0}>{formatCount(v.counts.sold)}</NumTd>
-                  <NumTd zero={v.counts.other === 0}>{formatCount(v.counts.other)}</NumTd>
+                  <NumTd zero={v.counts.ckd === 0} className={COL.md}>{formatCount(v.counts.ckd)}</NumTd>
+                  <NumTd zero={v.counts.inAssembly === 0} className={COL.lg}>{formatCount(v.counts.inAssembly)}</NumTd>
+                  <NumTd zero={v.counts.cbu === 0} className={COL.md}>{formatCount(v.counts.cbu)}</NumTd>
+                  <NumTd zero={v.counts.sold === 0} className={COL.lg}>{formatCount(v.counts.sold)}</NumTd>
+                  <NumTd zero={v.counts.other === 0} className={COL.lg}>{formatCount(v.counts.other)}</NumTd>
                   <NumTd strong>{formatCount(v.counts.total)}</NumTd>
-                  <NumTd>{formatNGN(v.currentMarketPrice)}</NumTd>
+                  <NumTd className={COL.sm}>{formatNGN(v.currentMarketPrice)}</NumTd>
                   <NumTd strong>{formatNGN(v.marketValue)}</NumTd>
                 </tr>
               ))}
@@ -235,13 +236,13 @@ export default function StocksReportPage() {
                 <FootTd>
                   Totals &middot; {r.variants.length} variants
                 </FootTd>
-                <FootNumTd>{formatCount(totals.ckd)}</FootNumTd>
-                <FootNumTd>{formatCount(totals.inAssembly)}</FootNumTd>
-                <FootNumTd>{formatCount(totals.cbu)}</FootNumTd>
-                <FootNumTd>{formatCount(totals.sold)}</FootNumTd>
-                <FootNumTd>{formatCount(totals.other)}</FootNumTd>
+                <FootNumTd className={COL.md}>{formatCount(totals.ckd)}</FootNumTd>
+                <FootNumTd className={COL.lg}>{formatCount(totals.inAssembly)}</FootNumTd>
+                <FootNumTd className={COL.md}>{formatCount(totals.cbu)}</FootNumTd>
+                <FootNumTd className={COL.lg}>{formatCount(totals.sold)}</FootNumTd>
+                <FootNumTd className={COL.lg}>{formatCount(totals.other)}</FootNumTd>
                 <FootNumTd>{formatCount(totals.total)}</FootNumTd>
-                <FootNumTd muted>--</FootNumTd>
+                <FootNumTd muted className={COL.sm}>--</FootNumTd>
                 <FootNumTd strong navy>{formatNGN(r.kpis.totalMarketValue)}</FootNumTd>
               </tr>
             </tfoot>
@@ -266,10 +267,10 @@ export default function StocksReportPage() {
             <thead>
               <tr>
                 <Th>SKU</Th>
-                <Th>Description</Th>
+                <Th className={COL.sm}>Description</Th>
                 <Th align="right">Qty on Hand</Th>
-                {showSpareCosts && <Th align="right">Landed Cost / Unit &middot; NGN</Th>}
-                {showSpareCosts && <Th align="right">Total Landed Cost &middot; NGN</Th>}
+                {showSpareCosts && <Th align="right" className={COL.md}>Landed Cost / Unit &middot; NGN</Th>}
+                {showSpareCosts && <Th align="right" className={COL.sm}>Total Landed Cost &middot; NGN</Th>}
               </tr>
             </thead>
             <tbody>
@@ -286,17 +287,17 @@ export default function StocksReportPage() {
               {r.spareParts.items.map((it) => (
                 <tr key={it.id} className="border-b border-[var(--color-border-default)] hover:bg-[var(--color-navy-50)]">
                   <Td>
-                    <span className="font-mono text-[12px] text-[var(--color-ink-900)] font-medium tracking-[0.02em]">
+                    <span className="font-mono text-[12px] text-[var(--color-ink-900)] font-medium tracking-[0.02em] block max-w-[140px] sm:max-w-none truncate" title={it.sku}>
                       {it.sku}
                     </span>
                   </Td>
-                  <Td>{it.name}</Td>
+                  <Td className={COL.sm}>{it.name}</Td>
                   <NumTd>{formatCount(it.quantityOnHand)}</NumTd>
                   {showSpareCosts && (
-                    <NumTd>{it.landedCostPerUnit !== undefined ? formatNGN(it.landedCostPerUnit) : "--"}</NumTd>
+                    <NumTd className={COL.md}>{it.landedCostPerUnit !== undefined ? formatNGN(it.landedCostPerUnit) : "--"}</NumTd>
                   )}
                   {showSpareCosts && (
-                    <NumTd strong>{it.landedCostValue !== undefined ? formatNGN(it.landedCostValue) : "--"}</NumTd>
+                    <NumTd strong className={COL.sm}>{it.landedCostValue !== undefined ? formatNGN(it.landedCostValue) : "--"}</NumTd>
                   )}
                 </tr>
               ))}
@@ -306,8 +307,8 @@ export default function StocksReportPage() {
                 <tr className="bg-[var(--color-ink-100)]">
                   <FootTd colSpan={2}>Totals &middot; {r.spareParts.items.length} SKUs</FootTd>
                   <FootNumTd>{formatCount(spareTotalQty)}</FootNumTd>
-                  <FootNumTd muted>--</FootNumTd>
-                  <FootNumTd strong navy>{formatNGN(r.spareParts.totalLandedCostValue)}</FootNumTd>
+                  <FootNumTd muted className={COL.md}>--</FootNumTd>
+                  <FootNumTd strong navy className={COL.sm}>{formatNGN(r.spareParts.totalLandedCostValue)}</FootNumTd>
                 </tr>
               </tfoot>
             )}
@@ -377,12 +378,12 @@ function Split({ label, value, tone }: { label: string; value: string; tone: "na
   );
 }
 
-function Th({ children, align = "left", sub }: { children: React.ReactNode; align?: "left" | "right"; sub?: string }) {
+function Th({ children, align = "left", sub, className = "" }: { children: React.ReactNode; align?: "left" | "right"; sub?: string; className?: string }) {
   return (
     <th
-      className={`font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${
+      className={`font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${
         align === "right" ? "text-right" : "text-left"
-      }`}
+      } ${className}`}
     >
       {children}
       {sub && (
@@ -394,9 +395,9 @@ function Th({ children, align = "left", sub }: { children: React.ReactNode; alig
   );
 }
 
-function Td({ children, colSpan }: { children: React.ReactNode; colSpan?: number }) {
+function Td({ children, colSpan, className = "" }: { children: React.ReactNode; colSpan?: number; className?: string }) {
   return (
-    <td colSpan={colSpan} className="px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] whitespace-nowrap">
+    <td colSpan={colSpan} className={`px-2 sm:px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] whitespace-nowrap ${className}`}>
       {children}
     </td>
   );
@@ -406,31 +407,33 @@ function NumTd({
   children,
   zero,
   strong,
+  className = "",
 }: {
   children: React.ReactNode;
   zero?: boolean;
   strong?: boolean;
+  className?: string;
 }) {
   return (
     <td
-      className={`px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap ${
+      className={`px-2 sm:px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap ${
         zero
           ? "text-[var(--color-ink-400)]"
           : strong
             ? "text-[var(--color-ink-900)] font-semibold"
             : "text-[var(--color-ink-900)]"
-      }`}
+      } ${className}`}
     >
       {children}
     </td>
   );
 }
 
-function FootTd({ children, colSpan }: { children: React.ReactNode; colSpan?: number }) {
+function FootTd({ children, colSpan, className = "" }: { children: React.ReactNode; colSpan?: number; className?: string }) {
   return (
     <td
       colSpan={colSpan}
-      className="px-3.5 py-2.5 text-[12.5px] font-medium text-[var(--color-ink-700)] whitespace-nowrap"
+      className={`px-2 sm:px-3.5 py-2.5 text-[12.5px] font-medium text-[var(--color-ink-700)] whitespace-nowrap ${className}`}
     >
       {children}
     </td>
@@ -442,11 +445,13 @@ function FootNumTd({
   strong,
   navy,
   muted,
+  className = "",
 }: {
   children: React.ReactNode;
   strong?: boolean;
   navy?: boolean;
   muted?: boolean;
+  className?: string;
 }) {
   const cls = navy
     ? "text-[var(--color-navy-800)]"
@@ -455,7 +460,7 @@ function FootNumTd({
       : "text-[var(--color-ink-900)]";
   return (
     <td
-      className={`px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[12.5px] ${strong ? "font-semibold" : "font-medium"} ${cls}`}
+      className={`px-2 sm:px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[12.5px] ${strong ? "font-semibold" : "font-medium"} ${cls} ${className}`}
     >
       {children}
     </td>
