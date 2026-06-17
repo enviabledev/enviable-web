@@ -35,6 +35,29 @@ plain `nest build` places the templates/fonts/logo where the engine
 reads them. Add a smoke check that the PdfRendererService instantiates
 after a clean build.
 
+### Responsive pass (prompt 29): findings surfaced during audit
+
+Full audit + proposed strategy live in `RESPONSIVE.md` (repo root), awaiting
+sign-off before implementation. Findings banked here per convention:
+
+- **The frontend-design skill carries no responsive guidance.** It is the
+  generic creative-design skill (typography / colour / motion); it has no
+  breakpoint tokens, table-to-card patterns, or navigation-collapse
+  conventions. The responsive patterns chosen during this pass should be
+  formalised as the project's responsive standard (design system / a project
+  skill) so future screen builds inherit them rather than re-deciding case by
+  case. Recommended as a follow-up once the patterns are settled.
+- **No shared Dialog/Modal primitive.** 5+ screens hand-roll `fixed inset-0`
+  modals (historical-load, PI detail, counterparties detail, assembly new +
+  detail). Recommend extracting a primitive during the responsive pass so the
+  narrow-viewport dialog fix is one change, not five; otherwise it drifts.
+- **Topbar search + user chip have no shrink behaviour**, so even
+  content-light pages force a wide min-width. Part of the cross-cutting shell
+  fix in the responsive pass.
+- **Baseline:** only 1 of 70 component/page files uses any responsive utility;
+  `<main>` renders at 163px on a 375px viewport because the 212px sidebar never
+  collapses. This is a from-zero responsive pass.
+
 ### Product / variant catalogue has no management surface
 
 Same shape as the users / roles gap, surfaced during the prompt 27
