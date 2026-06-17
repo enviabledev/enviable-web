@@ -614,3 +614,37 @@ target because there is no entity to link to yet.
 deep-link target in `src/lib/movements/reference.ts` to whatever entity
 tracks transfers (probably a future `inventoryTransfer` model). Until
 then, no action; the defensive case in the resolver is correct.
+
+### Sales-cluster responsive: price-lists list table near the 375 boundary
+
+Surfaced during the Inventory responsive pass when running the full
+`npm run e2e:responsive` suite (shell + sales + inventory) back-to-back:
+the `/sales/price-lists` list table measured 443px in a 341px container
+at 375 once (Tier-1-fits assertion failed), but PASSED on an isolated
+re-run. So it sits right at the 375 boundary and flakes under the longer
+combined run.
+
+Root cause: the Sales session applied the column-tier classes to this
+table (`COL.md` on SKU + Effective-from) but NOT the other two parts of
+the standard: the identity column (Variant) has no
+`max-w-[..] sm:max-w-none truncate`, and the cell helper still uses
+`px-3.5` rather than `px-2 sm:px-3.5`. With the standard's truncation +
+reduced mobile padding, the surviving Tier-1 columns would have margin
+and stop flaking.
+
+**Action (small, Sales-cluster touch-up):** apply identity truncation to
+the Variant column and switch the price-lists `Td`/`Th` padding to
+`px-2 sm:px-3.5`, matching the Inventory cluster. Then the Tier-1-fits
+assertion has headroom instead of sitting on the line. Same gap is worth
+a quick audit on the other Sales list tables (customers, deliveries) that
+were tiered before the identity-truncation rule was finalised.
+
+### Sales-responsive invoices test had no mirror-wait (FIXED)
+
+The `invoices reflow to cards` test in `e2e/sales-responsive.spec.ts`
+asserted on a fixture invoice 1.5s after login with no mirror-fill wait
+(unlike its sibling tests, which wait for `mirrorCount > 450`). In a cold
+context the mirror has not synced, so the fixture text was absent and the
+test failed reproducibly. Fixed in the Inventory-cluster session by adding
+the same mirror-wait loop the sibling tests use. Noted here only as the
+record of why the sales spec was edited from an Inventory session.

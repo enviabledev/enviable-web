@@ -129,7 +129,14 @@ test("invoices reflow to cards on mobile, table on desktop", async ({ page }) =>
   await page.setViewportSize({ width: 375, height: 812 });
   await login(page);
   await page.goto("/sales/invoices-payments");
-  await page.waitForTimeout(1500);
+  // The invoices list paints from the mirror, which fills only after the
+  // post-login sync download; wait for it (as the sibling tests do) before
+  // asserting on a fixture invoice, or a cold context renders an empty list.
+  for (let i = 0; i < 30; i++) {
+    if ((await mirrorCount(page)) > 450) break;
+    await page.waitForTimeout(2000);
+  }
+  await page.waitForTimeout(1000);
   // Card identity (invoice number link) visible; the table is hidden at 375.
   await expect(page.getByText("INV-FIXT-AWAIT").first()).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Invoice #" })).toBeHidden();
