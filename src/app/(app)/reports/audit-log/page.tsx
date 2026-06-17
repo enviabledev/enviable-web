@@ -388,7 +388,7 @@ export default function AuditLogPage() {
                     <Th>When</Th>
                     <Th className={COL.sm}>Actor</Th>
                     <Th>Action</Th>
-                    <Th>Entity</Th>
+                    <Th className={COL.md}>Entity</Th>
                     <Th align="right">{""}</Th>
                   </tr>
                 </thead>
@@ -468,7 +468,7 @@ function Row({
             {row.action}
           </span>
         </Td>
-        <Td>
+        <Td className={COL.md}>
           <span className="text-[var(--color-ink-500)] mr-1.5">{row.entityType}</span>
           {row.entityId ? (
             href ? (
