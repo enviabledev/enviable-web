@@ -44,6 +44,7 @@
 import { useEffect, useState } from "react";
 
 import { HistoricalLoadIcon } from "@/components/icons";
+import Modal from "@/components/ui/Modal";
 import {
   createHistoricalShipment,
   listCounterparties,
@@ -758,16 +759,13 @@ function ConfirmDialog({
   onCancel: () => void;
 }) {
   return (
-    <div
-      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
-      data-testid="confirm-dialog"
-    >
-      <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] p-5 max-w-[520px] w-full mx-4">
-        <h3 className="m-0 text-[14px] font-semibold text-[var(--color-ink-900)] mb-2">{title}</h3>
-        <div className="text-[12.5px] text-[var(--color-ink-700)] leading-[1.55] mb-4">
-          {body}
-        </div>
-        <div className="flex items-center justify-end gap-2">
+    <Modal
+      open
+      onClose={onCancel}
+      title={title}
+      testId="confirm-dialog"
+      footer={
+        <>
           <button
             type="button"
             onClick={onCancel}
@@ -783,8 +781,10 @@ function ConfirmDialog({
           >
             {confirmLabel}
           </button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <div className="text-[12.5px] text-[var(--color-ink-700)] leading-[1.55]">{body}</div>
+    </Modal>
   );
 }

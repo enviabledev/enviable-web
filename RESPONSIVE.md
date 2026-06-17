@@ -12,8 +12,14 @@ Status: **strategy confirmed; implementation in progress.**
   (drawer toggles, nav closes it, main reclaims full width, no shell-induced
   overflow); the invoice suite still passes through the new shell (desktop
   regression-clean).
-- Next: Phase 2 (primitives), Phase 3 (per-cluster), Phase 4 (per-cluster
-  Playwright). Pausing for check-in at each boundary.
+- **Phase 2 (primitives): DONE.** Extracted the `Modal` overlay primitive and
+  migrated the one true overlay (historical-load). Correction banked: the app
+  had 1 overlay modal, not 5 (the rest are inline panels that flow). The
+  filter / action-bar / detail-grid treatments are utility-class patterns
+  (no shared component exists to extract without a broad refactor), applied
+  per screen in Phase 3 per the documented standard above.
+- Next: Phase 3 (per-cluster application) + Phase 4 (per-cluster Playwright at
+  375/768/1280). Pausing for check-in at each boundary.
 
 ## How this was measured
 
@@ -173,12 +179,21 @@ everywhere; a status pill is Tier 1 everywhere).
   value, label as a small uppercase caption). `sm+`: the two-column grid.
 
 ### Dialogs (+ extract a primitive)
-- Extract a shared `Dialog`/`Modal` primitive that is `< sm`: full-width,
-  bottom-or-center sheet, `max-h-[90vh]` with internal scroll, and migrate the
-  5+ hand-rolled modals onto it. This makes the dialog fix one change instead
-  of five and prevents future drift. (If extraction is judged out of scope for
-  this pass, the fallback is to apply the same width/scroll classes at each of
-  the 5 sites and bank the primitive as a follow-up.)
+**Correction after closer inspection (Phase 2):** the app has exactly ONE
+true overlay modal (`fixed inset-0`): the historical-load ConfirmDialog. The
+other "dialogs" I flagged (PI approve/reject, counterparties, assembly start,
+SO record-payment) are inline `role="dialog"` confirmation panels rendered in
+the page flow, which wrap naturally on narrow viewports and were not a
+breakage. The earlier "5+ hand-rolled modals" was an overcount.
+
+Done in Phase 2: extracted `src/components/ui/Modal.tsx` (centered card,
+`w-full` minus a 16px gutter on mobile, `max-w-[520px]` on larger screens,
+`max-h-[90vh]` internal scroll, scrim-click + Escape to close, body-scroll
+lock, 4px radius per the density rules) and routed the historical-load
+ConfirmDialog through it. The primitive future-proofs the prompt-31
+user-creation modal so that one is responsive-correct from the start. The
+inline confirmation panels are left as-is (they flow) and re-verified per
+cluster in Phase 3.
 
 ## Findings to bank (BACKLOG)
 

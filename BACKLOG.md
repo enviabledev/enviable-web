@@ -47,10 +47,13 @@ sign-off before implementation. Findings banked here per convention:
   formalised as the project's responsive standard (design system / a project
   skill) so future screen builds inherit them rather than re-deciding case by
   case. Recommended as a follow-up once the patterns are settled.
-- **No shared Dialog/Modal primitive.** 5+ screens hand-roll `fixed inset-0`
-  modals (historical-load, PI detail, counterparties detail, assembly new +
-  detail). Recommend extracting a primitive during the responsive pass so the
-  narrow-viewport dialog fix is one change, not five; otherwise it drifts.
+- **Dialog primitive (resolved in Phase 2).** Correction to the original
+  finding: the app had exactly ONE true overlay modal (`fixed inset-0`,
+  historical-load), not five. The PI / counterparties / assembly / SO
+  "dialogs" are inline `role="dialog"` confirmation panels that flow with the
+  page. Extracted `src/components/ui/Modal.tsx` (responsive overlay) and
+  migrated the one overlay; future overlay modals (prompt 31 user-creation)
+  should use it.
 - **Topbar search + user chip have no shrink behaviour**, so even
   content-light pages force a wide min-width. Part of the cross-cutting shell
   fix in the responsive pass.
