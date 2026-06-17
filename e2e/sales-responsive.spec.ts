@@ -55,7 +55,11 @@ async function mirrorCount(page: Page): Promise<number> {
 }
 
 test("no horizontal overflow across the Sales cluster", async ({ page }) => {
-  test.setTimeout(240_000);
+  // Generous budget: 9 URLs x 3 viewports plus the mirror-fill wait, against a
+  // dev server compiling routes on first hit. In the full e2e:responsive run
+  // this spec follows others, so cold-compile latency accumulates; 240s was
+  // tight enough to flake on a loaded server.
+  test.setTimeout(420_000);
   await login(page);
   await page.goto("/sales/sales-orders");
   for (let i = 0; i < 40; i++) {

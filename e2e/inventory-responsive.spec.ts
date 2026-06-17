@@ -78,7 +78,11 @@ async function waitForMirror(page: Page, target = 450, tries = 40) {
 }
 
 test("no horizontal overflow across the Inventory cluster", async ({ page }) => {
-  test.setTimeout(300_000);
+  // Generous budget: 11 URLs x 3 viewports plus the initial mirror-fill wait,
+  // against a dev server that compiles routes on first hit (Turbopack). In the
+  // full e2e:responsive run this spec follows others, so cold-compile latency
+  // accumulates; 300s was tight enough to flake on a loaded server.
+  test.setTimeout(540_000);
   await login(page);
   await page.goto("/inventory/units");
   await waitForMirror(page);

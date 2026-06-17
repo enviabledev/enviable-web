@@ -632,12 +632,17 @@ the standard: the identity column (Variant) has no
 reduced mobile padding, the surviving Tier-1 columns would have margin
 and stop flaking.
 
-**Action (small, Sales-cluster touch-up):** apply identity truncation to
-the Variant column and switch the price-lists `Td`/`Th` padding to
-`px-2 sm:px-3.5`, matching the Inventory cluster. Then the Tier-1-fits
-assertion has headroom instead of sitting on the line. Same gap is worth
-a quick audit on the other Sales list tables (customers, deliveries) that
-were tiered before the identity-truncation rule was finalised.
+**Price-lists: FIXED** in the Inventory-cluster session: the Variant
+identity cell is wrapped in `block max-w-[150px] sm:max-w-none truncate`
+and the `Td`/`Th` padding switched to `px-2 sm:px-3.5`, giving the
+Tier-1-fits assertion headroom instead of sitting on the 375 line.
+
+**Open action (broader Sales sweep):** the customers and deliveries list
+tables were tiered before the identity-truncation + `px-2 sm:px-3.5`
+padding rule was finalised in the Sales reference. Audit those two for the
+same near-boundary risk and apply the truncation + padding where the
+identity column can be long. Not yet observed to flake (only price-lists
+did), so this is precautionary alignment, not a known break.
 
 ### Sales-responsive invoices test had no mirror-wait (FIXED)
 

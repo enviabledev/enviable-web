@@ -333,15 +333,20 @@ export default function PriceListsPage() {
                     className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] hover:bg-[var(--color-navy-50)]`}
                   >
                     <Td>
-                      <Link
-                        href={`/sales/price-lists/${r.variantId}?tier=${r.tierId}`}
-                        className="text-[var(--color-navy-700)] hover:underline font-medium"
+                      <span
+                        title={r.variantLabel}
+                        className="block max-w-[104px] sm:max-w-none truncate"
                       >
-                        {r.variantLabel}
-                      </Link>
-                      {r.productName && (
-                        <span className="text-[11px] text-[var(--color-ink-500)] ml-2">{r.productName}</span>
-                      )}
+                        <Link
+                          href={`/sales/price-lists/${r.variantId}?tier=${r.tierId}`}
+                          className="text-[var(--color-navy-700)] hover:underline font-medium"
+                        >
+                          {r.variantLabel}
+                        </Link>
+                        {r.productName && (
+                          <span className="text-[11px] text-[var(--color-ink-500)] ml-2">{r.productName}</span>
+                        )}
+                      </span>
                     </Td>
                     <Td mono className={COL.md}>{r.variantSku}</Td>
                     <Td>{r.tierName}</Td>
@@ -382,7 +387,7 @@ function Th({
 }) {
   return (
     <th
-      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] ${className}`}
+      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] ${className}`}
     >
       {children}
     </th>
@@ -402,7 +407,7 @@ function Td({
 }) {
   return (
     <td
-      className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap text-${align} ${
+      className={`px-2 sm:px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap text-${align} ${
         mono ? "font-mono text-[12px] tracking-[0.02em]" : ""
       } ${className}`}
     >
