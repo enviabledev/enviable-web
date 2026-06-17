@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
+import { COL } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
 
 function readParams(sp: URLSearchParams): { customerId: string; status: SoStatus | "" } {
@@ -190,7 +191,7 @@ export default function SalesOrdersListPage() {
         )}
       </header>
 
-      <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] p-3.5 mb-3.5 grid grid-cols-[1fr_1fr_auto] gap-3 items-end">
+      <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] p-3.5 mb-3.5 grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 sm:items-end">
         <div className="flex flex-col gap-1 min-w-0">
           <span className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)]">
             Customer
@@ -239,17 +240,17 @@ export default function SalesOrdersListPage() {
         </button>
       </div>
 
-      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
+      <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
             <tr>
               <Th>SO Number</Th>
-              <Th>Customer</Th>
+              <Th className={COL.sm}>Customer</Th>
               <Th>Status</Th>
-              <Th align="right">Lines</Th>
+              <Th align="right" className={COL.md}>Lines</Th>
               <Th align="right">Total</Th>
-              <Th>Channel</Th>
-              <Th>Created</Th>
+              <Th className={COL.lg}>Channel</Th>
+              <Th className={COL.md}>Created</Th>
             </tr>
           </thead>
           <tbody>
@@ -292,20 +293,20 @@ export default function SalesOrdersListPage() {
                       {row.soNumber}
                     </Link>
                   </Td>
-                  <Td>{row.customer.name}</Td>
+                  <Td className={COL.sm}>{row.customer.name}</Td>
                   <Td>
                     <SoStatusPill status={row.status} />
                   </Td>
-                  <td className="px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[var(--color-ink-900)]">
+                  <td className={`px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap text-[var(--color-ink-900)] ${COL.md}`}>
                     {row._count?.lines ?? "--"}
                   </td>
                   <td className="px-3.5 py-2.5 text-right tabular-nums whitespace-nowrap font-mono text-[12px] font-semibold text-[var(--color-ink-900)]">
                     {formatNGN(row.total)}
                   </td>
-                  <Td>
+                  <Td className={COL.lg}>
                     <span className="text-[11px] text-[var(--color-ink-700)]">{row.channel.replace(/_/g, " ")}</span>
                   </Td>
-                  <Td>{formatDateShort(row.createdAt)}</Td>
+                  <Td className={COL.md}>{formatDateShort(row.createdAt)}</Td>
                 </tr>
               ))}
           </tbody>
@@ -315,18 +316,30 @@ export default function SalesOrdersListPage() {
   );
 }
 
-function Th({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" }) {
+function Th({
+  children,
+  align = "left",
+  className = "",
+}: {
+  children: React.ReactNode;
+  align?: "left" | "right";
+  className?: string;
+}) {
   return (
     <th
       className={`font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${
         align === "right" ? "text-right" : "text-left"
-      }`}
+      } ${className}`}
     >
       {children}
     </th>
   );
 }
 
-function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] whitespace-nowrap">{children}</td>;
+function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <td className={`px-3.5 py-2.5 align-middle text-[var(--color-ink-900)] whitespace-nowrap ${className}`}>
+      {children}
+    </td>
+  );
 }

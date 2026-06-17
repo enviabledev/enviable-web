@@ -257,7 +257,7 @@ export default function InvoicesPaymentsPage() {
 
   return (
     <div className="max-w-[1620px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] mb-1.5">Sales / Invoices &amp; Payments</div>
           <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em] flex items-center gap-2">
@@ -391,7 +391,7 @@ function FiltersBar({
         e.preventDefault();
         navigate({ search: searchDraft });
       }}
-      className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex items-end gap-3 flex-wrap"
+      className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex flex-col sm:flex-row sm:items-end gap-3 sm:flex-wrap"
     >
       {params.tab === "payments" && (
         <Field label="Status">
@@ -486,7 +486,7 @@ function InvoicesPanel({
     return true;
   });
   return (
-    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
+    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
       <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex items-center justify-between">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)] flex items-center gap-2">
           Invoices
@@ -504,7 +504,48 @@ function InvoicesPanel({
           noun="invoices"
         />
       ) : (
-        <table className="w-full text-[13px]">
+        <>
+        {/* Mobile: card reflow. Finance fields (amount / VAT / status) are all
+            primary, so the strategy reflows to cards rather than hiding columns. */}
+        <div className="lg:hidden divide-y divide-[var(--color-border-default)]">
+          {filtered.map((r) => (
+            <div key={r.id} className="px-4 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <Link
+                  href={`/sales/sales-orders/${r.salesOrderId}`}
+                  className="font-mono text-[12.5px] font-semibold text-[var(--color-navy-700)] hover:underline"
+                >
+                  {r.invoiceNumber}
+                </Link>
+                <span className="font-mono tabular-nums text-[14px] font-semibold text-[var(--color-ink-900)]">
+                  {formatNGN(r.total)}
+                </span>
+              </div>
+              <div className="mt-1 text-[12px] text-[var(--color-ink-700)]">{r.customerName}</div>
+              <div className="mt-1 flex items-center gap-x-4 gap-y-0.5 flex-wrap text-[11.5px] text-[var(--color-ink-500)]">
+                <span className="font-mono">{r.soNumber}</span>
+                <span>Issued {formatDateShort(r.issueDate)}</span>
+                <span>
+                  VAT {Number(r.vatAmount) > 0 ? formatNGN(r.vatAmount) : "--"}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center gap-1.5">
+                <Link
+                  href={`/sales/invoices/${r.id}`}
+                  className="h-[24px] px-2 inline-flex items-center rounded-[3px] border border-[var(--color-border-default)] text-[11.5px] font-medium text-[var(--color-navy-700)] hover:border-[var(--color-navy-700)]"
+                >
+                  View
+                </Link>
+                <PrintButton
+                  pdfPath={salesInvoiceDoc(r.id).pdf}
+                  fallbackFilename={`${r.invoiceNumber}.pdf`}
+                  variant="row"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <table className="hidden lg:table w-full text-[13px]">
           <thead>
             <tr>
               <Th>Invoice #</Th>
@@ -560,6 +601,7 @@ function InvoicesPanel({
             ))}
           </tbody>
         </table>
+        </>
       )}
     </section>
   );
@@ -594,7 +636,7 @@ function PaymentsPanel({
     return true;
   });
   return (
-    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
+    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
       <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex items-center justify-between">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)] flex items-center gap-2">
           Payments
@@ -612,7 +654,36 @@ function PaymentsPanel({
           noun="payments"
         />
       ) : (
-        <table className="w-full text-[13px]">
+        <>
+        {/* Mobile: card reflow (amount + status are primary for payments). */}
+        <div className="lg:hidden divide-y divide-[var(--color-border-default)]">
+          {filtered.map((r) => (
+            <div key={r.id} className="px-4 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <Link
+                  href={`/sales/sales-orders/${r.salesOrderId}`}
+                  className="font-mono text-[12.5px] font-semibold text-[var(--color-navy-700)] hover:underline"
+                >
+                  {r.soNumber}
+                </Link>
+                <span className="font-mono tabular-nums text-[14px] font-semibold text-[var(--color-ink-900)]">
+                  {formatNGN(r.amount)}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <span className="text-[12px] text-[var(--color-ink-700)]">{r.customerName}</span>
+                <StatusPill status={r.status} />
+              </div>
+              <div className="mt-1 flex items-center gap-x-4 gap-y-0.5 flex-wrap text-[11.5px] text-[var(--color-ink-500)]">
+                <span>{r.paymentMethodName}</span>
+                <span>{formatDateShort(r.receivedAt)}</span>
+                {r.referenceNumber && <span className="font-mono">{r.referenceNumber}</span>}
+                {r.confirmedByName && <span>by {r.confirmedByName}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+        <table className="hidden lg:table w-full text-[13px]">
           <thead>
             <tr>
               <Th>SO Number</Th>
@@ -662,6 +733,7 @@ function PaymentsPanel({
             ))}
           </tbody>
         </table>
+        </>
       )}
     </section>
   );

@@ -28,6 +28,7 @@ import {
 import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
+import { COL } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
 
 type MirroredEntry = {
@@ -244,7 +245,7 @@ export default function PriceListsPage() {
           e.preventDefault();
           navigate({ search: searchDraft });
         }}
-        className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex items-end gap-3 flex-wrap"
+        className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex flex-col sm:flex-row sm:items-end gap-3 sm:flex-wrap"
       >
         <Field label="Tier">
           <select
@@ -300,7 +301,7 @@ export default function PriceListsPage() {
         <div className="py-10 text-center text-[var(--color-ink-500)]">Loading prices...</div>
       )}
       {!errMsg && rows && (
-        <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
+        <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
           <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex items-center justify-between">
             <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)] flex items-center gap-2">
               Active prices
@@ -319,10 +320,10 @@ export default function PriceListsPage() {
               <thead>
                 <tr>
                   <Th>Variant</Th>
-                  <Th>SKU</Th>
+                  <Th className={COL.md}>SKU</Th>
                   <Th>Tier</Th>
                   <Th align="right">Active price</Th>
-                  <Th>Effective from</Th>
+                  <Th className={COL.md}>Effective from</Th>
                 </tr>
               </thead>
               <tbody>
@@ -342,12 +343,12 @@ export default function PriceListsPage() {
                         <span className="text-[11px] text-[var(--color-ink-500)] ml-2">{r.productName}</span>
                       )}
                     </Td>
-                    <Td mono>{r.variantSku}</Td>
+                    <Td mono className={COL.md}>{r.variantSku}</Td>
                     <Td>{r.tierName}</Td>
                     <Td align="right" mono>
                       <span className="text-[var(--color-ink-900)] font-semibold">{formatNGN(r.price)}</span>
                     </Td>
-                    <Td>{formatDateShort(r.effectiveFrom)}</Td>
+                    <Td className={COL.md}>{formatDateShort(r.effectiveFrom)}</Td>
                   </tr>
                 ))}
               </tbody>
@@ -373,13 +374,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Th({
   children,
   align = "left",
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
+  className?: string;
 }) {
   return (
     <th
-      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]`}
+      className={`text-${align} font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] ${className}`}
     >
       {children}
     </th>
@@ -390,16 +393,18 @@ function Td({
   children,
   align = "left",
   mono = false,
+  className = "",
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
   mono?: boolean;
+  className?: string;
 }) {
   return (
     <td
       className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap text-${align} ${
         mono ? "font-mono text-[12px] tracking-[0.02em]" : ""
-      }`}
+      } ${className}`}
     >
       {children}
     </td>

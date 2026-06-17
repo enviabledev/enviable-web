@@ -366,7 +366,7 @@ export default function SalesOrderDetailPage() {
 
   return (
     <div className="max-w-[1120px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-5 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-5 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] flex items-center gap-1.5 mb-1.5 flex-wrap">
             <Link href="/sales/sales-orders" className="text-[var(--color-ink-500)] hover:text-[var(--color-navy-700)]">
@@ -616,9 +616,9 @@ function IdentityCard({ so }: { so: SalesOrderDetail }) {
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Order identity</h2>
         <span className="text-mono-id text-[11px] text-[var(--color-ink-500)]">{so.id}</span>
       </header>
-      <div className="px-5 py-3 grid grid-cols-2 gap-x-12 gap-y-1">
+      <div className="px-5 py-3 grid grid-cols-1 sm:grid-cols-2gap-x-12 gap-y-1">
         {rows.map((r, i) => (
-          <div key={i} className="grid grid-cols-[160px_1fr] gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0 text-[13px]">
+          <div key={i} className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 items-baseline py-2 border-b border-dashed border-[var(--color-border-default)] last:border-b-0 text-[13px]">
             <span className="text-[12px] font-medium text-[var(--color-ink-500)]">{r.label}</span>
             <span className={`text-[var(--color-ink-900)] font-medium ${r.mono ? "font-mono text-[13px] tracking-[0.02em]" : ""}`}>{r.value}</span>
           </div>
@@ -752,7 +752,7 @@ function InvoiceCard({
         {!invoiceChecked ? (
           <div className="text-[12.5px] text-[var(--color-ink-500)]">Loading...</div>
         ) : invoice ? (
-          <div className="grid grid-cols-[160px_1fr] gap-x-3 gap-y-2 text-[13px]">
+          <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-x-3 gap-y-2 text-[13px]">
             <span className="text-[12px] font-medium text-[var(--color-ink-500)]">Invoice number</span>
             <span className="font-mono font-semibold text-[var(--color-navy-700)]">{invoice.invoiceNumber}</span>
             <span className="text-[12px] font-medium text-[var(--color-ink-500)]">Issued</span>
@@ -861,7 +861,7 @@ function PaymentsCard({
       {showRecord && (
         <div className="px-5 py-3 border-b border-[var(--color-border-default)] bg-[var(--color-navy-50)]">
           <h3 className="m-0 mb-2 text-[12.5px] font-semibold text-[var(--color-ink-900)]">Record payment (PENDING)</h3>
-          <div className="grid grid-cols-3 gap-3 mb-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3gap-3 mb-2">
             <label className="block">
               <span className="block text-[10.5px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)] mb-1">Amount (NGN)</span>
               <input
@@ -1057,7 +1057,7 @@ function DeliveryCard({
         </h2>
       </header>
 
-      <div className="px-5 py-3 grid grid-cols-[180px_1fr] gap-x-4 gap-y-2 text-[13px]">
+      <div className="px-5 py-3 grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-x-4 gap-y-2 text-[13px]">
         <DeliveryStep
           label="Delivery note"
           active={so.status === "RELEASE_AUTHORISED" || so.status === "PICKING"}
@@ -1069,7 +1069,7 @@ function DeliveryCard({
         >
           {showDn && (
             <div className="mt-2 p-3 bg-[var(--color-navy-50)] rounded-[3px]">
-              <div className="grid grid-cols-2 gap-3 mb-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2gap-3 mb-2">
                 <label className="block">
                   <span className="block text-[10.5px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)] mb-1">Vehicle reg</span>
                   <input type="text" value={dnVehicle} onChange={(e) => onDnVehicleChange(e.target.value)} placeholder="optional" className="h-7 w-full px-2 text-[12.5px] text-[var(--color-ink-900)] bg-white border border-[var(--color-border-strong)] rounded-[3px]" />

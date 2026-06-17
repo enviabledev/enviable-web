@@ -18,8 +18,29 @@ Status: **strategy confirmed; implementation in progress.**
   filter / action-bar / detail-grid treatments are utility-class patterns
   (no shared component exists to extract without a broad refactor), applied
   per screen in Phase 3 per the documented standard above.
-- Next: Phase 3 (per-cluster application) + Phase 4 (per-cluster Playwright at
-  375/768/1280). Pausing for check-in at each boundary.
+- **Phase 3 Sales cluster (reference): DONE and verified.** Applied the
+  column-tier rule to sales-orders / customers / deliveries / price-lists
+  lists; card-reflow to invoices + payments (the finance exception); filter
+  stacking, detail-grid collapse, and header stacking across the cluster's
+  detail pages. Tier classes centralised in `src/lib/responsive.ts`.
+  - **Safety net:** every list table sits in an `overflow-x-auto` container, so
+    even when the surviving Tier-1 columns are wider than the viewport (long SO
+    numbers + a wide status pill), the table scrolls inside its card and the
+    PAGE never overflows. Column-tiering minimises how often that scroll is
+    needed; the container guarantees no page overflow regardless.
+  - **Card-reflow breakpoint:** invoices/payments show cards below `lg` and the
+    table at `lg+` (the 7-column finance table does not fit a 768 tablet), so
+    tablet gets the card view too.
+  - Verified in `e2e/sales-responsive.spec.ts`: no horizontal overflow across
+    all 9 Sales screens at 375/768/1280, Tier-4 column hidden at 375 + shown at
+    lg, invoices reflow to cards on mobile + table on desktop. Full suite
+    (shell + invoices + sales) green; desktop regression-clean.
+- **Pausing for the visual walkthrough of the Sales cluster** before
+  propagating to inventory / procurement / reports / admin (Phases 3 continued
+  + 4). One open question for the walkthrough: on the narrowest screens a few
+  list tables scroll horizontally to reach the primary metric (Total) because
+  the identity column (full SO number) is long; acceptable as-is, or truncate
+  identity to keep Total in view without scroll?
 
 ## How this was measured
 
@@ -163,20 +184,40 @@ confirm it follows the standard rather than bespoke judgement. The same
 column type gets the same tier across clusters (a "created" date is Tier 3
 everywhere; a status pill is Tier 1 everywhere).
 
-### Filters
-- `< sm`: stack the filter controls vertically, each full-width and fully
-  usable (simplest, no hidden controls, fixes the label-overlap). `sm+`: the
-  existing inline row. A "Filters" drawer is not needed at this filter density
-  (2-3 controls per screen); revisit only if a screen has many filters.
+### Filters (standard)
+- `< sm`: the filter form switches to a vertical stack (`flex-col`) with each
+  control full-width (`w-full`), fully usable, no overlap. `sm+`: the existing
+  inline row (`sm:flex-row`, controls revert to auto width). Applied uniformly
+  across every list's filter form. A "Filters" drawer is not needed at this
+  density (2-3 controls per screen); revisit only if a screen's filter set is
+  wide enough to push the list below the fold even when stacked.
 
 ### Action bars / header actions (detail pages)
 - `< sm`: primary actions stack full-width below the title; `sm+`: inline as
   today. Confirmation rows (Approve/Reject) become a full-width stacked pair on
   mobile so they are thumb-reachable.
 
-### Detail label/value grids
-- `< sm`: collapse `grid-cols-[160px_1fr]` to a single column (label above
-  value, label as a small uppercase caption). `sm+`: the two-column grid.
+### Detail label/value grids (standard)
+- `< sm`: single column, label as a small caption above its value (collapse
+  `grid-cols-[160px_1fr]` to `grid-cols-1`). `sm`..`lg`: the existing
+  label+value two-column grid. Multi-column metadata grids (2-up/4-up) follow
+  `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` (or the screen's existing top
+  count at `lg`). Applied consistently across every detail page so a
+  label/value block reads the same way on every screen.
+
+### Tier classes (shared, so the tier rule is identical everywhere)
+`src/lib/responsive.ts` exports the column-tier utility strings
+(`COL.sm`/`COL.md`/`COL.lg` = `hidden sm:table-cell` etc.) and the detail-grid
+and filter-form class strings, so every table/detail/filter references the
+same constants rather than re-deriving the breakpoints. Each list table's
+`Th`/`Td` gain a `className` passthrough; the paired header+cell for a column
+get the SAME tier class.
+
+### No-info-dropped verification (per table)
+Before a table hides a column at mobile, confirm that column's field is
+actually rendered on the row's detail page (the detail link is the affordance
+for hidden fields). If a hidden column has no detail-page home, it is NOT
+hidden (or the detail page gains it). Checked per table as it is implemented.
 
 ### Dialogs (+ extract a primitive)
 **Correction after closer inspection (Phase 2):** the app has exactly ONE

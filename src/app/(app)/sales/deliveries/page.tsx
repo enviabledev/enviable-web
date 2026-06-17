@@ -32,6 +32,7 @@ import { DeliveriesIcon, SearchIcon } from "@/components/icons";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatDateTime } from "@/lib/format";
+import { COL } from "@/lib/responsive";
 import { useMirrorFreshness } from "@/lib/sync/mirror/freshness";
 import { listByType } from "@/lib/sync/mirror/store";
 
@@ -261,7 +262,7 @@ export default function DeliveriesPage() {
           e.preventDefault();
           navigate({ search: searchDraft });
         }}
-        className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex items-end gap-3 flex-wrap"
+        className="bg-white border border-[var(--color-border-default)] rounded-[4px] px-3 py-2.5 mb-3 flex flex-col sm:flex-row sm:items-end gap-3 sm:flex-wrap"
       >
         <Field label="Status">
           <select
@@ -312,7 +313,7 @@ export default function DeliveriesPage() {
       {!rows ? (
         <div className="py-10 text-center text-[var(--color-ink-500)]">Loading deliveries...</div>
       ) : (
-        <section className="bg-white border border-[var(--color-border-default)] rounded-[4px]">
+        <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
           <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex items-center justify-between">
             <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)] flex items-center gap-2">
               In-flight deliveries
@@ -347,11 +348,11 @@ export default function DeliveriesPage() {
               <thead>
                 <tr>
                   <Th>SO Number</Th>
-                  <Th>Customer</Th>
+                  <Th className={COL.md}>Customer</Th>
                   <Th>Status</Th>
-                  <Th>Released</Th>
-                  <Th>Dispatched</Th>
-                  <Th>Delivered</Th>
+                  <Th className={COL.lg}>Released</Th>
+                  <Th className={COL.sm}>Dispatched</Th>
+                  <Th className={COL.sm}>Delivered</Th>
                 </tr>
               </thead>
               <tbody>
@@ -368,19 +369,19 @@ export default function DeliveriesPage() {
                         {r.soNumber}
                       </Link>
                     </Td>
-                    <Td>{r.customerName}</Td>
+                    <Td className={COL.md}>{r.customerName}</Td>
                     <Td>
                       <StatusPill status={r.status} />
                     </Td>
-                    <Td>{formatDateShort(r.createdAt)}</Td>
-                    <Td>
+                    <Td className={COL.lg}>{formatDateShort(r.createdAt)}</Td>
+                    <Td className={COL.sm}>
                       {r.dispatchedAt ? (
                         <span title={formatDateTime(r.dispatchedAt)}>{formatDateShort(r.dispatchedAt)}</span>
                       ) : (
                         <span className="text-[var(--color-ink-400)]">--</span>
                       )}
                     </Td>
-                    <Td>
+                    <Td className={COL.sm}>
                       {r.deliveredAt ? (
                         <span title={formatDateTime(r.deliveredAt)}>{formatDateShort(r.deliveredAt)}</span>
                       ) : (
@@ -421,20 +422,28 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) {
+function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <th className="text-left font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)]">
+    <th className={`text-left font-medium text-[10.5px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] ${className}`}>
       {children}
     </th>
   );
 }
 
-function Td({ children, mono = false }: { children: React.ReactNode; mono?: boolean }) {
+function Td({
+  children,
+  mono = false,
+  className = "",
+}: {
+  children: React.ReactNode;
+  mono?: boolean;
+  className?: string;
+}) {
   return (
     <td
       className={`px-3.5 py-2 text-[12.5px] text-[var(--color-ink-900)] whitespace-nowrap ${
         mono ? "font-mono text-[12px] tracking-[0.02em]" : ""
-      }`}
+      } ${className}`}
     >
       {children}
     </td>

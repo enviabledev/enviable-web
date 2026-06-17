@@ -519,7 +519,7 @@ function HistoryTimeline({
                 data-effective-from={entry.effectiveFrom}
                 data-effective-to={entry.effectiveTo ?? ""}
                 data-price={entry.price}
-                className="grid grid-cols-[120px_1fr] gap-4 pb-3 border-b border-dashed border-[var(--color-border-default)] last:border-b-0"
+                className="grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-2 sm:gap-4 pb-3 border-b border-dashed border-[var(--color-border-default)] last:border-b-0"
               >
                 <div className="flex flex-col items-start gap-1">
                   <span

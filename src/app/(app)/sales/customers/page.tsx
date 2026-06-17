@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import { listCustomers, type Customer } from "@/lib/api";
+import { COL } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
 
 export default function CustomersListPage() {
@@ -95,23 +96,23 @@ export default function CustomersListPage() {
       )}
 
       {!offline && (
-      <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-hidden">
+      <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-[var(--color-ink-100)] text-[10.5px] uppercase text-[var(--color-ink-600)] tracking-[0.04em]">
               <th className="text-left font-semibold px-3 py-2 border-b border-[var(--color-border-default)]">
                 Name
               </th>
-              <th className="text-left font-semibold px-3 py-2 border-b border-[var(--color-border-default)]">
+              <th className={`text-left font-semibold px-3 py-2 border-b border-[var(--color-border-default)] ${COL.sm}`}>
                 Type
               </th>
-              <th className="text-left font-semibold px-3 py-2 border-b border-[var(--color-border-default)]">
+              <th className={`text-left font-semibold px-3 py-2 border-b border-[var(--color-border-default)] ${COL.md}`}>
                 Tier
               </th>
-              <th className="text-left font-semibold px-3 py-2 border-b border-[var(--color-border-default)]">
+              <th className={`text-left font-semibold px-3 py-2 border-b border-[var(--color-border-default)] ${COL.md}`}>
                 Phone
               </th>
-              <th className="text-left font-semibold px-3 py-2 border-b border-[var(--color-border-default)]">
+              <th className={`text-left font-semibold px-3 py-2 border-b border-[var(--color-border-default)] ${COL.lg}`}>
                 Email
               </th>
               <th className="text-left font-semibold px-3 py-2 border-b border-[var(--color-border-default)]">
@@ -153,16 +154,16 @@ export default function CustomersListPage() {
                     {c.name}
                   </Link>
                 </td>
-                <td className="px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)]">
+                <td className={`px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)] ${COL.sm}`}>
                   {c.type === "RESELLER" ? "Reseller" : "End user"}
                 </td>
-                <td className="px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)]">
+                <td className={`px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)] ${COL.md}`}>
                   {c.tier?.name ?? "--"}
                 </td>
-                <td className="px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)] font-mono text-[12px]">
+                <td className={`px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)] font-mono text-[12px] ${COL.md}`}>
                   {c.phone ?? "--"}
                 </td>
-                <td className="px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)]">
+                <td className={`px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)] ${COL.lg}`}>
                   {c.email ?? "--"}
                 </td>
                 <td className="px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)]">

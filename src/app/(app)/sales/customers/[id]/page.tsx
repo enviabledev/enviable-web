@@ -174,7 +174,7 @@ export default function CustomerDetailPage() {
 
   return (
     <div className="max-w-[820px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] flex items-center gap-1.5 mb-1.5">
             <Link
@@ -213,7 +213,7 @@ export default function CustomerDetailPage() {
         </div>
 
         <dl className="text-[12.5px] divide-y divide-[var(--color-border-default)]">
-          <div className="px-3.5 py-2.5 grid grid-cols-[140px_1fr_auto] gap-3 items-center">
+          <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[140px_1fr_auto] gap-3 sm:items-center">
             <dt className="text-[var(--color-ink-600)] text-[13px]">Phone</dt>
             <dd className="m-0 text-[var(--color-ink-900)] font-mono">
               {editing ? (
@@ -267,35 +267,35 @@ export default function CustomerDetailPage() {
             </dd>
           </div>
 
-          <div className="px-3.5 py-2.5 grid grid-cols-[140px_1fr] gap-3 items-center">
+          <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-3 sm:items-center">
             <dt className="text-[var(--color-ink-600)] text-[13px]">Email</dt>
             <dd className="m-0 text-[var(--color-ink-900)]">
               {customer.email ?? "--"}
             </dd>
           </div>
 
-          <div className="px-3.5 py-2.5 grid grid-cols-[140px_1fr] gap-3 items-center">
+          <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-3 sm:items-center">
             <dt className="text-[var(--color-ink-600)] text-[13px]">Type</dt>
             <dd className="m-0 text-[var(--color-ink-700)]">
               {customer.type === "RESELLER" ? "Reseller" : "End user"}
             </dd>
           </div>
 
-          <div className="px-3.5 py-2.5 grid grid-cols-[140px_1fr] gap-3 items-center">
+          <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-3 sm:items-center">
             <dt className="text-[var(--color-ink-600)] text-[13px]">Tier</dt>
             <dd className="m-0 text-[var(--color-ink-700)]">
               {customer.tier?.name ?? "--"}
             </dd>
           </div>
 
-          <div className="px-3.5 py-2.5 grid grid-cols-[140px_1fr] gap-3 items-center">
+          <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-3 sm:items-center">
             <dt className="text-[var(--color-ink-600)] text-[13px]">Status</dt>
             <dd className="m-0 text-[var(--color-ink-700)]">
               {customer.status === "ACTIVE" ? "Active" : "Inactive"}
             </dd>
           </div>
 
-          <div className="px-3.5 py-2.5 grid grid-cols-[140px_1fr] gap-3 items-center">
+          <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-3 sm:items-center">
             <dt className="text-[var(--color-ink-600)] text-[13px]">
               Customer ID
             </dt>
