@@ -32,9 +32,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { PaymentsIcon, SearchIcon } from "@/components/icons";
+import PrintButton from "@/components/invoices/PrintButton";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatDateTime, formatNGN } from "@/lib/format";
+import { salesInvoiceDoc } from "@/lib/invoices/pdf";
 import { useMirrorFreshness } from "@/lib/sync/mirror/freshness";
 import { listByType } from "@/lib/sync/mirror/store";
 
@@ -511,6 +513,7 @@ function InvoicesPanel({
               <Th>Issued</Th>
               <Th align="right">VAT</Th>
               <Th align="right">Total</Th>
+              <Th align="right">Document</Th>
             </tr>
           </thead>
           <tbody>
@@ -537,6 +540,21 @@ function InvoicesPanel({
                 </Td>
                 <Td align="right" mono>
                   <span className="text-[var(--color-ink-900)] font-semibold">{formatNGN(r.total)}</span>
+                </Td>
+                <Td align="right">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Link
+                      href={`/sales/invoices/${r.id}`}
+                      className="h-[24px] px-2 inline-flex items-center rounded-[3px] border border-[var(--color-border-default)] text-[11.5px] font-medium text-[var(--color-navy-700)] hover:border-[var(--color-navy-700)]"
+                    >
+                      View
+                    </Link>
+                    <PrintButton
+                      pdfPath={salesInvoiceDoc(r.id).pdf}
+                      fallbackFilename={`${r.invoiceNumber}.pdf`}
+                      variant="row"
+                    />
+                  </span>
                 </Td>
               </tr>
             ))}

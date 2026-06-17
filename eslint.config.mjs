@@ -19,6 +19,8 @@ const eslintConfig = [
       "build/**",
       "next-env.d.ts",
       "design_handoff_enviable_io/**",
+      "e2e/**",
+      "playwright.config.ts",
     ],
   },
 ];

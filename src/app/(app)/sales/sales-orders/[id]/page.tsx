@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import PrintButton from "@/components/invoices/PrintButton";
 import SoStatusPill from "@/components/sales-orders/SoStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
@@ -39,6 +40,7 @@ import {
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime, formatNGN } from "@/lib/format";
+import { salesInvoiceDoc } from "@/lib/invoices/pdf";
 import { getById, listByType } from "@/lib/sync/mirror/store";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
@@ -716,18 +718,35 @@ function InvoiceCard({
 }) {
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-4">
-      <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+      <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between gap-2 flex-wrap">
         <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Invoice</h2>
-        {canGenerate && (
-          <button
-            type="button"
-            onClick={onGenerate}
-            disabled={generating}
-            className="h-7 px-2.5 rounded-[3px] text-[12px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-navy-700)] hover:bg-[var(--color-navy-50)] disabled:opacity-50"
-          >
-            {generating ? "Generating..." : "Generate Invoice"}
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {invoice && (
+            <>
+              <Link
+                href={`/sales/invoices/${invoice.id}`}
+                className="h-7 px-2.5 inline-flex items-center rounded-[3px] text-[12px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-navy-700)] hover:bg-[var(--color-navy-50)]"
+              >
+                View invoice
+              </Link>
+              <PrintButton
+                pdfPath={salesInvoiceDoc(invoice.id).pdf}
+                fallbackFilename={`${invoice.invoiceNumber}.pdf`}
+                variant="outline"
+              />
+            </>
+          )}
+          {canGenerate && (
+            <button
+              type="button"
+              onClick={onGenerate}
+              disabled={generating}
+              className="h-7 px-2.5 rounded-[3px] text-[12px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-navy-700)] hover:bg-[var(--color-navy-50)] disabled:opacity-50"
+            >
+              {generating ? "Generating..." : "Generate Invoice"}
+            </button>
+          )}
+        </div>
       </header>
       <div className="px-5 py-3">
         {!invoiceChecked ? (

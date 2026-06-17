@@ -5,8 +5,13 @@ import { apiFetch, type ApiResult } from "./client";
  * attempt with a 409 "...already has an invoice (one invoice per order)."
  *
  * vatRate is snapshotted as Decimal(5,4) ("0.0750" at the time of writing);
- * vatAmount and total are snapshotted from the SO at generation time. PDF
- * generation is deferred (pdfDocumentId stays null in MVP).
+ * vatAmount and total are snapshotted from the SO at generation time.
+ *
+ * The PDF and HTML are rendered on demand by the backend (Puppeteer over the
+ * Official Ledger template), not stored: GET /api/invoices/:id/html for the
+ * in-app view and GET /api/invoices/:id/pdf for the download. See
+ * src/lib/invoices/pdf.ts for the endpoint builders and download helper.
+ * pdfDocumentId remains null unless a PDF is also persisted as a Document.
  */
 export type Invoice = {
   id: string;

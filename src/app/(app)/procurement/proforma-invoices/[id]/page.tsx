@@ -30,6 +30,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import PrintButton from "@/components/invoices/PrintButton";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import {
@@ -41,6 +42,7 @@ import {
 } from "@/lib/api";
 import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
+import { proformaInvoiceDoc } from "@/lib/invoices/pdf";
 import { useConnectivity } from "@/lib/sync/connectivity";
 import { formatDateTime, formatNGN } from "@/lib/format";
 import { getById, listByType } from "@/lib/sync/mirror/store";
@@ -343,6 +345,19 @@ export default function ProformaInvoiceDetailPage() {
               {pi.purchaseOrder.poNumber}
             </Link>
           </span>
+        </div>
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
+          <Link
+            href={`/procurement/proforma-invoices/${pi.id}/document`}
+            className="h-[28px] px-2.5 inline-flex items-center rounded-[3px] text-[12px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-navy-700)] hover:bg-[var(--color-navy-50)]"
+          >
+            View document
+          </Link>
+          <PrintButton
+            pdfPath={proformaInvoiceDoc(pi.id).pdf}
+            fallbackFilename={`${pi.piNumber}-rev${pi.revisionNumber}.pdf`}
+            variant="outline"
+          />
         </div>
       </header>
 

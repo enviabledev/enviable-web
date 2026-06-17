@@ -28,9 +28,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ProformaIcon, SearchIcon } from "@/components/icons";
+import PrintButton from "@/components/invoices/PrintButton";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
+import { proformaInvoiceDoc } from "@/lib/invoices/pdf";
 import { useMirrorFreshness } from "@/lib/sync/mirror/freshness";
 import { listByType } from "@/lib/sync/mirror/store";
 import {
@@ -343,6 +345,7 @@ export default function ProformaInvoicesPage() {
                   <Th>Issued</Th>
                   <Th>Valid until</Th>
                   <Th align="right">Total (CIF)</Th>
+                  <Th align="right">Document</Th>
                 </tr>
               </thead>
               <tbody>
@@ -385,6 +388,21 @@ export default function ProformaInvoicesPage() {
                     <Td align="right" mono>
                       <span className="text-[var(--color-ink-900)] font-semibold">
                         {formatNGN(r.totalValue)}
+                      </span>
+                    </Td>
+                    <Td align="right">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Link
+                          href={`/procurement/proforma-invoices/${r.id}/document`}
+                          className="h-[24px] px-2 inline-flex items-center rounded-[3px] border border-[var(--color-border-default)] text-[11.5px] font-medium text-[var(--color-navy-700)] hover:border-[var(--color-navy-700)]"
+                        >
+                          View
+                        </Link>
+                        <PrintButton
+                          pdfPath={proformaInvoiceDoc(r.id).pdf}
+                          fallbackFilename={`${r.piNumber}-rev${r.revisionNumber}.pdf`}
+                          variant="row"
+                        />
                       </span>
                     </Td>
                   </tr>
