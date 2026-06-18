@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -40,6 +41,15 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
       >
         <MenuIcon />
       </button>
+
+      <Image
+        src="/brand/enviable-mark.png"
+        alt="Enviable"
+        width={22}
+        height={22}
+        priority
+        className="lg:hidden w-[20px] h-[20px] object-contain flex-shrink-0"
+      />
 
       <div className="hidden sm:flex items-center text-[12.5px] font-semibold text-[var(--color-ink-900)] tracking-[-0.005em] h-6 pr-3.5 border-r border-[var(--color-border-default)]">
         Enviable&nbsp;<span className="text-[var(--color-navy-700)]">Tricycle</span>

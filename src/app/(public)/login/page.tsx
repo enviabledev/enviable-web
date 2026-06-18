@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
@@ -55,21 +56,17 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface-muted)] px-4">
       <div className="w-full max-w-[360px]">
-        <div className="flex items-center gap-2.5 mb-6">
-          <div
-            aria-hidden
-            className="w-7 h-7 rounded-[3px] grid place-items-center text-[12px] font-bold tracking-wider text-white"
-            style={{ background: "linear-gradient(135deg, #2c5e8e, #5a82a8)" }}
-          >
-            EI
-          </div>
-          <div>
-            <div className="text-[14px] font-semibold text-[var(--color-ink-900)] leading-tight">
-              Enviable I&amp;O
-            </div>
-            <div className="text-[11px] text-[var(--color-ink-500)] leading-tight">
-              Inventory &amp; Operations
-            </div>
+        <div className="flex flex-col items-center mb-6">
+          <Image
+            src="/brand/enviable-logo-full.png"
+            alt="Enviable Tricycle Auto Parts Ltd"
+            width={1500}
+            height={496}
+            priority
+            className="w-[232px] h-auto"
+          />
+          <div className="mt-2 text-[11px] text-[var(--color-ink-500)] tracking-wide">
+            Inventory &amp; Operations
           </div>
         </div>
 

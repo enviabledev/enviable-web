@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -17,8 +17,21 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Enviable",
+  title: {
+    default: "Enviable Inventory & Operations",
+    template: "%s · Enviable",
+  },
   description: "Enviable inventory and operations system",
+  applicationName: "Enviable I&O",
+  appleWebApp: {
+    capable: true,
+    title: "Enviable I&O",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#01022f",
 };
 
 export default function RootLayout({

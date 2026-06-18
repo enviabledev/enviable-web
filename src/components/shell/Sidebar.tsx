@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -36,9 +37,15 @@ export default function Sidebar({
   return (
     <aside className={`w-sidebar h-screen flex-col flex-shrink-0 bg-[var(--color-sidebar-bg)] text-[var(--color-sidebar-fg)] text-[12.5px] ${className}`}>
       <div className="h-topbar flex items-center gap-2.5 px-2.5 border-b border-white/[0.08] flex-shrink-0">
-        <div className="w-6 h-6 rounded-[3px] grid place-items-center text-[11px] font-bold tracking-wider text-white"
-             style={{ background: "linear-gradient(135deg, #2c5e8e, #5a82a8)" }}>
-          EI
+        <div className="w-7 h-7 rounded-[5px] bg-white grid place-items-center flex-shrink-0 shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
+          <Image
+            src="/brand/enviable-mark.png"
+            alt="Enviable"
+            width={22}
+            height={22}
+            priority
+            className="w-[18px] h-[18px] object-contain"
+          />
         </div>
         <div className="overflow-hidden">
           <div className="text-[12px] font-semibold leading-[1.15] text-white whitespace-nowrap">
