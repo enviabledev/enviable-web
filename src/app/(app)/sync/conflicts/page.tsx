@@ -115,7 +115,7 @@ export default function ConflictsListPage() {
           </div>
         </div>
       ) : (
-        <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-hidden">
+        <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-[var(--color-ink-100)] text-[10.5px] uppercase text-[var(--color-ink-600)] tracking-[0.04em]">

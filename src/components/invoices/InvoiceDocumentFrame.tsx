@@ -49,6 +49,26 @@ export default function InvoiceDocumentFrame({
   const [state, setState] = useState<FrameState>({ kind: "loading" });
   const [frameHeight, setFrameHeight] = useState(A4_HEIGHT);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Fit-to-width: the rendered document is a fixed 794px A4 page. On a viewport
+  // narrower than that (mobile/tablet) we scale the whole page down so the user
+  // sees the full page instead of the clipped left third. scale = 1 at desktop
+  // widths (>= 794 of usable content), so the document is never enlarged.
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      // available content width = container minus its horizontal padding (px-4).
+      const avail = el.clientWidth - 32;
+      setScale(avail > 0 ? Math.min(1, avail / A4_WIDTH) : 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Refetch the rendered HTML when the path changes or the connection returns.
   // connState in the dep array gives a free retry on reconnect: an offline
@@ -127,7 +147,7 @@ export default function InvoiceDocumentFrame({
         <PrintButton pdfPath={pdfPath} fallbackFilename={pdfFilename} variant="primary" />
       </header>
 
-      <div className="px-4 py-5 bg-[var(--color-ink-100)] overflow-auto flex justify-center min-h-[420px]">
+      <div ref={scrollRef} className="px-4 py-5 bg-[var(--color-ink-100)] overflow-auto flex justify-center min-h-[420px]">
         {state.kind === "loading" && (
           <div className="self-center text-center text-[12.5px] text-[var(--color-ink-500)]">
             <span className="inline-flex items-center gap-2.5">
@@ -138,16 +158,28 @@ export default function InvoiceDocumentFrame({
         )}
 
         {state.kind === "ready" && (
-          <iframe
-            ref={iframeRef}
-            title={`Rendered ${docNoun}`}
-            data-testid="invoice-document-frame"
-            sandbox="allow-same-origin"
-            srcDoc={state.html}
-            onLoad={onFrameLoad}
-            style={{ width: A4_WIDTH, height: frameHeight, border: "none" }}
-            className="bg-white shadow-[0_1px_4px_rgba(15,23,42,0.12)] max-w-full"
-          />
+          // Outer box reserves the SCALED footprint so the layout (centering,
+          // height) is correct; the iframe renders at full A4 size and is
+          // visually scaled to fit. transform-origin top-left so the scaled
+          // page pins to the box's top-left.
+          <div style={{ width: A4_WIDTH * scale, height: frameHeight * scale }}>
+            <iframe
+              ref={iframeRef}
+              title={`Rendered ${docNoun}`}
+              data-testid="invoice-document-frame"
+              sandbox="allow-same-origin"
+              srcDoc={state.html}
+              onLoad={onFrameLoad}
+              style={{
+                width: A4_WIDTH,
+                height: frameHeight,
+                border: "none",
+                transform: `scale(${scale})`,
+                transformOrigin: "top left",
+              }}
+              className="bg-white shadow-[0_1px_4px_rgba(15,23,42,0.12)]"
+            />
+          </div>
         )}
 
         {state.kind === "offline" && (

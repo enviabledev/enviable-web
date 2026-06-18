@@ -174,7 +174,7 @@ export default function DashboardPage() {
 
       {anyFromMirror && <ComputedDisclosure className="mb-4" />}
 
-      <section className="grid grid-cols-4 gap-3 mb-6">
+      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
         {has("unit.read") && (
           <KpiCard label="Total Units">
             <KpiValue async={unitsTotal} render={(v) => (
@@ -297,7 +297,7 @@ export default function DashboardPage() {
           <h2 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-[var(--color-ink-500)] m-0 mb-3">
             Quick access
           </h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {visibleGroups.map((group) => (
               <div
                 key={group.label}

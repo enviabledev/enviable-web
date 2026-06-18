@@ -308,7 +308,7 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
         <header className="px-4 py-2.5 border-b border-[var(--color-border-default)]">
           <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Customer</h2>
         </header>
-        <div className="px-4 py-3 grid grid-cols-2 gap-x-5 gap-y-2 items-start">
+        <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2 items-start">
           <label className="block">
             <span className="block text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)] mb-1">
               Customer <span className="text-[var(--color-danger-700)] ml-0.5">*</span>
@@ -396,7 +396,7 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
                     Remove
                   </button>
                 </div>
-                <div className="grid grid-cols-[1fr_120px_1fr] gap-3 items-start">
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px_1fr] gap-3 items-start">
                   <label className="block">
                     <span className="block text-[10.5px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)] mb-1">
                       Product variant
@@ -462,7 +462,7 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
                   </label>
                 </div>
 
-                <div className="grid grid-cols-[1fr_120px_1fr] gap-3 items-start mt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px_1fr] gap-3 items-start mt-2">
                   <div className="text-[11px] text-[var(--color-ink-500)]">
                     {variant && (
                       <>

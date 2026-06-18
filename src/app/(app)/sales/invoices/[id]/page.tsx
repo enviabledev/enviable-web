@@ -160,7 +160,7 @@ function SummaryCard({ summary }: { summary: Summary | null }) {
         {!summary ? (
           <div className="text-[12.5px] text-[var(--color-ink-500)]">Loading...</div>
         ) : (
-          <div className="grid grid-cols-[160px_1fr] gap-x-3 gap-y-2 text-[13px]">
+          <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-x-3 gap-y-1 sm:gap-y-2 text-[13px]">
             <Cell k="Invoice number">
               <span className="font-mono font-semibold text-[var(--color-navy-700)]">
                 {summary.invoiceNumber}
