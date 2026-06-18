@@ -117,7 +117,15 @@ placeholder needed currently since there is no nav entry for variants
 catalogue nav, the existing products list at `/inventory/units` flows
 through variant context as a join, not as a standalone catalogue screen).
 
-### Admin cluster screens have no backend surface (users, roles)
+### RESOLVED (prompts 30 + 31): Admin cluster screens have no backend surface (users, roles)
+
+Shipped: the backend user/role module landed (enviable-system 02bf3c3) and the
+frontend built the management screens + forced-reset flow (prompt 31). user.manage
+/ role.manage now exist and are held by IT Admin; /admin/users is a full
+management surface, /admin/roles a read-only catalogue, and the mirror user/role
+buckets are expanded. The original finding is retained below for history.
+
+
 
 The `/admin/users` and `/admin/roles` nav entries (and the prompt 25 / prompt 26
 builds they map to) have no implementable backend surface. Audit findings
@@ -653,3 +661,24 @@ context the mirror has not synced, so the fixture text was absent and the
 test failed reproducibly. Fixed in the Inventory-cluster session by adding
 the same mirror-wait loop the sibling tests use. Noted here only as the
 record of why the sales spec was edited from an Inventory session.
+
+### User/role module (prompt 31) follow-ups
+
+- **DEFAULT_INITIAL_PASSWORD must be configured in production.** The backend
+  refuses to create users (500) until this env var is set. A dev value was set
+  on the local backend for verification; production hosting must configure a
+  real default-initial-password before go-live. Pre-launch prereq.
+- **Roles are read-only at MVP** (per the pending stakeholder decision on
+  runtime role management). The /admin/roles catalogue renders read-only; when
+  runtime role editing is approved, extend with create/edit/delete (backend
+  already exposes POST/PATCH/DELETE /api/roles gated role.manage).
+- **Users list paginates the whole set client-side** (lists with pageSize 250
+  then slices in the browser, so the mirror view and the search/filter narrow
+  the full set consistently). Fine at current staff counts; switch to
+  server-side pagination if the user count grows large.
+- **Contract divergences from the prompt-30 report (live API was source of
+  truth):** user rows carry roles as nested userRoles[].role.{id,name} (not a
+  flat roles[]); the mirror `user` bucket carries userRoles[].roleId only and
+  the mirror `role` bucket carries permission keys only (no category/
+  description). Frontend builds against the live shapes and joins/falls back
+  accordingly. Noted in case the backend later flattens these.

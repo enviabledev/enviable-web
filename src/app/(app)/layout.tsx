@@ -18,13 +18,8 @@ export default function AppGroupLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (state.status === "anonymous") {
       router.replace("/login");
-    } else if (mustReset) {
-      // Forced-password-reset gate: a must-reset user cannot reach any (app)
-      // route. The reset screen lives in the (public) group so this redirect
-      // never loops. Backend independently 403s protected requests.
-      router.replace("/auth/reset-password");
     }
-  }, [state.status, mustReset, router]);
+  }, [state.status, router]);
 
   // SyncBoot is mounted UNCONDITIONALLY, above the auth gate. Two reasons:
   //   1. The service worker should register as soon as the (app) tree loads,
@@ -38,7 +33,22 @@ export default function AppGroupLayout({ children }: { children: ReactNode }) {
   // queued, and emits sessionExpired (which calls auth.refresh, no-ops if
   // already anonymous).
 
-  if (state.status === "authenticated" && !mustReset) {
+  // Forced-password-reset gate: a must-reset user cannot reach any (app) route.
+  // Render a dedicated redirect component (its mount effect fires the
+  // navigation once, reliably, without the dep-timing fragility of a shared
+  // effect) plus a clear blocking message so the app content is never shown.
+  // The reset screen lives in the (public) group so this never loops; the
+  // backend independently 403s protected requests (defence in depth).
+  if (mustReset) {
+    return (
+      <>
+        <SyncBoot />
+        <ForcedResetRedirect />
+      </>
+    );
+  }
+
+  if (state.status === "authenticated") {
     return (
       <>
         <SyncBoot />
@@ -52,6 +62,40 @@ export default function AppGroupLayout({ children }: { children: ReactNode }) {
       <SyncBoot />
       <LoadingShellFallback />
     </>
+  );
+}
+
+/**
+ * Mounted only when the principal is must-reset. Its mount effect fires the
+ * redirect to the reset screen once and reliably (a freshly-mounted component's
+ * effect always runs, unlike a shared layout effect whose re-run depends on
+ * dep-array transitions). Renders a clear blocking message so the app content
+ * is never shown even if the navigation is briefly in flight, with a manual
+ * link as the ultimate fallback. Satisfies the prompt's "redirect or blocking
+ * treatment" requirement; the backend 403 gate is the independent backstop.
+ */
+function ForcedResetRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/auth/reset-password");
+  }, [router]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface-muted)] px-4">
+      <div className="max-w-[420px] text-center">
+        <div className="text-[13px] font-semibold text-[var(--color-ink-900)] mb-1">
+          Password reset required
+        </div>
+        <p className="text-[12.5px] text-[var(--color-ink-700)] leading-[1.55] m-0">
+          You must set a new password before using the system. Taking you to the
+          reset screen...{" "}
+          <a href="/auth/reset-password" className="text-[var(--color-navy-700)] underline">
+            Continue
+          </a>
+          .
+        </p>
+      </div>
+    </div>
   );
 }
 

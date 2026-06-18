@@ -15,9 +15,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (state.status === "authenticated") {
-      router.replace("/");
+      // A must-reset user is sent straight to the reset screen (the primary
+      // forced-reset branch; the (app) layout has a catch-all for boot/nav).
+      router.replace(
+        state.principal.mustResetPassword === true ? "/auth/reset-password" : "/",
+      );
     }
-  }, [state.status, router]);
+  }, [state, router]);
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -27,7 +31,9 @@ export default function LoginPage() {
     try {
       const result = await login({ email: email.trim(), password });
       if (result.ok) {
-        router.replace("/");
+        router.replace(
+          result.principal.mustResetPassword === true ? "/auth/reset-password" : "/",
+        );
       } else if (result.status === 401) {
         setError("Email or password is incorrect.");
       } else if (result.unreachable) {

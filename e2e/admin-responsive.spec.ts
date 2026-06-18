@@ -17,7 +17,14 @@ import { expect, test, type Page } from "@playwright/test";
 const EMAIL = process.env.E2E_ADMIN_EMAIL ?? "itadmin@enviable.example";
 const PASSWORD = process.env.E2E_USER_PASSWORD ?? "E2ePass!234";
 
-const SCREENS = ["/admin/historical-load", "/admin/users", "/admin/roles"];
+// /admin/users + /admin/roles are now the real management screens (prompt 31),
+// not placeholders. fixt-user-md is a stable fixture user id for the detail.
+const SCREENS = [
+  "/admin/historical-load",
+  "/admin/users",
+  "/admin/users/fixt-user-md",
+  "/admin/roles",
+];
 
 const VIEWPORTS = [
   { name: "375", w: 375, h: 812 },
@@ -68,4 +75,37 @@ test("historical-load renders the real form (not denial) and fits at 375", async
       .map((e) => `${e.scrollWidth}>${e.clientWidth}`),
   );
   expect(bad, `historical-load tables scroll at 375:\n${bad.join(",")}`).toEqual([]);
+});
+
+test("create-user modal fits and is usable at 375", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await login(page);
+  await page.goto("/admin/users", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(1500);
+  await page.getByTestId("create-user-button").click();
+  const modal = page.getByTestId("create-user-modal");
+  await expect(modal).toBeVisible();
+  // The modal fields and submit are reachable; the modal does not push the page wider.
+  await expect(page.getByTestId("create-user-fullname")).toBeVisible();
+  await expect(page.getByTestId("create-user-submit")).toBeVisible();
+  const over = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(over, `overflow at 375 with create modal open: +${over}`).toBeLessThanOrEqual(1);
+});
+
+test("role detail fits at 375 (category-grouped permissions)", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await login(page);
+  await page.goto("/admin/roles", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(1500);
+  await page.getByTestId("role-row-link").first().click();
+  await page.waitForURL(/\/admin\/roles\/.+/, { timeout: 20_000 });
+  await page.waitForTimeout(1500);
+  const over = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(over, `role detail overflow at 375: +${over}`).toBeLessThanOrEqual(1);
 });
