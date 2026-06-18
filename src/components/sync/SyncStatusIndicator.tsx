@@ -204,7 +204,11 @@ export default function SyncStatusIndicator() {
       {open && (
         <div
           ref={popRef}
-          className="absolute top-[calc(100%+4px)] right-0 w-[360px] bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-hidden z-50"
+          // Mobile: a fixed, near-full-width panel below the topbar so it never
+          // clips off-screen (the pill sits mid-right, so an absolute right-0
+          // 360px popover would overflow the left edge at 375px). sm+: the
+          // original popover anchored to the pill's right edge.
+          className="fixed left-2 right-2 top-[48px] w-auto sm:absolute sm:left-auto sm:right-0 sm:top-[calc(100%+4px)] sm:w-[360px] bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-hidden z-50"
           style={{
             boxShadow:
               "0 6px 20px rgba(15,42,68,0.11), 0 2px 5px rgba(15,42,68,0.07)",
