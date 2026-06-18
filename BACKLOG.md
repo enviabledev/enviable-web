@@ -682,3 +682,32 @@ record of why the sales spec was edited from an Inventory session.
   the mirror `role` bucket carries permission keys only (no category/
   description). Frontend builds against the live shapes and joins/falls back
   accordingly. Noted in case the backend later flattens these.
+
+### Prompt 32: credential-display halves blocked on backend endpoint edits
+
+Two of the four prompt-32 fixes need enviable-system source edits (a backend
+session; not doable from the frontend session) and are NOT yet built on the
+frontend because the live contract does not exist:
+
+1. **Create-user initial-password display.** `POST /api/users` must include
+   `initialPassword` in the response (gated on user.manage). Probed: the current
+   response has no such field. Once it lands, the create-flow notification shows
+   the value with copy-to-clipboard, transient (state-only, never persisted).
+2. **Admin reset-password actually resetting the password.** Probed and
+   confirmed the gap: `POST /api/users/:id/reset-password-required` currently
+   ONLY sets mustResetPassword=true; it does NOT reset the password (after the
+   action the default fails 401 and the user's old/forgotten password still
+   works 200). The endpoint must reset the password to the default AND return
+   `initialPassword`. Once it lands, the admin-reset flow shows the value with
+   the same transient/copy treatment.
+
+Shipped now (frontend, no backend dependency): the /profile account page
+(view + self-service change-password via the existing
+POST /api/auth/reset-password) and the login forgot-password link +
+informational "contact your administrator" page (upgrades to email-based
+self-service when email infrastructure lands).
+
+Architectural note banked: the "never display passwords" discipline is refined
+to "per-user passwords are never displayed; the deployment-wide default password
+may be displayed transiently at create/admin-reset moments, with copy affordance
+and no browser persistence."

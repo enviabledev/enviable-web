@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { BellIcon, ChevronDownIcon, HelpIcon, SearchIcon } from "@/components/icons";
@@ -88,7 +89,13 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
 
         <div className="w-px h-[22px] bg-[var(--color-border-default)] mx-1.5" />
 
-        <div className="flex items-center gap-2 px-2 py-0.5 rounded-full cursor-pointer hover:bg-[var(--color-ink-100)]">
+        <Link
+          href="/profile"
+          title="Your account"
+          aria-label="Your account"
+          data-testid="topbar-profile-link"
+          className="flex items-center gap-2 px-2 py-0.5 rounded-full cursor-pointer hover:bg-[var(--color-ink-100)]"
+        >
           <div
             aria-hidden
             className="w-6 h-6 rounded-full grid place-items-center text-[10px] font-semibold text-white"
@@ -105,7 +112,7 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
             </div>
           </div>
           <ChevronDownIcon className="hidden lg:block" style={{ color: "var(--color-ink-400)" }} />
-        </div>
+        </Link>
 
         {notifOpen && (
           <div

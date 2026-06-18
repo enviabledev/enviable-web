@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
@@ -95,7 +96,7 @@ export default function LoginPage() {
               />
             </label>
 
-            <label className="block mb-4">
+            <label className="block mb-1.5">
               <span className="block text-[11px] font-medium text-[var(--color-ink-700)] mb-1">
                 Password
               </span>
@@ -107,6 +108,16 @@ export default function LoginPage() {
                 testId="login-password"
               />
             </label>
+
+            <div className="mb-4 text-right">
+              <Link
+                href="/auth/forgot-password"
+                data-testid="forgot-password-link"
+                className="text-[11.5px] text-[var(--color-navy-700)] hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
 
             {error && (
               <div
