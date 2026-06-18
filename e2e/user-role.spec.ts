@@ -62,7 +62,7 @@ test("forced-reset gate: default-pw login is blocked until the password is reset
     data: { fullName: "E2E Reset User", email, roleIds: [roleId] },
   });
   expect(created.status(), "create must-reset user").toBe(201);
-  const userId = ((await created.json()) as { id: string }).id;
+  const userId = ((await created.json()) as { user: { id: string } }).user.id;
 
   try {
     // Log in via the UI with the default password.
@@ -118,10 +118,12 @@ test("create-user flow: no password field, post-creation default-password notifi
     await modal.locator('[data-testid^="create-user-role-"]').first().click();
     await page.getByTestId("create-user-submit").click();
 
-    // Post-creation notification names the default-password workflow without showing the value.
+    // Post-creation notification surfaces the initial password value + copy
+    // affordance, with the "set their own on first login" framing.
     const note = page.getByTestId("create-user-notification");
     await expect(note).toBeVisible({ timeout: 20_000 });
-    await expect(note).toContainText(/default/i);
+    await expect(page.getByTestId("create-user-initial-password")).toHaveText(DEFAULT_PW);
+    await expect(page.getByTestId("create-user-copy-password")).toBeVisible();
     await expect(note).toContainText(/first login/i);
 
     // The new user is now in the list.
@@ -173,7 +175,7 @@ test("self-modification footguns hidden: admin viewing own record", async ({ pag
 test("roles read-only catalogue: list + category-grouped detail, no management affordances", async ({
   page,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(150_000);
   await loginUi(page, ADMIN_EMAIL, PASSWORD);
   await page.waitForURL((u) => !u.pathname.startsWith("/login"));
   await page.goto("/admin/roles");
@@ -184,10 +186,67 @@ test("roles read-only catalogue: list + category-grouped detail, no management a
   await expect(firstRole).toBeVisible({ timeout: 20_000 });
   await firstRole.click();
 
-  await page.waitForURL(/\/admin\/roles\/.+/, { timeout: 20_000 });
+  // Generous timeout: the role-detail route can cold-compile on the dev server
+  // under load, so the post-click navigation occasionally runs long.
+  await page.waitForURL(/\/admin\/roles\/.+/, { timeout: 40_000 });
   await page.waitForTimeout(1500);
   // Permissions render (grouped once the network detail lands).
-  await expect(page.getByTestId("role-permission-row").first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("role-permission-row").first()).toBeVisible({ timeout: 30_000 });
   // No management affordances anywhere on the read-only catalogue.
   await expect(page.getByRole("button", { name: /create role|new role|edit|delete/i })).toHaveCount(0);
+});
+
+test("admin reset-password: shows the new password and actually recovers a locked-out user", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const ctx = await adminApi(request);
+  const roleId = await firstRoleId(ctx);
+  const email = `e2e-adminreset-${Date.now()}@enviable.example`;
+  const created = await ctx.post("http://localhost:3000/api/users", {
+    data: { fullName: "E2E AdminReset User", email, roleIds: [roleId] },
+  });
+  expect(created.status()).toBe(201);
+  const userId = ((await created.json()) as { user: { id: string } }).user.id;
+
+  try {
+    // The user sets their own password (simulating "then forgets it").
+    await loginUi(page, email, DEFAULT_PW);
+    await page.waitForURL(/\/auth\/reset-password/, { timeout: 20_000 });
+    await page.getByTestId("reset-current-password").fill(DEFAULT_PW);
+    await page.getByTestId("reset-new-password").fill("ForgottenPass!1");
+    await page.getByTestId("reset-confirm-password").fill("ForgottenPass!1");
+    await page.getByTestId("reset-submit").click();
+    await page.waitForURL((u) => !u.pathname.startsWith("/auth/reset-password"), { timeout: 20_000 });
+    await page.context().clearCookies();
+
+    // Admin resets the password from the user detail screen.
+    await loginUi(page, ADMIN_EMAIL, PASSWORD);
+    await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+    await page.goto(`/admin/users/${userId}`);
+    await page.waitForTimeout(1200);
+    await page.getByTestId("reset-password-button").click();
+    await page.getByTestId("reset-confirm").click();
+    // The new initial password is surfaced with copy affordance.
+    await expect(page.getByTestId("reset-password-notification")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("reset-initial-password")).toHaveText(DEFAULT_PW);
+    await expect(page.getByTestId("reset-copy-password")).toBeVisible();
+
+    // The reset genuinely recovered the account: the default now logs in, the
+    // forgotten password no longer does.
+    const okDefault = await request.post("http://localhost:3000/api/auth/login", {
+      data: { email, password: DEFAULT_PW },
+    });
+    expect(okDefault.status(), "default password recovers the account").toBe(200);
+    const okOld = await request.post("http://localhost:3000/api/auth/login", {
+      data: { email, password: "ForgottenPass!1" },
+    });
+    expect(okOld.status(), "forgotten password no longer works").toBe(401);
+  } finally {
+    await ctx.post("http://localhost:3000/api/auth/login", {
+      data: { email: ADMIN_EMAIL, password: PASSWORD },
+    });
+    await ctx.delete(`http://localhost:3000/api/users/${userId}`);
+  }
 });

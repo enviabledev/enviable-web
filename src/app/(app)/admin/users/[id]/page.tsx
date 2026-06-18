@@ -29,6 +29,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import CopyButton from "@/components/ui/CopyButton";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import UserStatusPill from "@/components/users/UserStatusPill";
@@ -113,6 +114,9 @@ export default function UserDetailPage() {
   const id = useUrlLastSegment();
 
   const [view, setView] = useState<View | null>(null);
+  // Transient: the default password returned by an admin reset. Held in state
+  // only, shown once with copy-to-clipboard, cleared on dismiss. Never persisted.
+  const [resetNotice, setResetNotice] = useState<string | null>(null);
   const [fromMirror, setFromMirror] = useState(false);
   const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [actorNames, setActorNames] = useState<Record<string, string>>({});
@@ -305,6 +309,15 @@ export default function UserDetailPage() {
     if (!view) return;
     setAction({ status: "busy" });
     const r = await resetPasswordRequired(view.id);
+    if (r.kind === "ok") {
+      // The backend reset the password to the default and returned it; surface
+      // it transiently so the admin can communicate it. Re-read the user so the
+      // "Reset pending" flag refreshes.
+      setResetNotice(r.data.initialPassword);
+      setAction({ status: "idle" });
+      setReloadTick((n) => n + 1);
+      return;
+    }
     handleMutationResult(r, "reset");
   };
 
@@ -524,6 +537,40 @@ export default function UserDetailPage() {
           </div>
         )}
       </header>
+
+      {resetNotice && (
+        <div
+          role="status"
+          data-testid="reset-password-notification"
+          className="mb-4 px-3.5 py-3 rounded-[4px] bg-[var(--color-success-100)] border border-[var(--color-success-700)]/30 text-[12.5px] text-[var(--color-ink-900)] flex items-start justify-between gap-3"
+        >
+          <div className="min-w-0">
+            <div className="font-semibold mb-1">Password reset for {view.fullName}.</div>
+            <div className="mb-2">Their new initial password is:</div>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <code
+                data-testid="reset-initial-password"
+                className="font-mono text-[13px] font-semibold text-[var(--color-ink-900)] bg-white px-2 py-1 rounded-[3px] border border-[var(--color-border-strong)] break-all"
+              >
+                {resetNotice}
+              </code>
+              <CopyButton value={resetNotice} testId="reset-copy-password" />
+            </div>
+            <div className="text-[11.5px] text-[var(--color-ink-700)] leading-[1.5]">
+              Send this to them through your normal communication channel. They must set a new
+              password on next login. This is the only time it is shown here.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setResetNotice(null)}
+            data-testid="reset-password-notification-dismiss"
+            className="shrink-0 h-[24px] px-2 rounded-[3px] border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-700)] text-[11.5px] font-medium hover:bg-white/60"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {action.status === "error" && (
         <div

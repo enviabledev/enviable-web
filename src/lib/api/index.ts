@@ -136,6 +136,8 @@ export type {
   UserDetail,
   UserListResponse,
   CreateUserBody,
+  CreateUserResponse,
+  InitialPasswordResponse,
   UpdateUserBody,
   ListUsersQuery,
 } from "./users";

@@ -75,10 +75,14 @@ export default function AppGroupLayout({ children }: { children: ReactNode }) {
  * treatment" requirement; the backend 403 gate is the independent backstop.
  */
 function ForcedResetRedirect() {
-  const router = useRouter();
   useEffect(() => {
-    router.replace("/auth/reset-password");
-  }, [router]);
+    // Full-document navigation, not router.replace: a Next router.replace fired
+    // from a component freshly mounted during a hard page load is unreliable
+    // (the App Router can swallow it), which left a must-reset user stuck on the
+    // blocking message at a protected URL. window.location.replace always lands
+    // on the reset screen; the visible message + Continue link are the fallback.
+    window.location.replace("/auth/reset-password");
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--color-surface-muted)] px-4">

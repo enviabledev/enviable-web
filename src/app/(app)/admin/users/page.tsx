@@ -22,12 +22,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { SearchIcon, UsersIcon } from "@/components/icons";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import CreateUserModal from "@/components/admin/users/CreateUserModal";
+import CopyButton from "@/components/ui/CopyButton";
 import UserStatusPill from "@/components/users/UserStatusPill";
 import {
   USER_PAGE_SIZES,
   USER_STATUS,
   listUsers,
-  type UserDetail,
+  type CreateUserResponse,
   type UserListRow,
   type UserPageSize,
   type UserStatus,
@@ -93,7 +94,7 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(1);
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [createdNotice, setCreatedNotice] = useState<UserDetail | null>(null);
+  const [createdNotice, setCreatedNotice] = useState<CreateUserResponse | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
 
   const watermark = useMirrorFreshness();
@@ -253,11 +254,23 @@ export default function AdminUsersPage() {
           data-testid="create-user-notification"
           className="mb-3 px-3.5 py-3 rounded-[4px] bg-[var(--color-success-100)] border border-[var(--color-success-700)]/30 text-[12.5px] text-[var(--color-ink-900)] flex items-start justify-between gap-3"
         >
-          <div>
-            <span className="font-semibold">User {createdNotice.fullName} created.</span>{" "}
-            Their initial password is the configured default; communicate it to them through
-            your normal onboarding process. They will be required to set their own password on
-            first login.
+          <div className="min-w-0">
+            <div className="font-semibold mb-1">User {createdNotice.user.fullName} created.</div>
+            <div className="mb-2">Their initial password is:</div>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <code
+                data-testid="create-user-initial-password"
+                className="font-mono text-[13px] font-semibold text-[var(--color-ink-900)] bg-white px-2 py-1 rounded-[3px] border border-[var(--color-border-strong)] break-all"
+              >
+                {createdNotice.initialPassword}
+              </code>
+              <CopyButton value={createdNotice.initialPassword} testId="create-user-copy-password" />
+            </div>
+            <div className="text-[11.5px] text-[var(--color-ink-700)] leading-[1.5]">
+              Send this to them through your normal communication channel. They must set their own
+              password on first login. This is the only time it is shown here, retrieve it from your
+              channel if you need it again.
+            </div>
           </div>
           <button
             type="button"

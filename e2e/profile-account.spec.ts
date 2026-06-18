@@ -73,7 +73,7 @@ test("change own password: success, then login with the new password works; wron
     data: { fullName: "E2E Profile User", email, roleIds: [roleId] },
   });
   expect(created.status()).toBe(201);
-  const userId = ((await created.json()) as { id: string }).id;
+  const userId = ((await created.json()) as { user: { id: string } }).user.id;
   const P1 = "FirstChosen!1";
   const P2 = "SecondChosen!2";
 

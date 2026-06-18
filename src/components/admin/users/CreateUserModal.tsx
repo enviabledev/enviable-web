@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import Modal from "@/components/ui/Modal";
-import { createUser, listRoles, type Role, type UserDetail } from "@/lib/api";
+import { createUser, listRoles, type CreateUserResponse, type Role } from "@/lib/api";
 import { useConnectivity } from "@/lib/sync/connectivity";
 import { listByType } from "@/lib/sync/mirror/store";
 
@@ -32,7 +32,7 @@ export default function CreateUserModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onSuccess: (created: UserDetail) => void;
+  onSuccess: (result: CreateUserResponse) => void;
 }) {
   const { state: connState } = useConnectivity();
   const offline = connState === "offline";

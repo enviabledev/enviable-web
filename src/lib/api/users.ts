@@ -69,6 +69,21 @@ export type CreateUserBody = {
   roleIds: string[];
 };
 
+/**
+ * Create returns the new user PLUS the deployment default initial password, so
+ * the admin can communicate it (gated on user.manage server-side). The value is
+ * displayed transiently in the UI and never persisted. Same shape concept for
+ * the admin reset action, which returns only the initial password.
+ */
+export type CreateUserResponse = {
+  user: UserDetail;
+  initialPassword: string;
+};
+
+export type InitialPasswordResponse = {
+  initialPassword: string;
+};
+
 export type UpdateUserBody = {
   fullName?: string;
   email?: string;
@@ -105,8 +120,8 @@ export async function getUser(id: string, signal?: AbortSignal): Promise<ApiResu
 export async function createUser(
   body: CreateUserBody,
   signal?: AbortSignal,
-): Promise<ApiResult<UserDetail>> {
-  return apiFetch<UserDetail>("/api/users", { method: "POST", body, signal });
+): Promise<ApiResult<CreateUserResponse>> {
+  return apiFetch<CreateUserResponse>("/api/users", { method: "POST", body, signal });
 }
 
 export async function updateUser(
@@ -125,13 +140,19 @@ export async function deleteUser(id: string, signal?: AbortSignal): Promise<ApiR
   return apiFetch<UserDetail>(`/api/users/${encodeURIComponent(id)}`, { method: "DELETE", signal });
 }
 
-/** Force the target user to must-reset on next login (admin action). */
+/**
+ * Admin password reset: resets the target user's password to the deployment
+ * default AND sets mustResetPassword. Returns the default value so the admin can
+ * communicate it (displayed transiently, never persisted). Returns ONLY
+ * { initialPassword }, not the user, so callers re-read the user if they need
+ * the refreshed flag.
+ */
 export async function resetPasswordRequired(
   id: string,
   signal?: AbortSignal,
-): Promise<ApiResult<UserDetail>> {
-  return apiFetch<UserDetail>(`/api/users/${encodeURIComponent(id)}/reset-password-required`, {
-    method: "POST",
-    signal,
-  });
+): Promise<ApiResult<InitialPasswordResponse>> {
+  return apiFetch<InitialPasswordResponse>(
+    `/api/users/${encodeURIComponent(id)}/reset-password-required`,
+    { method: "POST", signal },
+  );
 }
