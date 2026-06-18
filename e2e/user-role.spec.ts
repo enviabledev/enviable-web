@@ -24,7 +24,7 @@ const DEFAULT_PW = process.env.E2E_DEFAULT_INITIAL_PASSWORD ?? "ChangeMe!2026";
 async function loginUi(page: Page, email: string, password: string) {
   await page.goto("/login");
   await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password/i).fill(password);
+  await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: /sign in/i }).click();
 }
 

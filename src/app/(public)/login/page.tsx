@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
+import PasswordField from "@/components/ui/PasswordField";
 import { useAuth } from "@/lib/auth";
 
 export default function LoginPage() {
@@ -98,13 +99,12 @@ export default function LoginPage() {
               <span className="block text-[11px] font-medium text-[var(--color-ink-700)] mb-1">
                 Password
               </span>
-              <input
-                type="password"
+              <PasswordField
+                value={password}
+                onChange={setPassword}
                 autoComplete="current-password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full h-7 px-2 text-[12.5px] text-[var(--color-ink-900)] bg-white border border-[var(--color-border-strong)] rounded-[3px] focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)]"
+                testId="login-password"
               />
             </label>
 

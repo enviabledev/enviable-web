@@ -13,7 +13,7 @@ const PASSWORD = process.env.E2E_USER_PASSWORD ?? "E2ePass!234";
 async function login(page: Page) {
   await page.goto("/login");
   await page.getByLabel(/email/i).fill(EMAIL);
-  await page.getByLabel(/password/i).fill(PASSWORD);
+  await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByRole("button", { name: /sign in/i }).click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }

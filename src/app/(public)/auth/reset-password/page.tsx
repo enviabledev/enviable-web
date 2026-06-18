@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
+import PasswordField from "@/components/ui/PasswordField";
 import { useAuth } from "@/lib/auth";
 
 /**
@@ -120,14 +121,12 @@ export default function ResetPasswordPage() {
                 <span className="block text-[11px] font-medium text-[var(--color-ink-700)] mb-1">
                   Current password
                 </span>
-                <input
-                  type="password"
+                <PasswordField
+                  value={currentPassword}
+                  onChange={setCurrentPassword}
                   autoComplete="current-password"
                   required
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  data-testid="reset-current-password"
-                  className="w-full h-7 px-2 text-[12.5px] text-[var(--color-ink-900)] bg-white border border-[var(--color-border-strong)] rounded-[3px] focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)]"
+                  testId="reset-current-password"
                 />
                 <span className="block text-[10.5px] text-[var(--color-ink-500)] mt-1">
                   The temporary password your administrator gave you.
@@ -138,14 +137,12 @@ export default function ResetPasswordPage() {
                 <span className="block text-[11px] font-medium text-[var(--color-ink-700)] mb-1">
                   New password
                 </span>
-                <input
-                  type="password"
+                <PasswordField
+                  value={newPassword}
+                  onChange={setNewPassword}
                   autoComplete="new-password"
                   required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  data-testid="reset-new-password"
-                  className="w-full h-7 px-2 text-[12.5px] text-[var(--color-ink-900)] bg-white border border-[var(--color-border-strong)] rounded-[3px] focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)]"
+                  testId="reset-new-password"
                 />
                 <span className="block text-[10.5px] text-[var(--color-ink-500)] mt-1">
                   At least {MIN_LENGTH} characters, different from the temporary one.
@@ -156,14 +153,12 @@ export default function ResetPasswordPage() {
                 <span className="block text-[11px] font-medium text-[var(--color-ink-700)] mb-1">
                   Confirm new password
                 </span>
-                <input
-                  type="password"
+                <PasswordField
+                  value={confirm}
+                  onChange={setConfirm}
                   autoComplete="new-password"
                   required
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  data-testid="reset-confirm-password"
-                  className="w-full h-7 px-2 text-[12.5px] text-[var(--color-ink-900)] bg-white border border-[var(--color-border-strong)] rounded-[3px] focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)]"
+                  testId="reset-confirm-password"
                 />
               </label>
 
