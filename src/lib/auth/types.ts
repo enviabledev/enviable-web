@@ -16,6 +16,15 @@ export type Principal = {
   email: string;
   roles: string[];
   permissions: string[];
+  /**
+   * True when the backend requires this user to set a new password before
+   * accessing anything (newly created users start on the default password).
+   * The SPA branches on this at boot/login to force the reset screen; the
+   * backend independently 403s protected requests with PASSWORD_RESET_REQUIRED
+   * (defence in depth). Optional in the type so principals cached before this
+   * field existed deserialise cleanly (treated as not-required).
+   */
+  mustResetPassword?: boolean;
 };
 
 export type AuthStatus = "loading" | "authenticated" | "anonymous";

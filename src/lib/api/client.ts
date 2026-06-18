@@ -8,10 +8,19 @@
  * the right empty/permission state without a try/catch dance.
  */
 
+/**
+ * Window event dispatched when a protected request is rejected by the
+ * forced-password-reset gate (403 with body code PASSWORD_RESET_REQUIRED).
+ * AuthProvider listens and re-fetches the principal so the (app) layout
+ * redirects to the reset screen. Defence in depth behind the SPA's
+ * principal-based boot/login branch.
+ */
+export const PASSWORD_RESET_REQUIRED_EVENT = "enviable:password-reset-required";
+
 export type ApiResult<T> =
   | { kind: "ok"; data: T }
   | { kind: "unauthorized" }
-  | { kind: "forbidden" }
+  | { kind: "forbidden"; code?: string }
   | { kind: "not_found" }
   | { kind: "conflict"; message: string; body?: Record<string, unknown> }
   | { kind: "validation"; status: number; message: string | string[] }
@@ -69,7 +78,23 @@ export async function apiFetch<T>(path: string, init?: ApiRequestInit): Promise<
   }
 
   if (res.status === 401) return { kind: "unauthorized" };
-  if (res.status === 403) return { kind: "forbidden" };
+  if (res.status === 403) {
+    // Parse the body for a code. The forced-reset gate returns
+    // { error: "PASSWORD_RESET_REQUIRED", message }; generic permission denials
+    // return { error: "Forbidden" }. Only the reset code drives the global
+    // redirect event; generic 403s render the screen's access-denied state.
+    let code: string | undefined;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (typeof body?.error === "string") code = body.error;
+    } catch {
+      // no/!json body: leave code undefined
+    }
+    if (code === "PASSWORD_RESET_REQUIRED" && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(PASSWORD_RESET_REQUIRED_EVENT));
+    }
+    return { kind: "forbidden", code };
+  }
   if (res.status === 404) return { kind: "not_found" };
 
   if (res.status === 409) {

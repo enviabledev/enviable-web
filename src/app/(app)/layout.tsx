@@ -12,11 +12,19 @@ export default function AppGroupLayout({ children }: { children: ReactNode }) {
   const { state } = useAuth();
   const router = useRouter();
 
+  const mustReset =
+    state.status === "authenticated" && state.principal.mustResetPassword === true;
+
   useEffect(() => {
     if (state.status === "anonymous") {
       router.replace("/login");
+    } else if (mustReset) {
+      // Forced-password-reset gate: a must-reset user cannot reach any (app)
+      // route. The reset screen lives in the (public) group so this redirect
+      // never loops. Backend independently 403s protected requests.
+      router.replace("/auth/reset-password");
     }
-  }, [state.status, router]);
+  }, [state.status, mustReset, router]);
 
   // SyncBoot is mounted UNCONDITIONALLY, above the auth gate. Two reasons:
   //   1. The service worker should register as soon as the (app) tree loads,
@@ -30,7 +38,7 @@ export default function AppGroupLayout({ children }: { children: ReactNode }) {
   // queued, and emits sessionExpired (which calls auth.refresh, no-ops if
   // already anonymous).
 
-  if (state.status === "authenticated") {
+  if (state.status === "authenticated" && !mustReset) {
     return (
       <>
         <SyncBoot />

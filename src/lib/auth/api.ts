@@ -73,6 +73,47 @@ export async function postLogin(input: LoginInput): Promise<LoginResult> {
   };
 }
 
+export type ResetPasswordResult =
+  | { ok: true; principal: Principal }
+  | { ok: false; status: number; message: string; unreachable?: boolean };
+
+/**
+ * Forced/self password reset. Authenticated request (the must-reset user still
+ * holds a valid session cookie). On 200 the backend returns the refreshed
+ * principal with mustResetPassword cleared; the caller saves it and resumes.
+ * A 400 carries the validation message (current password wrong, new password
+ * too weak, etc.) which is surfaced verbatim.
+ */
+export async function postResetPassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<ResetPasswordResult> {
+  let res: Response;
+  try {
+    res = await fetch("/api/auth/reset-password", {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      headers: JSON_HEADERS,
+      body: JSON.stringify(input),
+    });
+  } catch {
+    return { ok: false, status: 0, message: "Network error", unreachable: true };
+  }
+  if (res.status === 200) {
+    const principal = (await res.json()) as Principal;
+    return { ok: true, principal };
+  }
+  let message = "Could not reset the password. Please try again.";
+  try {
+    const body = (await res.json()) as { message?: string | string[] };
+    if (body?.message) message = Array.isArray(body.message) ? body.message.join("; ") : body.message;
+  } catch {
+    // keep the default message
+  }
+  return { ok: false, status: res.status, message, unreachable: res.status >= 500 };
+}
+
 export async function postLogout(): Promise<void> {
   await fetch("/api/auth/logout", {
     method: "POST",

@@ -11,7 +11,8 @@ import {
   type ReactNode,
 } from "react";
 
-import { fetchMe, postLogin, postLogout } from "./api";
+import { fetchMe, postLogin, postLogout, postResetPassword } from "./api";
+import { PASSWORD_RESET_REQUIRED_EVENT } from "@/lib/api/client";
 import {
   clearCachedPrincipal,
   loadCachedPrincipal,
@@ -27,6 +28,13 @@ type AuthContextValue = {
   >;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
+  resetPassword: (input: {
+    currentPassword: string;
+    newPassword: string;
+  }) => Promise<
+    | { ok: true }
+    | { ok: false; status: number; message: string; unreachable?: boolean }
+  >;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -104,6 +112,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result;
   }, []);
 
+  const resetPassword = useCallback(
+    async (input: { currentPassword: string; newPassword: string }) => {
+      const result = await postResetPassword(input);
+      if (result.ok) {
+        await saveCachedPrincipal(result.principal);
+        setState({ status: "authenticated", principal: result.principal });
+        return { ok: true as const };
+      }
+      return {
+        ok: false as const,
+        status: result.status,
+        message: result.message,
+        unreachable: result.unreachable,
+      };
+    },
+    [],
+  );
+
+  // Defence in depth for the forced-reset gate: if any protected request 403s
+  // with PASSWORD_RESET_REQUIRED (a must-reset principal went stale, e.g. an
+  // admin forced a reset mid-session), the client layer dispatches this event.
+  // Re-fetch /auth/me so the principal flips mustResetPassword=true and the
+  // (app) layout redirect fires. The SPA-level boot/login branch is the primary
+  // mechanism; this catches the races.
+  useEffect(() => {
+    const onResetRequired = () => {
+      void refresh();
+    };
+    window.addEventListener(PASSWORD_RESET_REQUIRED_EVENT, onResetRequired);
+    return () => window.removeEventListener(PASSWORD_RESET_REQUIRED_EVENT, onResetRequired);
+  }, [refresh]);
+
   const logout = useCallback(async () => {
     // Clear the cache FIRST so a race (someone re-reading principal mid-
     // logout) doesn't catch the stale value. Then call the backend logout
@@ -114,8 +154,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ state, login, logout, refresh }),
-    [state, login, logout, refresh],
+    () => ({ state, login, logout, refresh, resetPassword }),
+    [state, login, logout, refresh, resetPassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

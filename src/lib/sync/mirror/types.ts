@@ -19,6 +19,12 @@ export const ENTITY_TYPES = [
   // (e.g. assembly-job supervisor names). The backend emits a non-sensitive
   // subset only; no auth artifact, see principal-cache for the credential rule.
   "user",
+  // Role catalogue (id, name, description, isSystemRole + permission keys via
+  // rolePermissions[].permission.key). Note the mirror shape carries permission
+  // KEYS only; the API GET /api/roles carries the full {id,key,description,
+  // category} for category-grouped rendering. Mirror-first paint shows the
+  // role + its keys; the network revalidate fills in descriptions/categories.
+  "role",
   // Procurement
   "purchaseOrder",
   "purchaseOrderLine",
@@ -71,6 +77,7 @@ export type ReferenceData = {
   customers: unknown[];
   spareParts: unknown[];
   users: unknown[];
+  roles: unknown[];
   purchaseOrders: unknown[];
   purchaseOrderLines: unknown[];
   lettersOfCredit: unknown[];
@@ -103,6 +110,7 @@ export const REF_KEY_TO_ENTITY: Record<keyof ReferenceData, EntityType> = {
   customers: "customer",
   spareParts: "sparePart",
   users: "user",
+  roles: "role",
   purchaseOrders: "purchaseOrder",
   purchaseOrderLines: "purchaseOrderLine",
   lettersOfCredit: "letterOfCredit",

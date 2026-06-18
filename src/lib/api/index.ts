@@ -118,6 +118,29 @@ export type {
   CreateCounterpartyBody,
   UpdateCounterpartyBody,
 } from "./counterparties";
+export {
+  listUsers,
+  getUser,
+  createUser,
+  updateUser,
+  deleteUser,
+  resetPasswordRequired,
+  USER_STATUS,
+  USER_PAGE_SIZES,
+} from "./users";
+export type {
+  UserStatus,
+  UserPageSize,
+  UserRoleRef,
+  UserListRow,
+  UserDetail,
+  UserListResponse,
+  CreateUserBody,
+  UpdateUserBody,
+  ListUsersQuery,
+} from "./users";
+export { listRoles, getRole } from "./roles";
+export type { Role, RolePermission } from "./roles";
 export { listProducts, flattenVariantOptions } from "./products";
 export type { ProductWithVariants, ProductVariantSummary, ProductCategory, ProductStatus } from "./products";
 export {
