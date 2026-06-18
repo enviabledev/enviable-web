@@ -185,7 +185,7 @@ export type {
   CreateSoBody,
   UpdateSoBody,
 } from "./sales-orders";
-export { listCustomers, getCustomer } from "./customers";
+export { listCustomers, getCustomer, createCustomer, updateCustomer, deleteCustomer } from "./customers";
 export type {
   Customer,
   CustomerType,
@@ -193,6 +193,8 @@ export type {
   CustomerTierSummary,
   CustomerListResponse,
   CustomerListQuery,
+  CreateCustomerBody,
+  UpdateCustomerBody,
 } from "./customers";
 export { generateInvoice, getInvoiceForSo, getInvoice } from "./invoices";
 export type { Invoice } from "./invoices";

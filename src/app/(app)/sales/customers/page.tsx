@@ -4,20 +4,31 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import CreateCustomerModal from "@/components/customers/CreateCustomerModal";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import { listCustomers, type Customer } from "@/lib/api";
+import { usePermissions } from "@/lib/auth";
 import { COL } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
 
 export default function CustomersListPage() {
   const router = useRouter();
+  const { has } = usePermissions();
+  const canManage = has("customer.manage");
   const [rows, setRows] = useState<Customer[] | null>(null);
   const [errMsg, setErrMsg] = useState<string>("");
   const [offline, setOffline] = useState(false);
   // When true, the rows came from the mirror, not the network. Drives the
   // FreshnessBadge so the clerk knows it's cached data, not live.
   const [fromMirror, setFromMirror] = useState(false);
+
+  // Create-customer overlay + post-create notification (prompt 33-A).
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createdName, setCreatedName] = useState<string>("");
+  // Bumped on successful create to re-trigger the mirror + network read so the
+  // new customer appears without a manual refresh.
+  const [reloadTick, setReloadTick] = useState(0);
 
   const mirrorPaintedRef = useRef(false);
   useEffect(() => {
@@ -60,11 +71,11 @@ export default function CustomersListPage() {
       }
     });
     return () => ctrl.abort();
-  }, [router]);
+  }, [router, reloadTick]);
 
   return (
     <div className="max-w-[1480px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] flex items-center gap-1.5 mb-1.5">
             <span>Sales</span>
@@ -83,7 +94,47 @@ export default function CustomersListPage() {
             {fromMirror && <FreshnessBadge />}
           </h1>
         </div>
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-customer-button"
+            className="h-[32px] px-4 inline-flex items-center rounded-[3px] bg-[var(--color-navy-700)] text-white text-[12.5px] font-medium self-start"
+          >
+            Create customer
+          </button>
+        )}
       </header>
+
+      {canManage && createdName && (
+        <div
+          role="status"
+          data-testid="create-customer-notification"
+          className="mb-4 px-3.5 py-2.5 rounded-[3px] bg-[var(--color-success-100)] text-[var(--color-success-700)] text-[12.5px] flex items-center justify-between gap-3"
+        >
+          <span>Customer {createdName} created.</span>
+          <button
+            type="button"
+            onClick={() => setCreatedName("")}
+            aria-label="Dismiss"
+            className="text-[var(--color-success-700)] hover:opacity-70 text-[14px] leading-none px-1"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
+      {canManage && (
+        <CreateCustomerModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onSuccess={(created) => {
+            setCreateOpen(false);
+            setCreatedName(created.name);
+            setReloadTick((n) => n + 1);
+          }}
+        />
+      )}
 
       {errMsg && (
         <div className="mb-4 px-3.5 py-2.5 rounded-[3px] bg-[var(--color-danger-100)] text-[var(--color-danger-700)] text-[12.5px]">

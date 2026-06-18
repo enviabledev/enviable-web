@@ -62,3 +62,52 @@ export async function getCustomer(
 ): Promise<ApiResult<Customer>> {
   return apiFetch<Customer>(`/api/customers/${id}`, { signal });
 }
+
+/** Management (prompt 33-A); gated customer.manage server-side. */
+export type CreateCustomerBody = {
+  name: string;
+  type: CustomerType;
+  tierId?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  taxId?: string | null;
+  address?: unknown;
+};
+
+export type UpdateCustomerBody = Partial<CreateCustomerBody> & {
+  status?: CustomerStatus;
+};
+
+export async function createCustomer(
+  body: CreateCustomerBody,
+  signal?: AbortSignal,
+): Promise<ApiResult<Customer>> {
+  return apiFetch<Customer>("/api/customers", { method: "POST", body, signal });
+}
+
+export async function updateCustomer(
+  id: string,
+  body: UpdateCustomerBody,
+  signal?: AbortSignal,
+): Promise<ApiResult<Customer>> {
+  return apiFetch<Customer>(`/api/customers/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body,
+    signal,
+  });
+}
+
+/**
+ * Soft-delete. The backend rejects with 409 (conflict) when the customer has
+ * active sales orders: { message: "Customer has N active sales order(s)..." }.
+ * Callers surface that message and steer the user to Deactivate instead.
+ */
+export async function deleteCustomer(
+  id: string,
+  signal?: AbortSignal,
+): Promise<ApiResult<Customer>> {
+  return apiFetch<Customer>(`/api/customers/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    signal,
+  });
+}
