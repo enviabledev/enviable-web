@@ -102,6 +102,7 @@ export const NAV: readonly NavGroup[] = [
     items: [
       { label: "Users", href: "/admin/users", icon: UsersIcon, permissions: ["user.read"] },
       { label: "Roles", href: "/admin/roles", icon: RolesIcon, permissions: ["role.read"] },
+      { label: "Variants", href: "/admin/variants", icon: StocksIcon, permissions: ["productvariant.manage"] },
       { label: "Historical Data Load", href: "/admin/historical-load", icon: HistoricalLoadIcon, permissions: ["historicalload.run"] },
     ],
   },

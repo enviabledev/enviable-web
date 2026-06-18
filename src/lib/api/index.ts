@@ -146,6 +146,17 @@ export type { Role, RolePermission } from "./roles";
 export { listProducts, flattenVariantOptions } from "./products";
 export type { ProductWithVariants, ProductVariantSummary, ProductCategory, ProductStatus } from "./products";
 export {
+  getProductVariant,
+  createProductVariant,
+  updateProductVariant,
+} from "./product-variants";
+export type {
+  ProductVariant,
+  VariantAttributesMap,
+  CreateProductVariantBody,
+  UpdateProductVariantBody,
+} from "./product-variants";
+export {
   listShipments,
   getShipment,
   receiveUnits,
