@@ -751,3 +751,35 @@ Findings banked for a future round:
    consider a tier-led layout (tiers as columns, or a tier selector as the
    primary lens) so the (variant x tier) matrix is legible. Architectural, not
    urgent.
+
+## Prompt 35 (Record proforma invoice flow) - shipped
+
+Closed the gap where a PO could never receive a recorded PI through the UI
+(the backend endpoint + createProformaInvoice wrapper existed; the create-side
+UI was never wired).
+
+Shipped:
+- "Record proforma invoice" action on the PO detail page, gated pi.review and
+  visible only on recordable PO statuses (APPROVED, SENT_TO_SUPPLIER,
+  PI_RECEIVED, AWAITING_SHIPMENT, PARTIALLY_RECEIVED). Reads "(revision)" when
+  an ACTIVE PI already exists. Disabled offline.
+- RecordProformaInvoiceModal: header CIF fields (piNumber required, issue/valid
+  dates defaulted, freight/insurance/ports/payment terms) + a line section
+  pre-seeded from the PO lines (same variant, quantity, unit price). New lines
+  use the ACTIVE-only variant picker; pre-seeded lines keep their variant even
+  if now DISCONTINUED (existing-commitment exception, shown with a tag and not
+  re-pickable). Client-side CIF total preview; server is source of truth.
+- A "Proforma invoices" list section added to the PO detail (it previously
+  showed none): lists recorded PIs with number, revision, status, total; the
+  new PI appears PENDING_REVIEW immediately after recording; refreshes via a
+  reload tick.
+- Create lands PENDING_REVIEW; the existing PI detail approve flow activates it
+  and pulls the PO to PI_RECEIVED.
+
+Observations banked:
+- The form is large but fits the Modal primitive at 375px (it scrolls
+  vertically inside the scroll region); no need for a dedicated page.
+- The PI detail's transient action-success banner unmounts on the post-approve
+  re-read (the Review section is gated on PENDING_REVIEW), so visible-outcome
+  checks for the approve should assert the durable ACTIVE status pill, not the
+  success banner. Noted for any future PI-detail test work.

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import PoStatusPill from "@/components/purchase-orders/PoStatusPill";
+import RecordProformaInvoiceModal from "@/components/purchase-orders/RecordProformaInvoiceModal";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import {
@@ -12,19 +13,34 @@ import {
   flattenVariantOptions,
   getPurchaseOrder,
   listProducts,
+  listProformaInvoicesForPo,
   poIsEditable,
   submitPurchaseOrder,
   type Counterparty,
   type PoDetail,
   type PoLine,
   type PoListRow,
+  type PoStatus,
   type ProductWithVariants,
+  type ProformaInvoice,
+  type ProformaInvoiceStatus,
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
+import { useConnectivity } from "@/lib/sync/connectivity";
 import { formatDateShort, formatDateTime, formatNGN } from "@/lib/format";
 import { COL, DETAIL_GRID } from "@/lib/responsive";
 import { getById, listByType } from "@/lib/sync/mirror/store";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
+
+// PO statuses where recording a proforma invoice makes operational sense: the
+// PO is committed (approved onward) and not in a terminal/closed state.
+const PI_RECORDABLE_STATUSES: readonly PoStatus[] = [
+  "APPROVED",
+  "SENT_TO_SUPPLIER",
+  "PI_RECEIVED",
+  "AWAITING_SHIPMENT",
+  "PARTIALLY_RECEIVED",
+];
 
 type LoadState =
   | { status: "loading" }
@@ -51,9 +67,39 @@ export default function PurchaseOrderDetailPage() {
   // see src/lib/sync/use-url-segment.ts.
   const id = useUrlLastSegment();
 
+  const { state: connState } = useConnectivity();
+  const offlineConn = connState === "offline";
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [action, setAction] = useState<ActionState>({ status: "idle" });
   const [products, setProducts] = useState<ProductWithVariants[]>([]);
+
+  // Proforma invoices recorded against this PO (prompt 35). Mirror-first paint
+  // then network revalidate; re-fetched on piReloadTick after a record.
+  const [piList, setPiList] = useState<ProformaInvoice[] | null>(null);
+  const [piReloadTick, setPiReloadTick] = useState(0);
+  const [recordOpen, setRecordOpen] = useState(false);
+  const [recordedPi, setRecordedPi] = useState<{ id: string; piNumber: string } | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    const ctrl = new AbortController();
+    (async () => {
+      try {
+        const rows = await listByType<ProformaInvoice & { purchaseOrderId: string }>(
+          "proformaInvoice",
+        );
+        if (ctrl.signal.aborted) return;
+        const mine = rows.map((r) => r.body).filter((p) => p.purchaseOrderId === id);
+        if (mine.length > 0) setPiList((prev) => prev ?? mine);
+      } catch {
+        // Network drives.
+      }
+    })();
+    listProformaInvoicesForPo(id, ctrl.signal).then((r) => {
+      if (!ctrl.signal.aborted && r.kind === "ok") setPiList(r.data);
+    });
+    return () => ctrl.abort();
+  }, [id, piReloadTick]);
 
   // Mirror-first paint. Phase 1 reconstructs the PoDetail from the mirror
   // buckets (purchaseOrder + counterparty + purchaseOrderLine), phase 2
@@ -232,6 +278,8 @@ export default function PurchaseOrderDetailPage() {
   const canEdit = has("po.create") && poIsEditable(po.status);
   const canSubmit = has("po.submit") && po.status === "DRAFT";
   const canApprove = has("po.approve") && po.status === "PENDING_APPROVAL";
+  const hasActivePi = (piList ?? []).some((p) => p.status === "ACTIVE");
+  const canRecordPi = has("pi.review") && PI_RECORDABLE_STATUSES.includes(po.status);
 
   const handleAction = async (which: "submit" | "approve") => {
     if (action.status === "submitting") return;
@@ -315,7 +363,19 @@ export default function PurchaseOrderDetailPage() {
               {action.status === "submitting" && action.action === "approve" ? "Approving..." : "Approve"}
             </button>
           )}
-          {!canEdit && !canSubmit && !canApprove && (
+          {canRecordPi && (
+            <button
+              type="button"
+              onClick={() => setRecordOpen(true)}
+              disabled={offlineConn}
+              data-testid="record-pi-button"
+              title={offlineConn ? "Recording a proforma invoice requires a connection" : undefined}
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-navy-700)] bg-white text-[var(--color-navy-700)] hover:bg-[var(--color-navy-50)] disabled:opacity-50 inline-flex items-center justify-center"
+            >
+              {hasActivePi ? "Record proforma invoice (revision)" : "Record proforma invoice"}
+            </button>
+          )}
+          {!canEdit && !canSubmit && !canApprove && !canRecordPi && (
             <span className="text-[11px] text-[var(--color-ink-500)]">
               No actions available
               {!has("po.submit") && po.status === "DRAFT" && (
@@ -357,9 +417,114 @@ export default function PurchaseOrderDetailPage() {
         </div>
       )}
 
+      {canRecordPi && offlineConn && (
+        <div className="mb-4 px-3.5 py-2.5 rounded-[3px] bg-[var(--color-warning-100)] text-[var(--color-warning-700)] text-[12.5px]">
+          Recording a proforma invoice requires a live connection. Reconnect to record one against this PO.
+        </div>
+      )}
+
+      {recordedPi && (
+        <div
+          role="status"
+          data-testid="record-pi-notification"
+          className="mb-4 px-3.5 py-2.5 rounded-[3px] bg-[var(--color-success-100)] text-[var(--color-success-700)] text-[12.5px] flex items-center justify-between gap-3"
+        >
+          <span className="flex items-center gap-3 flex-wrap">
+            <span>
+              Proforma invoice <span className="font-mono font-semibold">{recordedPi.piNumber}</span> recorded for review. Approve to make it active.
+            </span>
+            <Link
+              href={`/procurement/proforma-invoices/${recordedPi.id}`}
+              data-testid="record-pi-review-link"
+              className="underline font-medium hover:opacity-70"
+            >
+              Review proforma invoice
+            </Link>
+          </span>
+          <button
+            type="button"
+            onClick={() => setRecordedPi(null)}
+            aria-label="Dismiss"
+            className="text-[var(--color-success-700)] hover:opacity-70 text-[14px] leading-none px-1"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       <SummaryCard po={po} />
       <LinesCard lines={po.lines} totalValue={po.totalValue} currency={po.currency} variantsById={variantsById} />
+      <ProformaInvoicesCard piList={piList} />
+
+      {canRecordPi && (
+        <RecordProformaInvoiceModal
+          open={recordOpen}
+          onClose={() => setRecordOpen(false)}
+          poId={po.id}
+          poLines={po.lines}
+          products={products}
+          isRevision={hasActivePi}
+          onSuccess={(pi) => {
+            setRecordOpen(false);
+            setRecordedPi({ id: pi.id, piNumber: pi.piNumber });
+            setPiReloadTick((n) => n + 1);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+const PI_STATUS_LABEL: Record<ProformaInvoiceStatus, string> = {
+  PENDING_REVIEW: "Pending review",
+  ACTIVE: "Active",
+  SUPERSEDED: "Superseded",
+  REJECTED: "Rejected",
+};
+const PI_STATUS_TONE: Record<ProformaInvoiceStatus, string> = {
+  PENDING_REVIEW: "bg-[var(--color-warning-50)] text-[var(--color-warning-700)]",
+  ACTIVE: "bg-[var(--color-success-100)] text-[var(--color-success-700)]",
+  SUPERSEDED: "bg-[var(--color-ink-100)] text-[var(--color-ink-700)]",
+  REJECTED: "bg-[var(--color-danger-50)] text-[var(--color-danger-700)]",
+};
+
+function ProformaInvoicesCard({ piList }: { piList: ProformaInvoice[] | null }) {
+  const sorted = [...(piList ?? [])].sort((a, b) => b.revisionNumber - a.revisionNumber);
+  return (
+    <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mt-5 overflow-hidden">
+      <header className="px-4 py-2.5 border-b border-[var(--color-border-default)]">
+        <h2 className="m-0 text-[14px] font-semibold text-[var(--color-ink-900)]">Proforma invoices</h2>
+      </header>
+      {piList === null ? (
+        <div className="px-4 py-6 text-center text-[12px] text-[var(--color-ink-500)]">Loading...</div>
+      ) : sorted.length === 0 ? (
+        <div className="px-4 py-6 text-center text-[12px] text-[var(--color-ink-500)]" data-testid="po-pi-empty">
+          No proforma invoices recorded yet.
+        </div>
+      ) : (
+        <ul className="divide-y divide-[var(--color-border-default)]" data-testid="po-pi-list">
+          {sorted.map((pi) => (
+            <li key={pi.id} data-testid="po-pi-row" className="px-4 py-2.5 flex items-center gap-3 hover:bg-[var(--color-ink-100)]">
+              <Link
+                href={`/procurement/proforma-invoices/${pi.id}`}
+                className="font-mono text-[12.5px] text-[var(--color-navy-700)] hover:underline font-medium"
+              >
+                {pi.piNumber}
+              </Link>
+              <span className="text-[11px] text-[var(--color-ink-500)]">rev {pi.revisionNumber}</span>
+              <span
+                className={`inline-flex items-center h-[18px] px-2 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.02em] ${PI_STATUS_TONE[pi.status]}`}
+              >
+                {PI_STATUS_LABEL[pi.status]}
+              </span>
+              <span className="ml-auto font-mono text-[12px] text-[var(--color-ink-900)]">
+                {formatNGN(pi.totalValue)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
