@@ -24,6 +24,7 @@ import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import {
   getProductVariant,
+  listPrices,
   updateProductVariant,
   type ProductStatus,
   type ProductVariant,
@@ -31,11 +32,18 @@ import {
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatNGN } from "@/lib/format";
+import { useActiveTiers } from "@/lib/pricing/use-tiers";
 import { useConnectivity } from "@/lib/sync/connectivity";
-import { getById } from "@/lib/sync/mirror/store";
+import { getById, listByType } from "@/lib/sync/mirror/store";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
 type MirrorProduct = { id: string; name: string };
+type MirrorPriceEntry = {
+  id: string;
+  productVariantId: string;
+  customerTierId: string;
+  effectiveTo: string | null;
+};
 type MirrorVariant = {
   id: string;
   productId: string;
@@ -62,6 +70,9 @@ export default function VariantDetailPage() {
   const router = useRouter();
   const { has } = usePermissions();
   const canManage = has("productvariant.manage");
+  // Pricing entry point is gated independently: a user may hold pricelist.manage
+  // without productvariant.manage (and vice versa).
+  const canPrice = has("pricelist.manage");
   const { state: connState } = useConnectivity();
   const offlineConn = connState === "offline";
   const id = useUrlLastSegment();
@@ -71,6 +82,13 @@ export default function VariantDetailPage() {
   const [offline, setOffline] = useState(false);
   const [fromMirror, setFromMirror] = useState(false);
   const [manage, setManage] = useState<ManageState>({ status: "idle" });
+
+  // Pricing summary for the "Set price" / "Manage prices" affordance: which
+  // tiers already have a current (open) price entry. The default tier (to land
+  // on when none do) comes from useActiveTiers, which is resilient to a cold
+  // mirror (re-reads on sync). Loaded only when the user can price.
+  const [pricedTierIds, setPricedTierIds] = useState<string[]>([]);
+  const { defaultTierId } = useActiveTiers();
 
   const mirrorPaintedRef = useRef(false);
 
@@ -140,6 +158,40 @@ export default function VariantDetailPage() {
     loadFromNetwork(ctrl.signal);
     return () => ctrl.abort();
   }, [id, loadFromMirror, loadFromNetwork]);
+
+  // Pricing summary (drives the Set price / Manage prices affordance copy and
+  // routing target). Default tier from the mirror; current priced tiers from
+  // the mirror first then the network. Only when the user can price.
+  useEffect(() => {
+    if (!canPrice || !id) return;
+    let cancelled = false;
+    const distinctOpenTiers = (
+      entries: { productVariantId?: string; customerTierId: string; effectiveTo: string | null }[],
+      forVariant: boolean,
+    ) =>
+      Array.from(
+        new Set(
+          entries
+            .filter((e) => (forVariant ? e.productVariantId === id : true) && e.effectiveTo == null)
+            .map((e) => e.customerTierId),
+        ),
+      );
+    (async () => {
+      try {
+        const mirrorEntries = await listByType<MirrorPriceEntry>("priceListEntry");
+        if (!cancelled) setPricedTierIds(distinctOpenTiers(mirrorEntries.map((r) => r.body), true));
+      } catch {
+        // Mirror unavailable; the network refine below drives.
+      }
+      const r = await listPrices({ variantId: id, includeClosed: false });
+      if (!cancelled && r.kind === "ok") {
+        setPricedTierIds(distinctOpenTiers(r.data, false));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canPrice, id]);
 
   const beginEdit = () => {
     if (!variant) return;
@@ -268,41 +320,76 @@ export default function VariantDetailPage() {
             {fromMirror && <FreshnessBadge />}
           </h1>
         </div>
-        {canManage && manage.status === "idle" && (
-          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={beginEdit}
-              disabled={offlineConn}
-              data-testid="edit-button"
-              className="h-[32px] px-3 rounded-[3px] border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] text-[12.5px] font-medium disabled:opacity-50"
-            >
-              Edit
-            </button>
-            {variant.status === "ACTIVE" ? (
-              <button
-                type="button"
-                onClick={() => setManage({ status: "confirmingDeactivate" })}
-                disabled={offlineConn}
-                data-testid="deactivate-button"
-                className="h-[32px] px-3 rounded-[3px] border border-[var(--color-warning-700)] bg-white text-[var(--color-warning-700)] text-[12.5px] font-medium disabled:opacity-50"
-              >
-                Deactivate
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setManage({ status: "confirmingReactivate" })}
-                disabled={offlineConn}
-                data-testid="reactivate-button"
-                className="h-[32px] px-3 rounded-[3px] border border-[var(--color-success-700)] bg-white text-[var(--color-success-700)] text-[12.5px] font-medium disabled:opacity-50"
-              >
-                Reactivate
-              </button>
-            )}
-          </div>
-        )}
+        {manage.status === "idle" &&
+          (canManage || (canPrice && variant.status === "ACTIVE")) && (
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+              {canManage && (
+                <>
+                  <button
+                    type="button"
+                    onClick={beginEdit}
+                    disabled={offlineConn}
+                    data-testid="edit-button"
+                    className="h-[32px] px-3 rounded-[3px] border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] text-[12.5px] font-medium disabled:opacity-50"
+                  >
+                    Edit
+                  </button>
+                  {variant.status === "ACTIVE" ? (
+                    <button
+                      type="button"
+                      onClick={() => setManage({ status: "confirmingDeactivate" })}
+                      disabled={offlineConn}
+                      data-testid="deactivate-button"
+                      className="h-[32px] px-3 rounded-[3px] border border-[var(--color-warning-700)] bg-white text-[var(--color-warning-700)] text-[12.5px] font-medium disabled:opacity-50"
+                    >
+                      Deactivate
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setManage({ status: "confirmingReactivate" })}
+                      disabled={offlineConn}
+                      data-testid="reactivate-button"
+                      className="h-[32px] px-3 rounded-[3px] border border-[var(--color-success-700)] bg-white text-[var(--color-success-700)] text-[12.5px] font-medium disabled:opacity-50"
+                    >
+                      Reactivate
+                    </button>
+                  )}
+                </>
+              )}
+              {/* Pricing entry point (prompt 34). ACTIVE variants only; gated
+                  on pricelist.manage independently of productvariant.manage.
+                  Routes to the per-variant tier editor: an already-priced tier
+                  if any, else the default tier for setting the first price. */}
+              {canPrice &&
+                variant.status === "ACTIVE" &&
+                (pricedTierIds[0] || defaultTierId) && (
+                  <Link
+                    href={`/sales/price-lists/${encodeURIComponent(variant.id)}?tier=${encodeURIComponent(
+                      pricedTierIds[0] ?? defaultTierId,
+                    )}`}
+                    data-testid="set-price-link"
+                    className="h-[32px] px-3 inline-flex items-center rounded-[3px] border border-[var(--color-navy-700)] bg-white text-[var(--color-navy-700)] text-[12.5px] font-medium"
+                  >
+                    {pricedTierIds.length > 0
+                      ? `Manage prices (${pricedTierIds.length} ${
+                          pricedTierIds.length === 1 ? "tier" : "tiers"
+                        })`
+                      : "Set price"}
+                  </Link>
+                )}
+            </div>
+          )}
       </header>
+
+      {canPrice && variant.status === "DISCONTINUED" && (
+        <div
+          data-testid="price-discontinued-hint"
+          className="mb-4 px-3.5 py-2.5 rounded-[3px] bg-[var(--color-ink-100)] text-[var(--color-ink-700)] text-[12.5px]"
+        >
+          This variant is discontinued, so it cannot be priced. Reactivate it to set or manage prices.
+        </div>
+      )}
 
       {canManage && offlineConn && (
         <div className="mb-4 px-3.5 py-2.5 rounded-[3px] bg-[var(--color-warning-100)] text-[var(--color-warning-700)] text-[12.5px]">

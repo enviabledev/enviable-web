@@ -711,3 +711,43 @@ Architectural note banked: the "never display passwords" discipline is refined
 to "per-user passwords are never displayed; the deployment-wide default password
 may be displayed transiently at create/admin-reset moments, with copy affordance
 and no browser persistence."
+
+## Prompt 34 findings (price-list entry-point affordances)
+
+Shipped: a "Set price" / "Manage prices" affordance on the variant detail page
+(/admin/variants/[id], gated pricelist.manage, hidden for DISCONTINUED variants
+with a reactivation hint), an "Add variant" picker on /sales/price-lists (gated
+pricelist.manage, ACTIVE-only via flattenVariantOptions), and a post-create
+"Set price for this variant" deep-link on the variants list notification. All
+route to the existing per-variant tier editor (single source of truth for entry
+creation). The editor was fixed to render the set-price form when a (variant,
+tier) has no current entry yet (it previously gated the form on series.current,
+so a brand-new variant could not have its first price set).
+
+Findings banked for a future round:
+
+1. **Backend route `/api/customers/customer-tiers` is shadowed by `@Get(':id')`
+   and returns 404 ("Customer customer-tiers not found").** There is therefore
+   no reachable network endpoint that lists customer tiers; the frontend reads
+   tiers exclusively from the mirror's `customerTier` bucket. This is a backend
+   route-ordering bug (declare the literal route before the param route). Until
+   fixed, anything needing the full tier list is mirror-only. Cross-repo: belongs
+   to the enviable-system session.
+
+2. **Tiers are a mirror-only read with no freshness signal (now mitigated).**
+   The default-tier resolution and the picker's tier list snapshot the mirror at
+   mount, so a cold mirror yielded an empty tier set and the affordances never
+   appeared. Fixed with `useActiveTiers` (src/lib/pricing/use-tiers.ts), which
+   re-reads `customerTier` on every mirror download/reconcile. The price-list
+   list page's own tier FILTER still reads tiers once in its main effect and has
+   the same latent cold-mirror gap; not changed here (it works once the mirror
+   warms, which it has by the time a user opens the screen), but worth migrating
+   to useActiveTiers in a cleanup pass.
+
+3. **Tier surfacing on the price-list screen is implicit.** Tier is both a row
+   dimension (one row per variant x tier) and an optional filter, but never an
+   explicit "which tiers exist" view. The picker has to ask for a tier because
+   the screen is not tier-scoped by default. If pricing grows beyond two tiers,
+   consider a tier-led layout (tiers as columns, or a tier selector as the
+   primary lens) so the (variant x tier) matrix is legible. Architectural, not
+   urgent.

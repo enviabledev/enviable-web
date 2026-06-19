@@ -270,11 +270,11 @@ export default function PriceDetailPage() {
         connState={connState}
       />
 
-      {canManage && series.current && (
+      {canManage && (
         <SetPriceForm
           variantId={variantId}
           tierId={tierId}
-          currentPrice={series.current.price}
+          currentPrice={series.current?.price ?? null}
           connState={connState}
           onSuccess={() => setReloadTick((n) => n + 1)}
         />
@@ -351,10 +351,13 @@ function SetPriceForm({
 }: {
   variantId: string;
   tierId: string;
-  currentPrice: string;
+  // null when this (variant, tier) has no price yet: the "set the first price"
+  // case reached from the variant-detail "Set price" action / price-list picker.
+  currentPrice: string | null;
   connState: "online" | "offline" | "unknown";
   onSuccess: () => void;
 }) {
+  const isFirst = currentPrice == null;
   const [draft, setDraft] = useState("");
   const [state, setState] = useState<
     | { status: "idle" }
@@ -409,9 +412,13 @@ function SetPriceForm({
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-5">
       <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
-        <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">Set a new price</h2>
+        <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]" data-testid="set-price-heading">
+          {isFirst ? "Set the first price" : "Set a new price"}
+        </h2>
         <span className="text-[11px] text-[var(--color-ink-500)]">
-          Online-only: setting a price atomically closes the current entry and opens a new one.
+          {isFirst
+            ? "Online-only: this opens the first price entry for this variant and tier."
+            : "Online-only: setting a price atomically closes the current entry and opens a new one."}
         </span>
       </header>
       <form onSubmit={onSubmit} className="px-5 py-4 flex items-end gap-3 flex-wrap">
@@ -427,7 +434,7 @@ function SetPriceForm({
               setDraft(e.target.value);
               if (state.status !== "idle" && state.status !== "submitting") setState({ status: "idle" });
             }}
-            placeholder={`Currently ${formatNGN(currentPrice)}`}
+            placeholder={isFirst ? "e.g. 2800000" : `Currently ${formatNGN(currentPrice)}`}
             disabled={disabled}
             data-testid="set-price-input"
             className="h-[32px] w-[200px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[14px] font-mono text-[var(--color-ink-900)] disabled:bg-[var(--color-ink-100)] disabled:text-[var(--color-ink-500)]"
@@ -454,8 +461,10 @@ function SetPriceForm({
           data-testid="set-price-success"
           className="mx-5 mb-4 px-3.5 py-2.5 rounded-[3px] border border-[var(--color-success-700)] bg-[var(--color-success-50)] text-[12.5px] text-[var(--color-success-700)]"
         >
-          New active price: <span className="font-mono font-semibold">{formatNGN(state.newPrice)}</span>. The
-          prior entry has been closed and now sits in the history below.
+          New active price: <span className="font-mono font-semibold">{formatNGN(state.newPrice)}</span>.{" "}
+          {isFirst
+            ? "This is now the first active entry for this variant and tier."
+            : "The prior entry has been closed and now sits in the history below."}
         </div>
       )}
       {state.status === "conflict" && (

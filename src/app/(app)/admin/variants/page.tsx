@@ -29,6 +29,7 @@ import {
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatNGN } from "@/lib/format";
+import { useActiveTiers } from "@/lib/pricing/use-tiers";
 import { useMirrorFreshness } from "@/lib/sync/mirror/freshness";
 import { COL } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
@@ -79,6 +80,8 @@ export default function VariantsListPage() {
   const router = useRouter();
   const { has } = usePermissions();
   const canManage = has("productvariant.manage");
+  // Pricing deep-link on the post-create notification is gated independently.
+  const canPrice = has("pricelist.manage");
   const watermark = useMirrorFreshness();
   const historyComplete = watermark?.historyComplete ?? false;
 
@@ -89,8 +92,11 @@ export default function VariantsListPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [createdSku, setCreatedSku] = useState<string>("");
+  const [createdVariant, setCreatedVariant] = useState<{ id: string; sku: string } | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
+  // Default tier for the post-create "Set price" deep-link (resilient to a cold
+  // mirror). The link renders only when pricing is permitted and a tier exists.
+  const { defaultTierId } = useActiveTiers();
 
   const mirrorPaintedRef = useRef(false);
   useEffect(() => {
@@ -199,16 +205,29 @@ export default function VariantsListPage() {
         )}
       </header>
 
-      {canManage && createdSku && (
+      {canManage && createdVariant && (
         <div
           role="status"
           data-testid="create-variant-notification"
           className="mb-4 px-3.5 py-2.5 rounded-[3px] bg-[var(--color-success-100)] text-[var(--color-success-700)] text-[12.5px] flex items-center justify-between gap-3"
         >
-          <span>Variant {createdSku} created.</span>
+          <span className="flex items-center gap-3 flex-wrap">
+            <span>Variant {createdVariant.sku} created.</span>
+            {/* Bridge to pricing: a freshly created variant is usually about to
+                be made sellable. Only when the user can price and a tier exists. */}
+            {canPrice && defaultTierId && (
+              <Link
+                href={`/sales/price-lists/${encodeURIComponent(createdVariant.id)}?tier=${encodeURIComponent(defaultTierId)}`}
+                data-testid="create-variant-set-price-link"
+                className="underline font-medium hover:opacity-70"
+              >
+                Set price for this variant
+              </Link>
+            )}
+          </span>
           <button
             type="button"
-            onClick={() => setCreatedSku("")}
+            onClick={() => setCreatedVariant(null)}
             aria-label="Dismiss"
             className="text-[var(--color-success-700)] hover:opacity-70 text-[14px] leading-none px-1"
           >
@@ -223,7 +242,7 @@ export default function VariantsListPage() {
           onClose={() => setCreateOpen(false)}
           onSuccess={(created) => {
             setCreateOpen(false);
-            setCreatedSku(created.supplierSkuCode);
+            setCreatedVariant({ id: created.id, sku: created.supplierSkuCode });
             setReloadTick((n) => n + 1);
           }}
         />

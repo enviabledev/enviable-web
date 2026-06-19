@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import AddVariantToPriceListModal from "@/components/price-lists/AddVariantToPriceListModal";
 import { PricelistIcon, SearchIcon } from "@/components/icons";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
@@ -28,6 +29,7 @@ import {
 import { isTransientFailure } from "@/lib/api/client";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatNGN } from "@/lib/format";
+import { useActiveTiers } from "@/lib/pricing/use-tiers";
 import { COL } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
 
@@ -112,6 +114,10 @@ export default function PriceListsPage() {
   const sp = useSearchParams();
   const { has } = usePermissions();
   const canRead = has("pricelist.read");
+  const canManage = has("pricelist.manage");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  // Resilient tier source for the picker (cold-mirror safe).
+  const { tiers: activeTiers, defaultTierId } = useActiveTiers();
 
   const params = useMemo(() => readParams(new URLSearchParams(sp.toString())), [sp]);
   const [searchDraft, setSearchDraft] = useState(params.search);
@@ -225,7 +231,7 @@ export default function PriceListsPage() {
 
   return (
     <div className="max-w-[1480px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-6 pb-4 mb-4 border-b border-[var(--color-border-default)]">
         <div>
           <div className="text-[12px] text-[var(--color-ink-500)] mb-1.5">Sales / Price lists</div>
           <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em] flex items-center gap-2">
@@ -238,7 +244,26 @@ export default function PriceListsPage() {
             part of the history. Reads cache offline; setting a price requires a connection.
           </div>
         </div>
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            data-testid="add-variant-button"
+            className="h-[32px] px-4 inline-flex items-center rounded-[3px] bg-[var(--color-navy-700)] text-white text-[12.5px] font-medium self-start whitespace-nowrap"
+          >
+            Add variant
+          </button>
+        )}
       </header>
+
+      {canManage && (
+        <AddVariantToPriceListModal
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          tiers={activeTiers}
+          initialTierId={params.tier || defaultTierId}
+        />
+      )}
 
       <form
         onSubmit={(e) => {
