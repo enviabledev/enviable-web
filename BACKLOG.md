@@ -783,3 +783,38 @@ Observations banked:
   re-read (the Review section is gated on PENDING_REVIEW), so visible-outcome
   checks for the approve should assert the durable ACTIVE status pill, not the
   success banner. Noted for any future PI-detail test work.
+
+## Prompt 36 - write-flow completeness audit (see WRITE_FLOW_AUDIT.md)
+
+Full cross-reference of all 51 backend write endpoints against frontend wiring.
+0 unwired wrappers (API layer and components are in lockstep); 13 MISSING
+(backend exists, no frontend path). Triage:
+
+- BUILD NOW: SO cancel (small); create/update shipment against a PO (medium,
+  completes the procurement chain for non-legacy POs).
+- BUILD NOW or DEFER (needs Theresa): unit lifecycle transitions
+  (POST /units/:id/adjust); returns module (initiate/inspect/resolve).
+- DEFER post-launch: landed-cost entry/allocation; parent-product management
+  (backend-first, no /api/products write endpoints exist).
+- DELIBERATELY NOT for launch: roles management (pending decision); the
+  toggle/approval/document modules (forward-declared permissions, no backend
+  controllers).
+- NOT a gap: POST /sync/conflicts/:id/resolve is unused by design (the conflicts
+  UI resolves client-side via removeByClientId).
+
+Mirror-only-read class sweep (the useActiveTiers cold-mirror bug shape): swept
+every listByType/getById consumer under src/app and src/components. NO other
+AT-RISK sites. roles list/detail are SAFE (network revalidate + focus/visibility/
+online/tick); CreateCustomerModal re-reads on open (self-healing, not a one-shot
+mount read). useActiveTiers confirmed SAFE-SUBSCRIBED. So the fix covered the
+class, not just the instance.
+
+Unused-permission-key sweep: 13 seed keys are referenced nowhere in the frontend
+(landedcost.manage, unit.adjust, unit.transfer, sparepart.manage, return.manage,
+conflict.resolve, role.manage, toggle.read/manage, approval.read/manage,
+document.read/manage). Each maps to a gap or deferred/forward-declared module
+above (conflict.resolve is the one exception: resolved client-side by design).
+
+Meta-discipline banked: run an end-of-build completeness audit against the API
+contract before declaring done; per-prompt verification is forward-looking and
+will not surface cumulative-completeness gaps like the PI-create one.
