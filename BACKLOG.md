@@ -818,3 +818,37 @@ above (conflict.resolve is the one exception: resolved client-side by design).
 Meta-discipline banked: run an end-of-build completeness audit against the API
 contract before declaring done; per-prompt verification is forward-looking and
 will not surface cumulative-completeness gaps like the PI-create one.
+
+## Prompt 37 (SO cancel flow) - shipped (frontend-only)
+
+The prompt assumed the backend cancel endpoint was missing, but probing
+confirmed it already exists (the write-flow audit's own enumeration had found
+it): POST /api/sales-orders/:id/cancel, gated salesorder.create, reason
+required, atomically frees the soft unit reservation (nulls each line's unitId;
+unit STATUS is unchanged because allocation never moved units out of warehouse
+status) and surfaces a refundOutstanding flag for confirmed payments. So this
+was frontend-only; no backend source edits (which would be out of scope anyway).
+
+Shipped on the SO detail page:
+- Cancel action gated salesorder.create (matching the backend, NOT salesorder.
+  manage as the prompt assumed) and the service's cancellable-state allowlist
+  (DRAFT / AWAITING_PAYMENT / PAYMENT_RECEIVED, narrower than the legal-
+  transition map).
+- CancelSalesOrderModal: required reason (pick-list + Other free-text). No notes
+  field, because the backend stores only the reason (no cancellationNotes
+  column).
+- CANCELLED state surfaced in the identity card: cancellation reason, cancelled-
+  at, cancelled-by (resolved from the mirror users bucket). Other action gates
+  already exclude CANCELLED, so no extra hiding was needed.
+- refundOutstanding surfaced in the post-cancel banner when confirmed payments
+  exist.
+- The SO list status filter already includes CANCELLED (maps over SO_STATUS); no
+  change. Left the default list showing all statuses rather than introducing a
+  hidden default-exclude that could surprise.
+- SoStatusPill already handled CANCELLED ("Cancelled" + danger tone).
+
+e2e: 8 assertions (visibility by state + permission, successful cancel, reason
+display, reserved-unit release, reason-required, back-out, responsive). The
+backend probes A-G in the prompt were moot (endpoint pre-existing); the contract
+was confirmed by live probe (cancel DRAFT -> CANCELLED + line unitId nulled;
+no-reason -> 400; re-cancel -> 409).

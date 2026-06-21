@@ -198,4 +198,50 @@ export function soIsEditable(status: SoStatus): boolean {
   return status === "DRAFT";
 }
 
+/**
+ * States from which a sales order can be cancelled. This mirrors the backend
+ * service's CANCELLABLE_STATUSES allowlist (DRAFT, AWAITING_PAYMENT,
+ * PAYMENT_RECEIVED), which is NARROWER than the legal-transition map: once an
+ * order is released or later, its units are committed and any reversal is the
+ * returns/refund flow, not a cancel.
+ */
+export const SO_CANCELLABLE_STATUSES: readonly SoStatus[] = [
+  "DRAFT",
+  "AWAITING_PAYMENT",
+  "PAYMENT_RECEIVED",
+];
+
+export function soIsCancellable(status: SoStatus): boolean {
+  return SO_CANCELLABLE_STATUSES.includes(status);
+}
+
+export type CancelSalesOrderBody = { reason: string };
+
+/**
+ * The cancel response is the updated SalesOrderDetail plus a refund-outstanding
+ * flag: cancelling a PAYMENT_RECEIVED order with confirmed payments surfaces
+ * (does not process) the refund amount so the UI can warn the user.
+ */
+export type CancelSalesOrderResult = SalesOrderDetail & {
+  refundOutstanding?: boolean;
+  refundAmount?: string;
+};
+
+/**
+ * Cancel a sales order (gated salesorder.create, matching the backend). The
+ * reason is required. Cancelling frees the soft unit reservation (each line's
+ * unitId is nulled; unit STATUS is unchanged because allocation never moved the
+ * units out of warehouse status) and moves the order to CANCELLED, atomically.
+ */
+export async function cancelSalesOrder(
+  id: string,
+  body: CancelSalesOrderBody,
+  signal?: AbortSignal,
+): Promise<ApiResult<CancelSalesOrderResult>> {
+  return apiFetch<CancelSalesOrderResult>(
+    `/api/sales-orders/${encodeURIComponent(id)}/cancel`,
+    { method: "POST", body, signal },
+  );
+}
+
 export const VAT_RATE = 0.075;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import CancelSalesOrderModal from "@/components/sales-orders/CancelSalesOrderModal";
 import PrintButton from "@/components/invoices/PrintButton";
 import SoStatusPill from "@/components/sales-orders/SoStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
@@ -25,9 +26,11 @@ import {
   recordProofOfDelivery,
   rejectPayment,
   SEED_PAYMENT_METHODS,
+  soIsCancellable,
   soIsEditable,
   submitSalesOrder,
   type ApiResult,
+  type CancelSalesOrderResult,
   type Customer,
   type Invoice,
   type Payment,
@@ -115,6 +118,25 @@ export default function SalesOrderDetailPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [banner, setBanner] = useState<ActionBanner>({ kind: "idle" });
   const [pending, setPending] = useState<string | null>(null);
+
+  // Cancel flow (prompt 37): confirmation modal + a mirror users map to render
+  // the cancelled-by name from cancelledById.
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [usersById, setUsersById] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await listByType<{ id: string; fullName: string }>("user");
+        if (!cancelled) setUsersById(new Map(rows.map((r) => [r.body.id, r.body.fullName])));
+      } catch {
+        // Best-effort; falls back to the raw id.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Form: record payment.
   const [showRecord, setShowRecord] = useState(false);
@@ -300,6 +322,9 @@ export default function SalesOrderDetailPage() {
   const canConfirmPayment = has("payment.confirm");
   const canAuthoriseRelease = has("payment.confirm") && so.status === "PAYMENT_RECEIVED";
   const canDeliveryActions = has("delivery.manage");
+  // Cancel mirrors the backend gate (salesorder.create) and the service's
+  // cancellable-state allowlist (DRAFT / AWAITING_PAYMENT / PAYMENT_RECEIVED).
+  const canCancel = has("salesorder.create") && soIsCancellable(so.status);
 
   // ------ confirmed-update wrappers ------
   const handle = async <T,>(label: string, op: () => Promise<ApiResult<T>>, onOk?: (data: T) => void) => {
@@ -422,12 +447,49 @@ export default function SalesOrderDetailPage() {
               {pending === "Authorise release" ? "Authorising..." : "Authorise Release"}
             </button>
           )}
+          {canCancel && (
+            <button
+              type="button"
+              onClick={() => setCancelOpen(true)}
+              disabled={pending !== null}
+              data-testid="cancel-so-button"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-danger-700)] bg-white text-[var(--color-danger-700)] hover:bg-[var(--color-danger-50)] disabled:opacity-50 inline-flex items-center"
+            >
+              Cancel order
+            </button>
+          )}
         </div>
       </header>
 
+      {canCancel && (
+        <CancelSalesOrderModal
+          open={cancelOpen}
+          onClose={() => setCancelOpen(false)}
+          soId={so.id}
+          soNumber={so.soNumber}
+          onSuccess={(result: CancelSalesOrderResult) => {
+            setCancelOpen(false);
+            void refresh();
+            setBanner({
+              kind: result.refundOutstanding
+                ? "conflict"
+                : "info",
+              message: result.refundOutstanding
+                ? `Sales order cancelled. A refund of ${formatNGN(result.refundAmount ?? "0")} is outstanding for confirmed payments (process it via the refund flow).`
+                : "Sales order cancelled.",
+            });
+          }}
+        />
+      )}
+
       <BannerArea banner={banner} />
 
-      <IdentityCard so={so} />
+      <IdentityCard
+        so={so}
+        cancelledByName={
+          so.cancelledById ? usersById.get(so.cancelledById) ?? so.cancelledById : null
+        }
+      />
       <SoftReservationNotice so={so} />
       <LinesCard lines={so.lines} so={so} />
 
@@ -578,7 +640,13 @@ function BannerArea({ banner }: { banner: ActionBanner }) {
   );
 }
 
-function IdentityCard({ so }: { so: SalesOrderDetail }) {
+function IdentityCard({
+  so,
+  cancelledByName,
+}: {
+  so: SalesOrderDetail;
+  cancelledByName?: string | null;
+}) {
   const rows: { label: string; value: React.ReactNode; mono?: boolean }[] = [
     { label: "SO Number", value: so.soNumber, mono: true },
     { label: "Customer", value: <>{so.customer.name} <span className="text-[11px] text-[var(--color-ink-500)] ml-1">{so.customer.type}</span></> },
@@ -609,6 +677,26 @@ function IdentityCard({ so }: { so: SalesOrderDetail }) {
       label: "Delivered",
       value: so.deliveredAt ? formatDateTime(so.deliveredAt) : <span className="text-[var(--color-ink-400)]">&minus;&minus;</span>,
     },
+    ...(so.status === "CANCELLED"
+      ? [
+          {
+            label: "Cancellation reason",
+            value: (
+              <span data-testid="so-cancellation-reason" className="text-[var(--color-danger-700)]">
+                {so.cancellationReason ?? "--"}
+              </span>
+            ),
+          },
+          {
+            label: "Cancelled at",
+            value: so.cancelledAt ? formatDateTime(so.cancelledAt) : "--",
+          },
+          {
+            label: "Cancelled by",
+            value: cancelledByName ?? "--",
+          },
+        ]
+      : []),
   ];
   return (
     <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-4">

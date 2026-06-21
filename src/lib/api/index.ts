@@ -175,9 +175,12 @@ export {
   createSalesOrder,
   updateSalesOrder,
   submitSalesOrder,
+  cancelSalesOrder,
   soIsEditable,
+  soIsCancellable,
   SO_STATUS,
   SO_LEGAL_TRANSITIONS,
+  SO_CANCELLABLE_STATUSES,
   SALE_FORM,
   SALES_CHANNEL,
   VAT_RATE,
@@ -195,6 +198,8 @@ export type {
   CreateSoLine,
   CreateSoBody,
   UpdateSoBody,
+  CancelSalesOrderBody,
+  CancelSalesOrderResult,
 } from "./sales-orders";
 export { listCustomers, getCustomer, createCustomer, updateCustomer, deleteCustomer } from "./customers";
 export type {
