@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import ShipmentFormModal from "@/components/shipments/ShipmentFormModal";
 import ShipmentStatusPill from "@/components/shipments/ShipmentStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
@@ -15,6 +16,7 @@ import {
   listProducts,
   resolveVariance,
   shipmentHasUnresolvedVariance,
+  shipmentManifestEditable,
   type ApiResult,
   type Counterparty,
   type ManifestLine,
@@ -63,6 +65,7 @@ export default function ShipmentDetailPage() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [action, setAction] = useState<ActionState>({ status: "idle" });
   const [products, setProducts] = useState<ProductWithVariants[]>([]);
+  const [editOpen, setEditOpen] = useState(false);
 
   // Variance resolution form local state: manifestLineId -> draft reason.
   const [varianceDrafts, setVarianceDrafts] = useState<Record<string, string>>({});
@@ -247,6 +250,8 @@ export default function ShipmentDetailPage() {
   const showReceiveAction = canReceive && shipment.status === "CLEARED";
   const showCompleteReceipt = canReceive && shipment.status === "CLEARED" && shipment.manifestLines.some((l) => l.quantityReceived > 0);
   const showClose = canManage && shipment.status === "RECEIVED";
+  // Edit (details + manifest) is allowed until the shipment is received/closed.
+  const showEdit = canManage && shipmentManifestEditable(shipment.status);
   const closeDisabledReason = showClose && hasUnresolved ? "Resolve all variances before closing (I-7)." : null;
 
   const runAction = async (which: "complete" | "close", fn: () => Promise<ApiResult<ShipmentDetail>>) => {
@@ -331,6 +336,16 @@ export default function ShipmentDetailPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
+          {showEdit && (
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              data-testid="edit-shipment-button"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-900)] hover:bg-[var(--color-ink-100)] inline-flex items-center justify-center"
+            >
+              Edit
+            </button>
+          )}
           {showReceiveAction && (
             <Link
               href={`/procurement/shipments/${shipment.id}/receive`}
@@ -363,7 +378,7 @@ export default function ShipmentDetailPage() {
               {action.status === "submitting" && action.action === "close" ? "Closing..." : "Close Shipment"}
             </button>
           )}
-          {!showReceiveAction && !showCompleteReceipt && !showClose && (
+          {!showEdit && !showReceiveAction && !showCompleteReceipt && !showClose && (
             <span className="text-[11px] text-[var(--color-ink-500)]">
               No actions available
               {shipment.status === "CLEARED" && !canReceive && <span className="ml-1">(requires shipment.receive)</span>}
@@ -421,6 +436,30 @@ export default function ShipmentDetailPage() {
       )}
 
       {shipment.units.length > 0 && <UnitsReceivedCard units={shipment.units} />}
+
+      {showEdit && (
+        <ShipmentFormModal
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          mode="edit"
+          shipmentId={shipment.id}
+          seed={{
+            billOfLadingNumber: shipment.billOfLadingNumber,
+            vesselName: shipment.vesselName,
+            etd: shipment.etd,
+            eta: shipment.eta,
+            lines: shipment.manifestLines.map((l) => ({
+              productVariantId: l.productVariantId,
+              quantityDeclared: l.quantityDeclared,
+            })),
+          }}
+          products={products}
+          onSuccess={(updated) => {
+            setEditOpen(false);
+            setState({ status: "ok", shipment: updated });
+          }}
+        />
+      )}
     </div>
   );
 }

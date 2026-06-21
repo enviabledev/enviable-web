@@ -852,3 +852,47 @@ display, reserved-unit release, reason-required, back-out, responsive). The
 backend probes A-G in the prompt were moot (endpoint pre-existing); the contract
 was confirmed by live probe (cancel DRAFT -> CANCELLED + line unitId nulled;
 no-reason -> 400; re-cancel -> 409).
+
+## Prompt 38 (shipment create/edit against a PO) - shipped (frontend-only)
+
+The backend create + update endpoints already existed (the prompt assumed they
+might be missing): POST /api/purchase-orders/:poId/shipments and
+PATCH /api/shipments/:id, both gated shipment.manage. So this was frontend-only.
+
+Contract divergences from the prompt's assumptions (all matched to the live API):
+- No ports field (the prompt assumed portOfLoading/Discharge). The DTO carries
+  optional logistics-counterparty IDs (freightForwarder/clearingAgent/
+  insuranceCompany) instead.
+- No unit/engine detail at create time; that is receive-time. Create takes
+  manifest lines of {productVariantId, quantityDeclared}.
+- Declared quantities are independent of PO quantities, so partial fulfilment
+  (ship fewer than ordered, or across several shipments; PO:shipment is 1:many)
+  is the natural case.
+- New shipments default to IN_TRANSIT; manifest is editable until RECEIVED/CLOSED
+  (mirrors backend assertManifestEditable).
+
+Shipped:
+- "Record shipment" action on the PO detail, gated shipment.manage and the
+  shipment-recordable PO states (PI_RECEIVED, AWAITING_SHIPMENT,
+  PARTIALLY_RECEIVED). Opens ShipmentFormModal pre-seeded from PO lines.
+- ShipmentFormModal (create + edit): BL number, vessel, ETD/ETA, manifest lines
+  (adjustable quantities, removable, add-line with the ACTIVE-only picker;
+  pre-seeded lines keep a now-DISCONTINUED variant with a tag, not re-pickable).
+- Pre-receive Edit on the shipment detail (hidden once RECEIVED/CLOSED).
+- createShipment / updateShipment / shipmentManifestEditable added to the API.
+
+Decisions / notes:
+- Optional logistics-counterparty selects (freight forwarder / clearing agent /
+  insurer) are NOT surfaced in the form yet (optional fields, untested). Add
+  later if operationally wanted; the backend accepts them omitted.
+- On create, the PO detail shows a success notification with a "View shipment"
+  Link rather than auto-navigating: router.push from the create flow (parent
+  onSuccess AND the modal's own router) did not navigate reliably in this
+  create-then-re-render path, while a Link navigates fine. This matches the PI
+  flow's notification+Link pattern on the same page. Worth a deeper look at why
+  router.push no-ops here, but the Link pattern is the robust, consistent choice.
+
+e2e: 11 assertions (visibility by state + permission, pre-seeding, partial qty,
+line removal, DISCONTINUED-kept, create+link to detail IN_TRANSIT, edit-persists,
+edit-hidden-after-receive, end-to-end create->clear->receive into inventory,
+responsive 375/768/1280).

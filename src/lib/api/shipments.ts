@@ -176,6 +176,75 @@ export async function getShipment(
   return apiFetch<ShipmentDetail>(`/api/shipments/${encodeURIComponent(id)}`, { signal });
 }
 
+/** A manifest line declared on a shipment (variant + declared quantity). */
+export type CreateManifestLine = {
+  productVariantId: string;
+  quantityDeclared: number;
+};
+
+export type CreateShipmentBody = {
+  billOfLadingNumber?: string;
+  vesselName?: string;
+  etd?: string;
+  eta?: string;
+  freightForwarderId?: string;
+  clearingAgentId?: string;
+  insuranceCompanyId?: string;
+  manifestLines: CreateManifestLine[];
+};
+
+/** PATCH body. manifestLines, when present, replace the manifest (>=1) and are
+ * rejected once the shipment is RECEIVED/CLOSED. */
+export type UpdateShipmentBody = {
+  status?: ShipmentStatus;
+  billOfLadingNumber?: string;
+  vesselName?: string;
+  etd?: string;
+  eta?: string;
+  arrivalDate?: string;
+  freightForwarderId?: string;
+  clearingAgentId?: string;
+  insuranceCompanyId?: string;
+  manifestLines?: CreateManifestLine[];
+};
+
+/**
+ * Create a shipment against a PO (gated shipment.manage). New shipments start
+ * IN_TRANSIT. Manifest lines are declared quantities, independent of the PO
+ * line quantities, so a supplier shipping partial (or across several shipments)
+ * is the natural case. DISCONTINUED variants are allowed: the supplier is
+ * fulfilling an existing order, so the variant's current catalogue status is
+ * irrelevant (same existing-commitment exclusion as PI lines and receipt).
+ */
+export async function createShipment(
+  purchaseOrderId: string,
+  body: CreateShipmentBody,
+  signal?: AbortSignal,
+): Promise<ApiResult<ShipmentDetail>> {
+  return apiFetch<ShipmentDetail>(
+    `/api/purchase-orders/${encodeURIComponent(purchaseOrderId)}/shipments`,
+    { method: "POST", body, signal },
+  );
+}
+
+export async function updateShipment(
+  id: string,
+  body: UpdateShipmentBody,
+  signal?: AbortSignal,
+): Promise<ApiResult<ShipmentDetail>> {
+  return apiFetch<ShipmentDetail>(`/api/shipments/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body,
+    signal,
+  });
+}
+
+/** Manifest (and shipment details) are editable until the shipment is received
+ * or closed, mirroring the backend assertManifestEditable. */
+export function shipmentManifestEditable(status: ShipmentStatus): boolean {
+  return status !== "RECEIVED" && status !== "CLOSED";
+}
+
 export async function receiveUnits(
   shipmentId: string,
   body: ReceiveUnitsBody,

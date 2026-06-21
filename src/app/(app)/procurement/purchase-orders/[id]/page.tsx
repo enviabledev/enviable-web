@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import PoStatusPill from "@/components/purchase-orders/PoStatusPill";
 import RecordProformaInvoiceModal from "@/components/purchase-orders/RecordProformaInvoiceModal";
+import ShipmentFormModal from "@/components/shipments/ShipmentFormModal";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import {
@@ -34,6 +35,15 @@ import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
 // PO statuses where recording a proforma invoice makes operational sense: the
 // PO is committed (approved onward) and not in a terminal/closed state.
+// PO states where recording a shipment makes sense: the supplier ships once the
+// proforma is agreed, so PI_RECEIVED onward (partial fulfilment keeps it open
+// through PARTIALLY_RECEIVED).
+const SHIPMENT_RECORDABLE_STATUSES: readonly PoStatus[] = [
+  "PI_RECEIVED",
+  "AWAITING_SHIPMENT",
+  "PARTIALLY_RECEIVED",
+];
+
 const PI_RECORDABLE_STATUSES: readonly PoStatus[] = [
   "APPROVED",
   "SENT_TO_SUPPLIER",
@@ -78,6 +88,8 @@ export default function PurchaseOrderDetailPage() {
   const [piList, setPiList] = useState<ProformaInvoice[] | null>(null);
   const [piReloadTick, setPiReloadTick] = useState(0);
   const [recordOpen, setRecordOpen] = useState(false);
+  const [recordShipmentOpen, setRecordShipmentOpen] = useState(false);
+  const [recordedShipment, setRecordedShipment] = useState<{ id: string; reference: string } | null>(null);
   const [recordedPi, setRecordedPi] = useState<{ id: string; piNumber: string } | null>(null);
 
   useEffect(() => {
@@ -280,6 +292,8 @@ export default function PurchaseOrderDetailPage() {
   const canApprove = has("po.approve") && po.status === "PENDING_APPROVAL";
   const hasActivePi = (piList ?? []).some((p) => p.status === "ACTIVE");
   const canRecordPi = has("pi.review") && PI_RECORDABLE_STATUSES.includes(po.status);
+  const canRecordShipment =
+    has("shipment.manage") && SHIPMENT_RECORDABLE_STATUSES.includes(po.status);
 
   const handleAction = async (which: "submit" | "approve") => {
     if (action.status === "submitting") return;
@@ -375,7 +389,19 @@ export default function PurchaseOrderDetailPage() {
               {hasActivePi ? "Record proforma invoice (revision)" : "Record proforma invoice"}
             </button>
           )}
-          {!canEdit && !canSubmit && !canApprove && !canRecordPi && (
+          {canRecordShipment && (
+            <button
+              type="button"
+              onClick={() => setRecordShipmentOpen(true)}
+              disabled={offlineConn}
+              data-testid="record-shipment-button"
+              title={offlineConn ? "Recording a shipment requires a connection" : undefined}
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-navy-700)] bg-white text-[var(--color-navy-700)] hover:bg-[var(--color-navy-50)] disabled:opacity-50 inline-flex items-center justify-center"
+            >
+              Record shipment
+            </button>
+          )}
+          {!canEdit && !canSubmit && !canApprove && !canRecordPi && !canRecordShipment && (
             <span className="text-[11px] text-[var(--color-ink-500)]">
               No actions available
               {!has("po.submit") && po.status === "DRAFT" && (
@@ -452,6 +478,35 @@ export default function PurchaseOrderDetailPage() {
         </div>
       )}
 
+      {recordedShipment && (
+        <div
+          role="status"
+          data-testid="record-shipment-notification"
+          className="mb-4 px-3.5 py-2.5 rounded-[3px] bg-[var(--color-success-100)] text-[var(--color-success-700)] text-[12.5px] flex items-center justify-between gap-3"
+        >
+          <span className="flex items-center gap-3 flex-wrap">
+            <span>
+              Shipment <span className="font-mono font-semibold">{recordedShipment.reference}</span> recorded (in transit).
+            </span>
+            <Link
+              href={`/procurement/shipments/${recordedShipment.id}`}
+              data-testid="record-shipment-view-link"
+              className="underline font-medium hover:opacity-70"
+            >
+              View shipment
+            </Link>
+          </span>
+          <button
+            type="button"
+            onClick={() => setRecordedShipment(null)}
+            aria-label="Dismiss"
+            className="text-[var(--color-success-700)] hover:opacity-70 text-[14px] leading-none px-1"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       <SummaryCard po={po} />
       <LinesCard lines={po.lines} totalValue={po.totalValue} currency={po.currency} variantsById={variantsById} />
       <ProformaInvoicesCard piList={piList} />
@@ -468,6 +523,26 @@ export default function PurchaseOrderDetailPage() {
             setRecordOpen(false);
             setRecordedPi({ id: pi.id, piNumber: pi.piNumber });
             setPiReloadTick((n) => n + 1);
+          }}
+        />
+      )}
+
+      {canRecordShipment && (
+        <ShipmentFormModal
+          open={recordShipmentOpen}
+          onClose={() => setRecordShipmentOpen(false)}
+          mode="create"
+          poId={po.id}
+          seed={{
+            lines: po.lines.map((l) => ({
+              productVariantId: l.productVariantId,
+              quantityDeclared: l.quantityOrdered,
+            })),
+          }}
+          products={products}
+          onSuccess={(shipment) => {
+            setRecordShipmentOpen(false);
+            setRecordedShipment({ id: shipment.id, reference: shipment.shipmentReference });
           }}
         />
       )}
