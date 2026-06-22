@@ -61,8 +61,17 @@ export type PoListQuery = {
   supplierId?: string;
 };
 
+/**
+ * A PO line references a variant by EXACTLY ONE of productVariantId (an existing
+ * variant) or productVariantSku (the auto-create path: an unknown SKU mints a
+ * new variant on the sentinel product). overrideSimilarityCheck opts a SKU line
+ * past the similarity 409 to force-create a brand-new variant. Validated by the
+ * backend (PoLineDto); the form sends one shape per line.
+ */
 export type CreatePoLine = {
-  productVariantId: string;
+  productVariantId?: string;
+  productVariantSku?: string;
+  overrideSimilarityCheck?: boolean;
   quantityOrdered: number;
   unitPrice: string;
 };

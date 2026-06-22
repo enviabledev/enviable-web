@@ -41,6 +41,7 @@
  * changing the file or context resets the gate. The user cannot click
  * commit on a file that hasn't been validated by the backend first.
  */
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { HistoricalLoadIcon } from "@/components/icons";
@@ -417,18 +418,23 @@ function SparePartsSection() {
 // Shared CSV upload section (units + spare parts)
 // =====================================================================
 
+// Report variants carrying the auto-create extras (units only; spare parts
+// never auto-create variants so the fields are simply absent there).
+type DryReport = HistoricalLoadReport & { newVariants?: string[] };
+
 type CsvUploadState =
   | { status: "idle" }
   | { status: "running"; mode: "dry" | "commit" }
   | {
       status: "dry-ok";
-      report: HistoricalLoadReport;
+      report: DryReport;
       forFileName: string;
       forShipmentId: string;
+      forOverride: boolean;
     }
-  | { status: "dry-errors"; report: HistoricalLoadReport; message: string }
-  | { status: "commit-ok"; created: number }
-  | { status: "commit-errors"; report: HistoricalLoadReport; message: string }
+  | { status: "dry-errors"; report: DryReport; message: string }
+  | { status: "commit-ok"; created: number; autoCreatedVariants: string[] }
+  | { status: "commit-errors"; report: DryReport; message: string }
   | { status: "error"; message: string };
 
 function CsvUploadSection({
@@ -450,6 +456,9 @@ function CsvUploadSection({
   const [file, setFile] = useState<File | null>(null);
   const [state, setState] = useState<CsvUploadState>({ status: "idle" });
   const [confirming, setConfirming] = useState(false);
+  // File-level "create new variants anyway" override (units only). All-or-
+  // nothing: it applies to every similarity-flagged row in this upload.
+  const [override, setOverride] = useState(false);
 
   // Auto-flow new shipmentId from section 1 into section 2.
   useEffect(() => {
@@ -463,27 +472,31 @@ function CsvUploadSection({
   const dryRunDisabled =
     !file || (requiresShipmentId && !shipmentId) || state.status === "running";
 
-  // Commit is enabled ONLY after a successful dry-run against THIS file
-  // and shipmentId. Any change to file or shipmentId resets the gate.
+  // Commit is enabled ONLY after a successful dry-run against THIS file,
+  // shipmentId AND override setting. Any change to file, shipmentId, or the
+  // override toggle resets the gate so a commit never uses a different config
+  // than the dry-run that cleared it.
   const commitGated =
     state.status === "dry-ok" &&
     state.forFileName === (file?.name ?? "") &&
-    state.forShipmentId === shipmentId;
+    state.forShipmentId === shipmentId &&
+    state.forOverride === override;
 
   const runLoad = async (mode: "dry" | "commit") => {
     if (!file) return;
     setState({ status: "running", mode });
     const result =
       kind === "units"
-        ? await loadHistoricalUnits(shipmentId, file, mode === "dry")
+        ? await loadHistoricalUnits(shipmentId, file, mode === "dry", override)
         : await loadHistoricalSpareParts(file, mode === "dry");
 
     if (result.kind === "ok") {
       // Two shapes returned from "ok":
-      //  - dry-run: the validation report (errorCount may be 0 or >0)
-      //  - commit: the commit result (created, totalRows for units)
+      //  - dry-run: the validation report (errorCount may be 0 or >0), with
+      //    newVariants on units.
+      //  - commit: the commit result (created, totalRows, autoCreatedVariants).
       if ("errorCount" in result.data) {
-        const report = result.data as HistoricalLoadReport;
+        const report = result.data as DryReport;
         if (mode === "dry") {
           if (report.errorCount === 0) {
             setState({
@@ -491,6 +504,7 @@ function CsvUploadSection({
               report,
               forFileName: file.name,
               forShipmentId: shipmentId,
+              forOverride: override,
             });
           } else {
             setState({
@@ -501,11 +515,15 @@ function CsvUploadSection({
           }
         } else {
           // commit returned a report (shouldn't happen in success path)
-          setState({ status: "commit-ok", created: report.validRows });
+          setState({ status: "commit-ok", created: report.validRows, autoCreatedVariants: [] });
         }
       } else {
-        const commit = result.data as { created: number };
-        setState({ status: "commit-ok", created: commit.created });
+        const commit = result.data as { created: number; autoCreatedVariants?: string[] };
+        setState({
+          status: "commit-ok",
+          created: commit.created,
+          autoCreatedVariants: commit.autoCreatedVariants ?? [],
+        });
       }
     } else if (result.kind === "validation_report") {
       // Backend rejected with structured report (either dry-run with
@@ -575,6 +593,29 @@ function CsvUploadSection({
           className="text-[12.5px] text-[var(--color-ink-900)]"
         />
       </Field>
+
+      {kind === "units" && (
+        <label className="flex items-start gap-2 mt-3 px-3 py-2 rounded-[3px] bg-[var(--color-ink-100)] border border-[var(--color-border-default)] cursor-pointer">
+          <input
+            type="checkbox"
+            checked={override}
+            onChange={(e) => {
+              setOverride(e.target.checked);
+              // Toggling changes the upload config; reset any prior dry-run gate.
+              setState({ status: "idle" });
+            }}
+            data-testid="hist-units-override"
+            className="mt-[2px]"
+          />
+          <span className="text-[12px] text-[var(--color-ink-900)] leading-[1.5]">
+            <span className="font-medium">Create new variants anyway (override similarity warnings)</span>
+            <span className="block text-[11.5px] text-[var(--color-ink-500)] mt-0.5">
+              Note: this applies to all flagged rows in this upload. To handle rows individually,
+              edit specific row SKUs to match existing variants.
+            </span>
+          </span>
+        </label>
+      )}
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-3">
         <button
@@ -663,54 +704,135 @@ function ResultPanel({
   }
 
   if (state.status === "commit-ok") {
+    const auto = state.autoCreatedVariants;
     return (
       <div
         className="mt-3 px-3 py-2 rounded-[3px] text-[12px] bg-[var(--color-success-100)] text-[var(--color-success-700)] border border-[var(--color-success-700)]"
         data-testid={`hist-${kind}-result-commit-ok`}
       >
-        Commit successful. {state.created} row{state.created === 1 ? "" : "s"} written.
+        <div className="font-medium">
+          Commit successful. {state.created} row{state.created === 1 ? "" : "s"} written.
+        </div>
+        {auto.length > 0 && (
+          <div className="mt-1.5 text-[var(--color-ink-900)]" data-testid={`hist-${kind}-autocreated`}>
+            <span className="font-medium">
+              {auto.length} new variant{auto.length === 1 ? " was" : "s were"} auto-created
+            </span>{" "}
+            and added to the catalogue. They appear in{" "}
+            <Link href="/admin/variants?filter=pending" className="underline hover:opacity-70">
+              variant management under &quot;Pending Classification&quot;
+            </Link>{" "}
+            and need a product and price assigned before they are sellable.
+            <ul className="mt-1 list-disc list-inside font-mono text-[11px]">
+              {auto.slice(0, 20).map((s, i) => (
+                <li key={`${s}-${i}`}>{s}</li>
+              ))}
+              {auto.length > 20 && <li>... and {auto.length - 20} more</li>}
+            </ul>
+          </div>
+        )}
       </div>
     );
   }
 
-  // Dry-ok, dry-errors, commit-errors all carry a report
+  // Dry-ok, dry-errors, commit-errors all carry a report.
   const isOk = state.status === "dry-ok";
+  const newVariants = state.report.newVariants ?? [];
+  // Split similarity warnings out from generic row errors so the user can act on
+  // them distinctly (use existing SKU, or enable the override toggle).
+  const similarityErrors = state.report.errors.filter((e) =>
+    e.message.includes("is similar to existing variant") ||
+    e.message.includes("near-identical to"),
+  );
+  const otherErrors = state.report.errors.filter(
+    (e) => !similarityErrors.includes(e),
+  );
   return (
-    <div
-      className={`mt-3 px-3 py-2 rounded-[3px] text-[12px] border ${
-        isOk
-          ? "bg-[var(--color-success-100)] text-[var(--color-success-700)] border-[var(--color-success-700)]"
-          : "bg-[var(--color-danger-100)] text-[var(--color-danger-700)] border-[var(--color-danger-700)]"
-      }`}
-      data-testid={`hist-${kind}-result-${isOk ? "dry-ok" : state.status === "dry-errors" ? "dry-errors" : "commit-errors"}`}
-    >
-      <div className="font-medium mb-1">
-        {isOk ? "Dry-run passed." : "message" in state ? state.message : ""}{" "}
-        <span className="font-mono">
-          ({state.report.validRows} valid / {state.report.totalRows} total
-          {state.report.errorCount > 0 ? `, ${state.report.errorCount} errors` : ""})
-        </span>
-      </div>
-      {state.report.errors.length > 0 && (
-        <ul
-          className="mt-1 list-disc list-inside max-h-[200px] overflow-auto font-mono text-[11.5px]"
-          data-testid={`hist-${kind}-errors`}
+    <div className="mt-3 space-y-2">
+      {/* New-variant preview: what a commit would add to the catalogue. */}
+      {kind === "units" && newVariants.length > 0 && (
+        <div
+          className="px-3 py-2 rounded-[3px] text-[12px] bg-[var(--color-navy-50)] border border-[var(--color-navy-700)] text-[var(--color-ink-900)]"
+          data-testid="hist-units-newvariants"
         >
-          {state.report.errors.slice(0, 50).map((e, i) => (
-            <li key={`${e.row}-${i}`}>
-              row {e.row}: {e.message}
-            </li>
-          ))}
-          {state.report.errors.length > 50 && (
-            <li>... and {state.report.errors.length - 50} more</li>
-          )}
-        </ul>
-      )}
-      {isOk && (
-        <div className="text-[11.5px] mt-1 text-[var(--color-ink-700)]">
-          The Commit load button is now enabled. Changing the file or context will reset the gate.
+          <div className="font-medium text-[var(--color-navy-800)] mb-1">
+            This upload will create {newVariants.length} new variant
+            {newVariants.length === 1 ? "" : "s"}:
+          </div>
+          <ul className="list-disc list-inside font-mono text-[11.5px] max-h-[160px] overflow-auto">
+            {newVariants.slice(0, 30).map((s, i) => (
+              <li key={`${s}-${i}`}>{s}</li>
+            ))}
+            {newVariants.length > 30 && <li>... and {newVariants.length - 30} more</li>}
+          </ul>
+          <div className="text-[11px] text-[var(--color-ink-600)] mt-1">
+            Review these before committing. They enter the catalogue as &quot;Pending
+            Classification&quot; and need a product and price afterwards.
+          </div>
         </div>
       )}
+
+      {/* Similarity warnings: a distinct, actionable category. */}
+      {kind === "units" && similarityErrors.length > 0 && (
+        <div
+          className="px-3 py-2 rounded-[3px] text-[12px] bg-[var(--color-warning-100)] border border-[var(--color-warning-700)] text-[var(--color-ink-900)]"
+          data-testid="hist-units-similarity"
+        >
+          <div className="font-medium text-[var(--color-warning-700)] mb-1">
+            {similarityErrors.length} row{similarityErrors.length === 1 ? "" : "s"} look like a typo
+            of an existing variant
+          </div>
+          <ul className="list-disc list-inside font-mono text-[11.5px] max-h-[200px] overflow-auto">
+            {similarityErrors.slice(0, 30).map((e, i) => (
+              <li key={`${e.row}-${i}`}>
+                Row {e.row}: {e.message}
+              </li>
+            ))}
+            {similarityErrors.length > 30 && <li>... and {similarityErrors.length - 30} more</li>}
+          </ul>
+          <div className="text-[11.5px] text-[var(--color-ink-700)] mt-1.5">
+            To fix: edit the row to use the exact existing SKU, OR enable &quot;Create new variants
+            anyway&quot; above to force-create all flagged variants.
+          </div>
+        </div>
+      )}
+
+      {/* Summary + remaining (non-similarity) row errors. */}
+      <div
+        className={`px-3 py-2 rounded-[3px] text-[12px] border ${
+          isOk
+            ? "bg-[var(--color-success-100)] text-[var(--color-success-700)] border-[var(--color-success-700)]"
+            : "bg-[var(--color-danger-100)] text-[var(--color-danger-700)] border-[var(--color-danger-700)]"
+        }`}
+        data-testid={`hist-${kind}-result-${isOk ? "dry-ok" : state.status === "dry-errors" ? "dry-errors" : "commit-errors"}`}
+      >
+        <div className="font-medium mb-1">
+          {isOk ? "Dry-run passed." : "message" in state ? state.message : ""}{" "}
+          <span className="font-mono">
+            ({state.report.validRows} valid / {state.report.totalRows} total
+            {state.report.errorCount > 0 ? `, ${state.report.errorCount} errors` : ""})
+          </span>
+        </div>
+        {otherErrors.length > 0 && (
+          <ul
+            className="mt-1 list-disc list-inside max-h-[200px] overflow-auto font-mono text-[11.5px]"
+            data-testid={`hist-${kind}-errors`}
+          >
+            {otherErrors.slice(0, 50).map((e, i) => (
+              <li key={`${e.row}-${i}`}>
+                row {e.row}: {e.message}
+              </li>
+            ))}
+            {otherErrors.length > 50 && <li>... and {otherErrors.length - 50} more</li>}
+          </ul>
+        )}
+        {isOk && (
+          <div className="text-[11.5px] mt-1 text-[var(--color-ink-700)]">
+            The Commit load button is now enabled. Changing the file, context, or override toggle
+            will reset the gate.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -38,7 +38,7 @@ async function login(page: Page) {
   await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
-test("real CSV dry-run: input trims, report renders, 92 unknown-SKU errors", async ({
+test("real CSV dry-run: input trims, and the real SKU now resolves clean", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -54,24 +54,24 @@ test("real CSV dry-run: input trims, report renders, 92 unknown-SKU errors", asy
   await idInput.fill(` ${SHIPMENT_CUID}`);
   await expect(idInput).toHaveValue(SHIPMENT_CUID); // trimmed, no leading space
 
-  // Attach the real Enviable CSV.
+  // Attach the real Enviable CSV (92 rows, all SKU "TVS KING GS+ DP CKD EXP10
+  // G YELLOW").
   await page.getByTestId("hist-units-file").setInputFiles(path.resolve(REAL_CSV));
 
   // Run the dry-run.
   await page.getByTestId("hist-units-dry").click();
 
-  // It reaches validation (not a 404/error state): the dry-errors panel renders.
-  const panel = page.getByTestId("hist-units-result-dry-errors");
+  // The catalog disconnect this spec originally documented is RESOLVED: the
+  // real supplier SKU is now seeded as an ACTIVE variant, so every row resolves
+  // by exact match and the dry-run passes cleanly. (The SKU already exists, so
+  // it is not auto-created; the newVariants preview stays empty.)
+  const panel = page.getByTestId("hist-units-result-dry-ok");
   await expect(panel).toBeVisible();
+  await expect(panel).toContainText("92 valid / 92 total");
+  // No "unknown productVariantSku" anywhere on the page now.
+  await expect(page.getByText("unknown productVariantSku")).toHaveCount(0);
 
-  // Content-shape: 0 valid of 92, all unknown-SKU. This is the catalog
-  // disconnect made visible; it flips green once the real SKU is seeded.
-  await expect(panel).toContainText("0 valid / 92 total");
-  await expect(panel).toContainText("92 errors");
-  await expect(page.getByTestId("hist-units-errors")).toContainText(
-    "unknown productVariantSku: TVS KING GS+ DP CKD EXP10 G YELLOW",
-  );
-
-  // Commit must stay locked (no clean dry-run landed).
-  await expect(page.getByTestId("hist-units-commit")).toBeDisabled();
+  // A clean dry-run unlocks the commit (we stop here; the commit itself is
+  // destructive and is not exercised by this verification).
+  await expect(page.getByTestId("hist-units-commit")).toBeEnabled();
 });

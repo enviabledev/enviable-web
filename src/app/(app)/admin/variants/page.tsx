@@ -15,10 +15,11 @@
  * needs product.read.
  */
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import CreateVariantModal from "@/components/products/CreateVariantModal";
+import PendingClassificationPill from "@/components/products/PendingClassificationPill";
 import VariantStatusPill from "@/components/products/VariantStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
@@ -29,6 +30,7 @@ import {
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatNGN } from "@/lib/format";
+import { isPendingClassification } from "@/lib/products/variant-classification";
 import { useActiveTiers } from "@/lib/pricing/use-tiers";
 import { useMirrorFreshness } from "@/lib/sync/mirror/freshness";
 import { COL } from "@/lib/responsive";
@@ -37,10 +39,12 @@ import { listByType } from "@/lib/sync/mirror/store";
 type VariantRow = {
   id: string;
   sku: string;
+  productId: string;
   productName: string;
   attributes: VariantAttributesMap;
   currentMarketPrice: string;
   status: ProductStatus;
+  pending: boolean;
 };
 
 // Mirror bucket bodies (raw Prisma rows; foreign keys only, no joins).
@@ -74,10 +78,11 @@ function sortRows(rows: VariantRow[]): VariantRow[] {
   );
 }
 
-type StatusFilter = "ALL" | "ACTIVE" | "DISCONTINUED";
+type StatusFilter = "ALL" | "ACTIVE" | "DISCONTINUED" | "PENDING";
 
 export default function VariantsListPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { has } = usePermissions();
   const canManage = has("productvariant.manage");
   // Pricing deep-link on the post-create notification is gated independently.
@@ -89,7 +94,9 @@ export default function VariantsListPage() {
   const [errMsg, setErrMsg] = useState<string>("");
   const [offline, setOffline] = useState(false);
   const [fromMirror, setFromMirror] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    searchParams.get("filter") === "pending" ? "PENDING" : "ALL",
+  );
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createdVariant, setCreatedVariant] = useState<{ id: string; sku: string } | null>(null);
@@ -115,10 +122,12 @@ export default function VariantsListPage() {
         const built = variants.map<VariantRow>((v) => ({
           id: v.body.id,
           sku: v.body.supplierSkuCode,
+          productId: v.body.productId,
           productName: productById.get(v.body.productId)?.name ?? "--",
           attributes: v.body.variantAttributes ?? {},
           currentMarketPrice: v.body.currentMarketPrice,
           status: v.body.status,
+          pending: isPendingClassification(v.body.productId),
         }));
         if (built.length > 0) {
           mirrorPaintedRef.current = true;
@@ -141,10 +150,12 @@ export default function VariantsListPage() {
             built.push({
               id: v.id,
               sku: v.supplierSkuCode,
+              productId: p.id,
               productName: p.name,
               attributes: v.variantAttributes ?? {},
               currentMarketPrice: v.currentMarketPrice,
               status: v.status,
+              pending: isPendingClassification(p.id),
             });
           }
         }
@@ -169,8 +180,14 @@ export default function VariantsListPage() {
   const filtered = useMemo(() => {
     if (!rows) return null;
     if (statusFilter === "ALL") return rows;
+    if (statusFilter === "PENDING") return rows.filter((r) => r.pending);
     return rows.filter((r) => r.status === statusFilter);
   }, [rows, statusFilter]);
+
+  const pendingCount = useMemo(
+    () => (rows ? rows.filter((r) => r.pending).length : 0),
+    [rows],
+  );
 
   const bootstrapping = !historyComplete && (rows === null || rows.length === 0);
 
@@ -258,6 +275,30 @@ export default function VariantsListPage() {
         <OfflineNotice body="The variant catalogue will load when the connection returns." />
       )}
 
+      {!offline && pendingCount > 0 && statusFilter !== "PENDING" && (
+        <div
+          role="status"
+          data-testid="pending-classification-banner"
+          className="mb-3 px-3.5 py-2.5 rounded-[3px] bg-[var(--color-warning-100)] text-[var(--color-warning-700)] text-[12.5px] flex items-center justify-between gap-3 flex-wrap"
+        >
+          <span>
+            <span className="font-semibold">
+              {pendingCount} variant{pendingCount === 1 ? "" : "s"} pending classification.
+            </span>{" "}
+            Auto-created from supply activity. Each needs a real product and a price before it can
+            be sold.
+          </span>
+          <button
+            type="button"
+            onClick={() => setStatusFilter("PENDING")}
+            data-testid="pending-classification-review"
+            className="underline font-medium hover:opacity-70 shrink-0"
+          >
+            Review pending variants
+          </button>
+        </div>
+      )}
+
       {!offline && (
         <>
           <div className="flex items-center gap-2 mb-3">
@@ -273,7 +314,24 @@ export default function VariantsListPage() {
               <option value="ALL">All</option>
               <option value="ACTIVE">Active</option>
               <option value="DISCONTINUED">Discontinued</option>
+              <option value="PENDING">Pending classification</option>
             </select>
+            {pendingCount > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setStatusFilter(statusFilter === "PENDING" ? "ALL" : "PENDING")
+                }
+                data-testid="pending-filter-toggle"
+                className={`h-[28px] px-2.5 rounded-[3px] border text-[12px] font-medium ${
+                  statusFilter === "PENDING"
+                    ? "border-[var(--color-warning-700)] bg-[var(--color-warning-100)] text-[var(--color-warning-700)]"
+                    : "border-[var(--color-border-default)] bg-white text-[var(--color-ink-700)]"
+                }`}
+              >
+                Pending {pendingCount}
+              </button>
+            )}
           </div>
 
           <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
@@ -322,6 +380,8 @@ export default function VariantsListPage() {
                         </span>
                       ) : statusFilter === "ALL" ? (
                         "No variants."
+                      ) : statusFilter === "PENDING" ? (
+                        "No variants are pending classification. Nothing to curate right now."
                       ) : (
                         "No variants match this status."
                       )}
@@ -329,8 +389,19 @@ export default function VariantsListPage() {
                   </tr>
                 )}
                 {filtered?.map((v) => (
-                  <tr key={v.id} className="text-[12.5px] hover:bg-[var(--color-ink-100)]">
-                    <td className="px-3 h-[30px] border-b border-[var(--color-border-default)]">
+                  <tr
+                    key={v.id}
+                    data-testid={`variant-row-${v.id}`}
+                    data-pending={v.pending ? "true" : "false"}
+                    className="text-[12.5px] hover:bg-[var(--color-ink-100)]"
+                  >
+                    <td
+                      className={`px-3 h-[30px] border-b border-[var(--color-border-default)] ${
+                        v.pending
+                          ? "border-l-2 border-l-[var(--color-warning-700)]"
+                          : "border-l-2 border-l-transparent"
+                      }`}
+                    >
                       <Link
                         href={`/admin/variants/${v.id}`}
                         title={v.sku}
@@ -349,7 +420,10 @@ export default function VariantsListPage() {
                       {formatNGN(v.currentMarketPrice)}
                     </td>
                     <td className="px-3 h-[30px] border-b border-[var(--color-border-default)]">
-                      <VariantStatusPill status={v.status} />
+                      <span className="inline-flex items-center gap-1.5">
+                        <VariantStatusPill status={v.status} />
+                        {v.pending && <PendingClassificationPill />}
+                      </span>
                     </td>
                   </tr>
                 ))}

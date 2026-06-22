@@ -19,19 +19,27 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import ChangeProductModal from "@/components/products/ChangeProductModal";
+import PendingClassificationPill from "@/components/products/PendingClassificationPill";
 import VariantStatusPill from "@/components/products/VariantStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import {
   getProductVariant,
   listPrices,
+  loadVariantAutoCreate,
   updateProductVariant,
   type ProductStatus,
   type ProductVariant,
   type VariantAttributesMap,
+  type VariantAutoCreate,
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
-import { formatNGN } from "@/lib/format";
+import { formatDateTime, formatNGN } from "@/lib/format";
+import {
+  autoCreateSourceLabel,
+  isPendingClassification,
+} from "@/lib/products/variant-classification";
 import { useActiveTiers } from "@/lib/pricing/use-tiers";
 import { useConnectivity } from "@/lib/sync/connectivity";
 import { getById, listByType } from "@/lib/sync/mirror/store";
@@ -89,6 +97,23 @@ export default function VariantDetailPage() {
   // mirror (re-reads on sync). Loaded only when the user can price.
   const [pricedTierIds, setPricedTierIds] = useState<string[]>([]);
   const { defaultTierId } = useActiveTiers();
+
+  // Reclassification: gated productvariant.manage, opens the Change product
+  // modal. Available for any variant, but the primary use is curating a pending
+  // (sentinel-product) variant onto its real product.
+  const [changeProductOpen, setChangeProductOpen] = useState(false);
+
+  // Auto-create provenance, read from the audit log (the variant row carries no
+  // creator column). Loaded only when the variant is pending classification,
+  // which is the signal it was auto-created. Held separately from the variant.
+  const [autoCreate, setAutoCreate] = useState<VariantAutoCreate | null>(null);
+  const [autoCreateForbidden, setAutoCreateForbidden] = useState(false);
+
+  const pending = variant ? isPendingClassification(variant.productId) : false;
+  const notPriced = variant ? Number(variant.currentMarketPrice) === 0 : false;
+  const noAttributes = variant
+    ? Object.keys(variant.variantAttributes ?? {}).length === 0
+    : false;
 
   const mirrorPaintedRef = useRef(false);
 
@@ -192,6 +217,33 @@ export default function VariantDetailPage() {
       cancelled = true;
     };
   }, [canPrice, id]);
+
+  // Auto-create provenance from the audit log. Triggered when the variant is
+  // pending (its only durable auto-create signal). The "created by / source /
+  // date" callout reads from this, NEVER from a column on the variant row.
+  // audit.read gates the endpoint; a holder of productvariant.manage who lacks
+  // audit.read still sees the callout (driven by the pending flag) without the
+  // actor/date detail (autoCreateForbidden then explains the gap).
+  useEffect(() => {
+    if (!id || !pending) {
+      setAutoCreate(null);
+      setAutoCreateForbidden(false);
+      return;
+    }
+    let cancelled = false;
+    loadVariantAutoCreate(id).then((r) => {
+      if (cancelled) return;
+      if (r.kind === "ok") {
+        setAutoCreate(r.data);
+        setAutoCreateForbidden(false);
+      } else if (r.kind === "forbidden") {
+        setAutoCreateForbidden(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, pending]);
 
   const beginEdit = () => {
     if (!variant) return;
@@ -317,6 +369,7 @@ export default function VariantDetailPage() {
           <h1 className="text-[22px] font-semibold text-[var(--color-ink-900)] m-0 tracking-[-0.01em] flex items-center gap-3 flex-wrap">
             <span className="font-mono">{variant.supplierSkuCode}</span>
             <VariantStatusPill status={variant.status} />
+            {pending && <PendingClassificationPill />}
             {fromMirror && <FreshnessBadge />}
           </h1>
         </div>
@@ -381,6 +434,42 @@ export default function VariantDetailPage() {
             </div>
           )}
       </header>
+
+      {pending && (
+        <div
+          data-testid="autocreate-callout"
+          className="mb-4 px-4 py-3 rounded-[4px] border border-[var(--color-warning-700)] bg-[var(--color-warning-100)]"
+        >
+          <div className="text-[13px] font-semibold text-[var(--color-warning-700)] mb-1">
+            This variant was auto-created and is pending classification
+          </div>
+          <p className="text-[12.5px] text-[var(--color-ink-900)] m-0 leading-[1.55]">
+            {autoCreate ? (
+              <>
+                It entered the catalogue from {autoCreateSourceLabel(autoCreate.source)}
+                {autoCreate.occurredAt ? ` on ${formatDateTime(autoCreate.occurredAt)}` : ""}
+                {autoCreate.actorName ? (
+                  <>
+                    {" "}
+                    by <span className="font-medium">{autoCreate.actorName}</span>
+                  </>
+                ) : (
+                  ""
+                )}
+                .{" "}
+                {autoCreate.similarityChecked === false
+                  ? "A similarity warning was overridden when it was created. "
+                  : ""}
+              </>
+            ) : autoCreateForbidden ? (
+              <>It was auto-created from a supply-side operation (full provenance needs audit access). </>
+            ) : (
+              <>It was auto-created from a supply-side operation. </>
+            )}
+            Assign a real product, set a price, and add attributes before it can be sold.
+          </p>
+        </div>
+      )}
 
       {canPrice && variant.status === "DISCONTINUED" && (
         <div
@@ -561,21 +650,74 @@ export default function VariantDetailPage() {
             </dd>
           </div>
           <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 sm:items-center">
-            <dt className="text-[var(--color-ink-600)] text-[13px]">Product</dt>
-            <dd className="m-0 text-[var(--color-ink-700)]">{variant.product.name}</dd>
+            <dt className="text-[var(--color-ink-600)] text-[13px]">Assigned to product</dt>
+            <dd className="m-0 flex items-center gap-3 flex-wrap" data-testid="variant-product">
+              <span
+                className={
+                  pending ? "text-[var(--color-warning-700)] font-medium" : "text-[var(--color-ink-700)]"
+                }
+              >
+                {variant.product.name}
+              </span>
+              {canManage && variant.status === "ACTIVE" && (
+                <button
+                  type="button"
+                  onClick={() => setChangeProductOpen(true)}
+                  disabled={offlineConn}
+                  data-testid="change-product-button"
+                  className="h-[26px] px-2.5 rounded-[3px] border border-[var(--color-navy-700)] bg-white text-[var(--color-navy-700)] text-[12px] font-medium disabled:opacity-50"
+                >
+                  Change product
+                </button>
+              )}
+            </dd>
           </div>
           <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 sm:items-center">
-            <dt className="text-[var(--color-ink-600)] text-[13px]">Model</dt>
-            <dd className="m-0 text-[var(--color-ink-700)]">{variant.variantAttributes.model ?? "--"}</dd>
-          </div>
-          <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 sm:items-center">
-            <dt className="text-[var(--color-ink-600)] text-[13px]">Colour</dt>
-            <dd className="m-0 text-[var(--color-ink-700)]">{variant.variantAttributes.colour ?? "--"}</dd>
+            <dt className="text-[var(--color-ink-600)] text-[13px]">Attributes</dt>
+            <dd className="m-0 flex items-center gap-3 flex-wrap" data-testid="variant-attributes">
+              {noAttributes ? (
+                <span className="text-[var(--color-warning-700)] font-medium">No attributes set</span>
+              ) : (
+                <span className="text-[var(--color-ink-700)]">
+                  {[variant.variantAttributes.model, variant.variantAttributes.colour]
+                    .filter((x) => typeof x === "string" && x.length > 0)
+                    .join(" ") || "--"}
+                </span>
+              )}
+              {canManage && variant.status === "ACTIVE" && (
+                <button
+                  type="button"
+                  onClick={beginEdit}
+                  disabled={offlineConn}
+                  data-testid="add-attributes-button"
+                  className="h-[26px] px-2.5 rounded-[3px] border border-[var(--color-navy-700)] bg-white text-[var(--color-navy-700)] text-[12px] font-medium disabled:opacity-50"
+                >
+                  {noAttributes ? "Add attributes" : "Edit attributes"}
+                </button>
+              )}
+            </dd>
           </div>
           <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 sm:items-center">
             <dt className="text-[var(--color-ink-600)] text-[13px]">Market price</dt>
-            <dd className="m-0 text-[var(--color-ink-900)] font-mono" data-testid="variant-price">
-              {formatNGN(variant.currentMarketPrice)}
+            <dd className="m-0 flex items-center gap-3 flex-wrap" data-testid="variant-price">
+              {notPriced ? (
+                <span className="text-[var(--color-warning-700)] font-medium">Not yet priced</span>
+              ) : (
+                <span className="text-[var(--color-ink-900)] font-mono">
+                  {formatNGN(variant.currentMarketPrice)}
+                </span>
+              )}
+              {notPriced && canPrice && variant.status === "ACTIVE" && (pricedTierIds[0] || defaultTierId) && (
+                <Link
+                  href={`/sales/price-lists/${encodeURIComponent(variant.id)}?tier=${encodeURIComponent(
+                    pricedTierIds[0] ?? defaultTierId,
+                  )}`}
+                  data-testid="set-price-inline-link"
+                  className="h-[26px] px-2.5 inline-flex items-center rounded-[3px] border border-[var(--color-navy-700)] bg-white text-[var(--color-navy-700)] text-[12px] font-medium"
+                >
+                  Set price
+                </Link>
+              )}
             </dd>
           </div>
           <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 sm:items-center">
@@ -592,6 +734,20 @@ export default function VariantDetailPage() {
       <p className="mt-3 text-[11.5px] text-[var(--color-ink-500)] leading-[1.5]">
         Variants are never deleted. Deactivating sets the status to Discontinued, which removes the variant from new order, purchase and price-list pickers while preserving every historical reference. Reactivate to make it selectable again.
       </p>
+
+      {canManage && (
+        <ChangeProductModal
+          open={changeProductOpen}
+          variant={variant}
+          onClose={() => setChangeProductOpen(false)}
+          onSuccess={(updated) => {
+            setChangeProductOpen(false);
+            // Apply the authoritative PATCH response. Repointing off the
+            // sentinel clears the pending state, which the effect picks up.
+            setVariant(updated);
+          }}
+        />
+      )}
     </div>
   );
 }

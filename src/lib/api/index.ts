@@ -149,12 +149,17 @@ export {
   getProductVariant,
   createProductVariant,
   updateProductVariant,
+  loadVariantAutoCreate,
+  parseSimilarVariantConflict,
 } from "./product-variants";
 export type {
   ProductVariant,
   VariantAttributesMap,
   CreateProductVariantBody,
   UpdateProductVariantBody,
+  VariantAutoCreate,
+  SimilarVariantConflict,
+  SimilarVariantMatch,
 } from "./product-variants";
 export {
   listShipments,

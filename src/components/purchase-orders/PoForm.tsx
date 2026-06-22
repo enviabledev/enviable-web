@@ -1,22 +1,33 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
+import SimilarityWarningModal from "@/components/products/SimilarityWarningModal";
 import {
   flattenVariantOptions,
   listCounterparties,
   listProducts,
+  parseSimilarVariantConflict,
   type ApiResult,
   type CreatePoBody,
+  type CreatePoLine,
   type Counterparty,
   type PoDetail,
   type ProductWithVariants,
+  type SimilarVariantConflict,
 } from "@/lib/api";
 import { formatNGN } from "@/lib/format";
 
+// A line references a variant by EITHER the picker (existing id) OR a free-text
+// SKU (the auto-create path for a variant not yet in the catalogue). mode
+// tracks which input is active; overrideSimilarityCheck is set per-line after
+// the user picks "Create new anyway" on the similarity warning for that line.
 type LineRow = {
   key: string;
+  mode: "picker" | "sku";
   productVariantId: string;
+  productVariantSku: string;
+  overrideSimilarityCheck: boolean;
   quantityOrdered: string;
   unitPrice: string;
 };
@@ -41,7 +52,10 @@ const newKey = () => `line-${++nextKey}`;
 
 const EMPTY_LINE = (): LineRow => ({
   key: newKey(),
+  mode: "picker",
   productVariantId: "",
+  productVariantSku: "",
+  overrideSimilarityCheck: false,
   quantityOrdered: "1",
   unitPrice: "",
 });
@@ -63,7 +77,10 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
     initial && initial.lines.length > 0
       ? initial.lines.map((l) => ({
           key: newKey(),
+          mode: "picker" as const,
           productVariantId: l.productVariantId,
+          productVariantSku: "",
+          overrideSimilarityCheck: false,
           quantityOrdered: String(l.quantityOrdered),
           unitPrice: l.unitPrice,
         }))
@@ -73,6 +90,17 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
   const [submitting, setSubmitting] = useState(false);
   const [serverMessages, setServerMessages] = useState<string[]>([]);
   const [conflictMessage, setConflictMessage] = useState<string | null>(null);
+
+  // Similarity warning: the backend 409 for a SKU-mode line that is suspiciously
+  // close to an existing variant. We remember which line key it was raised for so
+  // "Use existing" / "Create new anyway" apply to that specific line, then
+  // resubmit. A ref mirrors the pending line so the modal callbacks read it.
+  const [similarConflict, setSimilarConflict] = useState<{
+    lineKey: string;
+    conflict: SimilarVariantConflict;
+  } | null>(null);
+  const linesRef = useRef<LineRow[]>(lines);
+  linesRef.current = lines;
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -133,6 +161,21 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
     );
   };
 
+  // Switch a line between the picker (existing variant by id) and a free-text
+  // SKU field (auto-create a new variant). Switching resets the other input and
+  // any per-line override so a stale value never leaks into the request.
+  const onToggleLineMode = (key: string) => {
+    setLines((prev) =>
+      prev.map((l) =>
+        l.key === key
+          ? l.mode === "picker"
+            ? { ...l, mode: "sku", productVariantId: "", overrideSimilarityCheck: false }
+            : { ...l, mode: "picker", productVariantSku: "", overrideSimilarityCheck: false }
+          : l,
+      ),
+    );
+  };
+
   // Client-side validation: surfaces obvious shape problems before posting.
   // The server is still authoritative; we just save a round-trip on the easy ones.
   const clientErrors = (): string[] => {
@@ -141,12 +184,82 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
     if (!currency.trim()) errs.push("Currency is required.");
     if (lines.length === 0) errs.push("At least one line is required.");
     lines.forEach((l, i) => {
-      if (!l.productVariantId) errs.push(`Line ${i + 1}: pick a product variant.`);
+      if (l.mode === "picker" && !l.productVariantId) {
+        errs.push(`Line ${i + 1}: pick a product variant.`);
+      }
+      if (l.mode === "sku" && !l.productVariantSku.trim()) {
+        errs.push(`Line ${i + 1}: enter a supplier SKU.`);
+      }
       const q = Number(l.quantityOrdered);
       if (!Number.isInteger(q) || q < 1) errs.push(`Line ${i + 1}: quantity must be an integer >= 1.`);
       if (!UNIT_PRICE_RE.test(l.unitPrice)) errs.push(`Line ${i + 1}: unit price must be a decimal with up to 2 places.`);
     });
     return errs;
+  };
+
+  // Build a line for the wire from a form row. SKU-mode lines send
+  // productVariantSku (+ the per-line override when set); picker lines send the
+  // id. CreatePoLine only types the id form, so the SKU shape is attached as an
+  // extra field the backend accepts (PoLineDto: exactly one of id/sku).
+  const toWireLine = (l: LineRow): CreatePoLine => {
+    const base = { quantityOrdered: Number(l.quantityOrdered), unitPrice: l.unitPrice };
+    if (l.mode === "sku") {
+      return {
+        ...base,
+        productVariantSku: l.productVariantSku.trim(),
+        ...(l.overrideSimilarityCheck ? { overrideSimilarityCheck: true } : {}),
+      } as CreatePoLine & { productVariantSku: string; overrideSimilarityCheck?: boolean };
+    }
+    return { ...base, productVariantId: l.productVariantId };
+  };
+
+  // Submit the current line set. Shared by the initial submit and the
+  // resubmit after a similarity-warning choice (which mutated a line first).
+  const submitLines = async (currentLines: LineRow[]) => {
+    const body: CreatePoBody = {
+      supplierId,
+      currency: currency.trim(),
+      expectedShipDate: expectedShipDate || undefined,
+      paymentTerms: paymentTerms.trim() || undefined,
+      lines: currentLines.map(toWireLine),
+    };
+    setSubmitting(true);
+    const r = await onSubmit(body);
+    setSubmitting(false);
+    if (r.kind === "ok") {
+      setSimilarConflict(null);
+      return; // page handles routing
+    }
+    if (r.kind === "conflict") {
+      // Distinguish the similar-variant 409 (open the warning modal for the
+      // offending SKU line) from any other conflict (generic banner).
+      const similar = parseSimilarVariantConflict(r.body);
+      if (similar) {
+        const offending = currentLines.find(
+          (l) => l.mode === "sku" && l.productVariantSku.trim() === similar.incomingSku,
+        );
+        if (offending) {
+          setSimilarConflict({ lineKey: offending.key, conflict: similar });
+          return;
+        }
+      }
+      setConflictMessage(r.message);
+      return;
+    }
+    if (r.kind === "validation") {
+      const msgs = Array.isArray(r.message) ? r.message : [r.message];
+      setServerMessages(msgs);
+      return;
+    }
+    if (r.kind === "forbidden") {
+      setServerMessages(["You do not have permission to perform this action."]);
+      return;
+    }
+    if (r.kind === "network_error") {
+      setServerMessages([r.message]);
+      return;
+    }
+    setServerMessages(["Unexpected response from the server."]);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -159,39 +272,39 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
       setServerMessages(local);
       return;
     }
-    const body: CreatePoBody = {
-      supplierId,
-      currency: currency.trim(),
-      expectedShipDate: expectedShipDate || undefined,
-      paymentTerms: paymentTerms.trim() || undefined,
-      lines: lines.map((l) => ({
-        productVariantId: l.productVariantId,
-        quantityOrdered: Number(l.quantityOrdered),
-        unitPrice: l.unitPrice,
-      })),
-    };
-    setSubmitting(true);
-    const r = await onSubmit(body);
-    setSubmitting(false);
-    if (r.kind === "ok") return; // page handles routing
-    if (r.kind === "validation") {
-      const msgs = Array.isArray(r.message) ? r.message : [r.message];
-      setServerMessages(msgs);
+    await submitLines(lines);
+  };
+
+  // Similarity-warning resolution for the offending line.
+  const onSimilarityChoice = async (choice: "use-existing" | "create-new" | "cancel") => {
+    const pending = similarConflict;
+    if (!pending) return;
+    if (choice === "cancel") {
+      setSimilarConflict(null);
       return;
     }
-    if (r.kind === "conflict") {
-      setConflictMessage(r.message);
-      return;
-    }
-    if (r.kind === "forbidden") {
-      setServerMessages(["You do not have permission to perform this action."]);
-      return;
-    }
-    if (r.kind === "network_error") {
-      setServerMessages([r.message]);
-      return;
-    }
-    setServerMessages(["Unexpected response from the server."]);
+    // Apply the choice to the offending line, then resubmit the whole set.
+    const nextLines = linesRef.current.map((l) => {
+      if (l.key !== pending.lineKey) return l;
+      if (choice === "use-existing") {
+        // Use the matched existing variant: switch the line to picker mode
+        // pointing at the match id, dropping the SKU and override.
+        return {
+          ...l,
+          mode: "picker" as const,
+          productVariantId: pending.conflict.match.id,
+          productVariantSku: "",
+          overrideSimilarityCheck: false,
+        };
+      }
+      // create-new: keep the SKU, set the per-line override flag.
+      return { ...l, overrideSimilarityCheck: true };
+    });
+    setLines(nextLines);
+    setSimilarConflict(null);
+    setServerMessages([]);
+    setConflictMessage(null);
+    await submitLines(nextLines);
   };
 
   if (loadError) {
@@ -302,20 +415,63 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
             {lines.map((l) => (
               <tr key={l.key} className="border-b border-[var(--color-border-default)]">
                 <td className="px-3 py-2">
-                  <select
-                    value={l.productVariantId}
-                    onChange={(e) => onPickVariant(l.key, e.target.value)}
-                    className="h-7 px-2 text-[12.5px] text-[var(--color-ink-900)] bg-white border border-[var(--color-border-strong)] rounded-[3px] focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)] w-full"
-                  >
-                    <option value="">
-                      {productLoadError ? "(variants unavailable)" : "Select a product variant"}
-                    </option>
-                    {variantOptions.map((v) => (
-                      <option key={v.productVariantId} value={v.productVariantId}>
-                        {v.label}
-                      </option>
-                    ))}
-                  </select>
+                  {l.mode === "picker" ? (
+                    <>
+                      <select
+                        value={l.productVariantId}
+                        onChange={(e) => onPickVariant(l.key, e.target.value)}
+                        data-testid="po-line-variant-select"
+                        className="h-7 px-2 text-[12.5px] text-[var(--color-ink-900)] bg-white border border-[var(--color-border-strong)] rounded-[3px] focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)] w-full"
+                      >
+                        <option value="">
+                          {productLoadError ? "(variants unavailable)" : "Select a product variant"}
+                        </option>
+                        {variantOptions.map((v) => (
+                          <option key={v.productVariantId} value={v.productVariantId}>
+                            {v.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => onToggleLineMode(l.key)}
+                        data-testid="po-line-use-sku"
+                        className="mt-1 text-[11px] text-[var(--color-navy-700)] hover:underline"
+                      >
+                        Variant not in the picker? Enter a SKU
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        value={l.productVariantSku}
+                        onChange={(e) =>
+                          onLineChange(l.key, {
+                            productVariantSku: e.target.value,
+                            // Editing the SKU invalidates a prior override choice.
+                            overrideSimilarityCheck: false,
+                          })
+                        }
+                        placeholder="Enter supplier SKU"
+                        data-testid="po-line-sku-input"
+                        className="h-7 px-2 text-[12.5px] font-mono text-[var(--color-ink-900)] bg-white border border-[var(--color-navy-700)] rounded-[3px] focus:outline-none focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)] w-full"
+                      />
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-[11px] text-[var(--color-ink-500)]">
+                          New variant will be created on this PO.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onToggleLineMode(l.key)}
+                          data-testid="po-line-use-picker"
+                          className="text-[11px] text-[var(--color-navy-700)] hover:underline"
+                        >
+                          Use the picker instead
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <input
@@ -415,6 +571,14 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
           {submitting ? (mode === "create" ? "Creating..." : "Saving...") : submitLabel ?? (mode === "create" ? "Create Draft" : "Save Changes")}
         </button>
       </div>
+
+      <SimilarityWarningModal
+        open={similarConflict !== null}
+        conflict={similarConflict?.conflict ?? null}
+        contextLabel="this purchase-order line"
+        busy={submitting}
+        onChoose={onSimilarityChoice}
+      />
     </form>
   );
 }

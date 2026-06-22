@@ -77,8 +77,15 @@ export type HistoricalLoadReport = {
   errors: HistoricalLoadRowError[];
 };
 
+/**
+ * Units dry-run report. newVariants lists the SKUs the system WOULD auto-create
+ * on commit (genuinely-new SKUs not held back by a similarity / intra-file
+ * finding). Similarity warnings appear as row errors inside `errors` with a
+ * message containing "is similar to existing variant".
+ */
 export type HistoricalUnitsReport = HistoricalLoadReport & {
   shipmentId: string;
+  newVariants: string[];
 };
 
 export type HistoricalUnitsCommitResult = {
@@ -86,6 +93,8 @@ export type HistoricalUnitsCommitResult = {
   dryRun: false;
   created: number;
   totalRows: number;
+  // SKUs auto-created and added to the catalogue by this commit.
+  autoCreatedVariants: string[];
 };
 
 export type HistoricalSparePartsCommitResult = {
@@ -110,7 +119,14 @@ async function multipartFetch<T>(
   path: string,
   form: FormData,
   signal?: AbortSignal,
-): Promise<ApiResult<T> | { kind: "validation_report"; report: HistoricalLoadReport; message: string }> {
+): Promise<
+  | ApiResult<T>
+  | {
+      kind: "validation_report";
+      report: HistoricalLoadReport & { newVariants?: string[] };
+      message: string;
+    }
+> {
   let res: Response;
   try {
     res = await fetch(path, {
@@ -142,6 +158,7 @@ async function multipartFetch<T>(
     try {
       const body = (await res.json()) as Partial<HistoricalLoadReport> & {
         message?: string | string[];
+        newVariants?: string[];
       };
       if (typeof body.errorCount === "number" && Array.isArray(body.errors)) {
         return {
@@ -152,6 +169,7 @@ async function multipartFetch<T>(
             validRows: body.validRows ?? 0,
             errorCount: body.errorCount,
             errors: body.errors,
+            ...(Array.isArray(body.newVariants) ? { newVariants: body.newVariants } : {}),
           },
           message:
             typeof body.message === "string"
@@ -188,14 +206,21 @@ export async function loadHistoricalUnits(
   shipmentId: string,
   file: File,
   dryRun: boolean,
+  overrideSimilarityCheck = false,
   signal?: AbortSignal,
 ): Promise<
   | ApiResult<HistoricalUnitsReport | HistoricalUnitsCommitResult>
-  | { kind: "validation_report"; report: HistoricalLoadReport; message: string }
+  | {
+      kind: "validation_report";
+      report: HistoricalLoadReport & { newVariants?: string[] };
+      message: string;
+    }
 > {
   const form = new FormData();
   form.append("file", file);
-  const qs = `?dryRun=${dryRun ? "true" : "false"}`;
+  const qs = `?dryRun=${dryRun ? "true" : "false"}&overrideSimilarityCheck=${
+    overrideSimilarityCheck ? "true" : "false"
+  }`;
   // Defensive trim. The shipment-id input already trims on entry; this is the
   // belt-and-braces backstop for any future caller that bypasses that input.
   // A stray space here becomes %20 in the path and 404s the route. Both trims

@@ -526,10 +526,74 @@ function DiffPanel({ row }: { row: AuditLogEntry }) {
   //    semantics carry the meaning.
   const beforeReason = beforeStateAbsenceReason(row);
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-      <JsonBlock title="Context" value={row.context} />
-      <JsonBlock title="Before" value={row.beforeState} emptyReason={beforeReason} />
-      <JsonBlock title="After" value={row.afterState} />
+    <div className="space-y-3">
+      {row.action === "productvariant.autocreate" && <AutoCreateSummary row={row} />}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <JsonBlock title="Context" value={row.context} />
+        <JsonBlock title="Before" value={row.beforeState} emptyReason={beforeReason} />
+        <JsonBlock title="After" value={row.afterState} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Readable summary of a `productvariant.autocreate` entry: the variant's SKU,
+ * the triggering source (with the source entity id, e.g. the PO or shipment),
+ * the actor, and whether the similarity gate ran or was overridden. The raw
+ * Context JSON below carries the same fields verbatim; this is the at-a-glance
+ * line so an auditor does not have to parse JSON to read an auto-create event.
+ */
+function AutoCreateSummary({ row }: { row: AuditLogEntry }) {
+  const ctx = (row.context ?? {}) as {
+    sku?: string;
+    source?: string;
+    sourceEntityId?: string | null;
+    similarityChecked?: boolean;
+  };
+  const sourceLabel =
+    ctx.source === "historical-load"
+      ? "a historical-data load"
+      : ctx.source === "po-line-create"
+        ? "a purchase-order line"
+        : ctx.source === "shipment-receive"
+          ? "a shipment receipt"
+          : (ctx.source ?? "a supply-side operation");
+  const route = ctx.source === "po-line-create" ? "PurchaseOrder" : ctx.source === "historical-load" ? "Shipment" : null;
+  const sourceHref =
+    route && ctx.sourceEntityId ? ENTITY_ROUTE[route]?.(ctx.sourceEntityId) : null;
+  return (
+    <div
+      data-testid={`autocreate-summary-${row.id}`}
+      className="px-3 py-2 rounded-[3px] bg-[var(--color-warning-100)] border border-[var(--color-warning-700)] text-[12px] text-[var(--color-ink-900)] leading-[1.55]"
+    >
+      <span className="font-semibold">Variant auto-created.</span>{" "}
+      SKU <span className="font-mono">{ctx.sku ?? row.entityId ?? "--"}</span> entered the
+      catalogue from {sourceLabel}
+      {ctx.sourceEntityId ? (
+        <>
+          {" "}
+          (
+          {sourceHref ? (
+            <Link href={sourceHref} className="font-mono text-[var(--color-navy-700)] hover:underline">
+              {ctx.sourceEntityId}
+            </Link>
+          ) : (
+            <span className="font-mono">{ctx.sourceEntityId}</span>
+          )}
+          )
+        </>
+      ) : (
+        ""
+      )}{" "}
+      by <span className="font-medium">{row.actor?.fullName ?? "system"}</span>.{" "}
+      {ctx.similarityChecked === false ? (
+        <span className="text-[var(--color-warning-700)] font-medium">
+          Similarity check was overridden.
+        </span>
+      ) : (
+        <span>Similarity check ran (no near-duplicate, or none flagged).</span>
+      )}
     </div>
   );
 }
@@ -537,6 +601,7 @@ function DiffPanel({ row }: { row: AuditLogEntry }) {
 function beforeStateAbsenceReason(row: AuditLogEntry): string | null {
   if (row.beforeState != null) return null;
   if (row.action.endsWith(".create")) return null; // self-evident from action
+  if (row.action === "productvariant.autocreate") return null; // a create; no prior state
   if (row.action.startsWith("historical.")) {
     return "Bulk-load summary event; per-entity changes are recorded separately in stockMovement / sparePartMovement rows.";
   }
