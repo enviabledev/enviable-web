@@ -965,3 +965,51 @@ Decisions / notes:
 - No display cap on the option list yet (all shipments, recent-first). Fine at
   current scale; add a "most recent N + typeahead" cap if the shipment count
   grows large.
+
+## Unit lifecycle adjustments (prompt 39)
+
+Shipped: an Adjust-status action on the unit detail page (gated unit.adjust,
+state-gated to the legal targets for the current status), driven by AdjustUnitModal
+(uniform { toStatus, reason } DTO, dynamic consequence copy). adjustUnit() API,
+a client mirror of the backend adjustment map (src/lib/units/adjustments.ts), and
+optimistic status + refetch so the new movement lands on the existing timeline.
+
+Audit confirmed most of the hypothesised scope was already built: StatusPill already
+covers all 13 statuses with mobile shorthand; the units list filter already offers
+every status; the unit detail movement timeline already renders all movement types
+(including ADJUSTMENT). So prompt 39 was just the adjust ACTION that feeds them.
+
+e2e (unit-lifecycle.spec, 4 green): adjust + reverse round-trip (CKD->Demo->CKD)
+with status + timeline + reason; reason-required gating; permission gating (a
+unit.read-only user sees no Adjust action); responsive 375/768/1280 (detail + modal).
+Round-trips restore fixture state; non-destructive.
+
+Decisions / findings:
+- TRANSFERRED is in the enum and state machine but has NO adjustment-map entry (the
+  backend 400s a transfer attempt: "deferred multi-warehouse feature"). So there is
+  no transfer UI; transfer is genuinely not buildable until the backend wires it.
+  Operational note for Theresa: multi-warehouse transfer is deferred.
+- The adjust endpoint deliberately rejects assembly / sale / customer-return edges
+  (use their workflow endpoints); customer returns are prompt 40, not this.
+- formatUnitStatus renders the handoff's COMPACT label with no spaces
+  ("InWarehouseCKD", "WrittenOff"). Established convention used across the units UI;
+  flagged as a low-priority readability nit, not changed here (touches every units
+  screen + several specs).
+- Fixed a pre-existing responsive tightness on the unit-detail SummaryCard surfaced
+  by the new responsive test: the "Current Status" cell (pill + duplicate status
+  text) overflowed the 2-column grid at ~768px for longer values; made the value
+  column shrink/wrap (min-w-0, smaller gap, flex-wrap on the status cell).
+- inventory-responsive.spec has 4 PRE-EXISTING failures (cluster-overflow, Tier-1-at-
+  375, units-table and movements-table column hiding). They are IDENTICAL before and
+  after this prompt's changes (verified), on list-table screens prompt 39 never
+  touched, and the units list itself has zero overflow at 375 (checked directly). The
+  likely cause is the spec's waitForMirror(>450 records) threshold vs the session's
+  reseeded data (a timing/data mismatch, not a layout regression). Needs a separate
+  look; NOT a prompt-39 regression.
+- e2e NOT written for (covered by construction + walkthrough): the state-gating-
+  negative case (no non-adjustable unit exists as a fixture to assert the Adjust
+  button hides without a destructive write-off), the list filter-by-lifecycle-state
+  (pre-existing filter, not re-tested), and the audit-log rendering of unit.adjust
+  entries (pre-existing generic audit render). The adjust write + audit are verified
+  at the API/contract level (round-trip + audit annotation), not the audit-screen
+  render.

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import AdjustUnitModal from "@/components/units/AdjustUnitModal";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import StatusPill from "@/components/units/StatusPill";
@@ -15,9 +16,12 @@ import {
   type UnitStatus,
   type VariantAttributes,
 } from "@/lib/api";
+import { usePermissions } from "@/lib/auth";
 import { DETAIL_GRID } from "@/lib/responsive";
+import { useConnectivity } from "@/lib/sync/connectivity";
 import { listByType } from "@/lib/sync/mirror/store";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
+import { canAdjustFrom } from "@/lib/units/adjustments";
 import {
   formatDateShort,
   formatDateTime,
@@ -90,7 +94,15 @@ export default function UnitDetailPage() {
   // useParams returns the sibling's id from the RSC, not the URL bar's id.
   // See src/lib/sync/use-url-segment.ts for the rationale.
   const idOrEngineNumber = useUrlLastSegment();
+  const { has } = usePermissions();
+  const canAdjust = has("unit.adjust");
+  const { state: connState } = useConnectivity();
+  const offlineConn = connState === "offline";
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  // Bumped after a successful adjustment to re-run the load effect so the new
+  // status and the new movement land on the timeline.
+  const [reloadTick, setReloadTick] = useState(0);
 
   // Mirror-first paint, revalidate with network. Movements timeline
   // reconstruction follows in the next change (D); for now it stays empty
@@ -226,7 +238,7 @@ export default function UnitDetailPage() {
         setState({ status: "error", message: "message" in r ? String(r.message) : "Error" });
     });
     return () => ctrl.abort();
-  }, [idOrEngineNumber, router]);
+  }, [idOrEngineNumber, router, reloadTick]);
 
   if (state.status === "loading") {
     return (
@@ -274,8 +286,8 @@ export default function UnitDetailPage() {
 
   return (
     <div className="max-w-[1120px] mx-auto pb-10">
-      <header className="flex items-end justify-between gap-6 pb-4 mb-5 border-b border-[var(--color-border-default)]">
-        <div>
+      <header className="flex flex-wrap items-end justify-between gap-3 sm:gap-6 pb-4 mb-5 border-b border-[var(--color-border-default)]">
+        <div className="min-w-0">
           <div className="text-[12px] text-[var(--color-ink-500)] flex items-center gap-1.5 mb-1.5 flex-wrap">
             <Link href="/inventory/units" className="text-[var(--color-ink-500)] hover:text-[var(--color-navy-700)]">
               Inventory
@@ -302,10 +314,40 @@ export default function UnitDetailPage() {
             </span>
           </div>
         </div>
+        {canAdjust && canAdjustFrom(unit.status) && (
+          <button
+            type="button"
+            onClick={() => setAdjustOpen(true)}
+            disabled={offlineConn}
+            data-testid="adjust-unit-button"
+            className="h-[32px] px-3 rounded-[3px] border border-[var(--color-navy-700)] bg-white text-[var(--color-navy-700)] text-[12.5px] font-medium disabled:opacity-50 shrink-0"
+          >
+            Adjust status
+          </button>
+        )}
       </header>
 
       <SummaryCard unit={unit} />
       <TimelineCard movements={unit.movements} currentStatus={unit.status} />
+
+      {canAdjust && (
+        <AdjustUnitModal
+          open={adjustOpen}
+          onClose={() => setAdjustOpen(false)}
+          unit={{ id: unit.id, engineNumber: unit.engineNumber, status: unit.status }}
+          onSuccess={(newStatus) => {
+            setAdjustOpen(false);
+            // Optimistic status so the header/pill update instantly; the tick
+            // refetches for the new movement on the timeline.
+            setState((prev) =>
+              prev.status === "ok"
+                ? { status: "ok", unit: { ...prev.unit, status: newStatus } }
+                : prev,
+            );
+            setReloadTick((n) => n + 1);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -321,9 +363,12 @@ function SummaryCard({ unit }: { unit: UnitDetail }) {
     {
       label: "Current Status",
       value: (
-        <span className="inline-flex items-center gap-2">
+        <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
           <StatusPill status={unit.status} />
-          <span className="text-[var(--color-ink-500)] text-[12px]">
+          <span
+            data-testid="unit-current-status"
+            className="text-[var(--color-ink-500)] text-[12px]"
+          >
             {formatUnitStatus(unit.status)}
           </span>
         </span>
@@ -380,7 +425,7 @@ function SummaryCard({ unit }: { unit: UnitDetail }) {
           {unit.id}
         </span>
       </header>
-      <div className="px-4 sm:px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-1">
+      <div className="px-4 sm:px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 lg:gap-x-16 gap-y-1">
         {kvs.map((kv, i) => (
           <div
             key={i}
@@ -388,7 +433,7 @@ function SummaryCard({ unit }: { unit: UnitDetail }) {
           >
             <span className="text-[12px] font-medium text-[var(--color-ink-500)]">{kv.label}</span>
             <span
-              className={`text-[var(--color-ink-900)] font-medium ${kv.mono ? "font-mono text-[13px] tracking-[0.02em]" : ""}`}
+              className={`min-w-0 break-words text-[var(--color-ink-900)] font-medium ${kv.mono ? "font-mono text-[13px] tracking-[0.02em]" : ""}`}
             >
               {kv.value}
             </span>

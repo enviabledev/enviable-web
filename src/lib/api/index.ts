@@ -13,7 +13,7 @@ export type {
   HistoricalUnitsCommitResult,
   HistoricalSparePartsCommitResult,
 } from "./historical-load";
-export { listUnits, getUnit } from "./units";
+export { listUnits, getUnit, adjustUnit, type AdjustUnitBody } from "./units";
 export { listStockMovements } from "./stock-movements";
 export { listSpareParts, getSparePart } from "./spare-parts";
 export { listPrices, setPrice } from "./price-lists";
