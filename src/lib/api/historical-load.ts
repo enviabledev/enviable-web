@@ -196,8 +196,13 @@ export async function loadHistoricalUnits(
   const form = new FormData();
   form.append("file", file);
   const qs = `?dryRun=${dryRun ? "true" : "false"}`;
+  // Defensive trim. The shipment-id input already trims on entry; this is the
+  // belt-and-braces backstop for any future caller that bypasses that input.
+  // A stray space here becomes %20 in the path and 404s the route. Both trims
+  // are intentional; do not remove one as a "cleanup".
+  const id = encodeURIComponent(shipmentId.trim());
   return multipartFetch<HistoricalUnitsReport | HistoricalUnitsCommitResult>(
-    `/api/historical-load/units/${encodeURIComponent(shipmentId)}${qs}`,
+    `/api/historical-load/units/${id}${qs}`,
     form,
     signal,
   );

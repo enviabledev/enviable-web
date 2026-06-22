@@ -545,7 +545,14 @@ function CsvUploadSection({
             type="text"
             value={shipmentId}
             onChange={(e) => {
-              setShipmentId(e.target.value);
+              // Trim on entry: pasting a shipment id/reference commonly carries a
+              // leading/trailing space, which would otherwise become %20 in the
+              // request path and 404. Paired with a defensive trim in
+              // loadHistoricalUnits (the API helper); both are intentional, do not
+              // remove one as a "cleanup". Input trim catches the common paste
+              // case here; helper trim protects any future caller that bypasses
+              // this input.
+              setShipmentId(e.target.value.trim());
               setState({ status: "idle" });
             }}
             data-testid={`hist-${kind}-shipmentId`}

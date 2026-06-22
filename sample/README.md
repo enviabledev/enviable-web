@@ -41,10 +41,31 @@ attributed to your user id.
 
 ## Notes on the example SKUs
 
-`historical-units.csv` uses the three seeded `ProductVariant` SKUs
-(`GSP-G-YELLOW`, `GSP-ECO-GREEN`, `ZSP-G-YELLOW`) so the file dry-runs
-cleanly against a freshly-seeded database. Replace them with your real
-variant SKUs.
+`historical-units.csv` demonstrates the **real-shape** format using an
+actual Enviable supplier SKU (`TVS KING GS+ DP CKD EXP10 G YELLOW`,
+exactly as VSK Motors writes it, spaces and `+` included) and
+engine/chassis numbers that follow the real supplier pattern
+(`AK4BT...` for engines, `MD6M14PA...` for chassis). The engine/chassis
+values here are deliberately obvious samples (`AK4BT0000001`,
+`MD6M14PA000000001`, zero-padded counters), NOT real inventory numbers;
+they exist to show the format, not to be loaded as-is.
+
+IMPORTANT: this sample will only dry-run clean if your catalog actually
+contains a `ProductVariant` whose `supplierSkuCode` equals the SKU above
+**exactly** (the backend matches on exact string, case-sensitive, no
+trimming, see `historical-load.service.ts`). The default development
+seed currently ships three placeholder SKUs (`GSP-G-YELLOW`,
+`GSP-ECO-GREEN`, `ZSP-G-YELLOW`) that do NOT match real supplier codes,
+so against an unmodified dev seed this sample reports "unknown
+productVariantSku" on every row. Seed your catalog with the real
+supplier SKUs first (the production catalog of variants Enviable
+actually sells), then load units against it.
+
+A note on the shipment id field on the upload form: the backend resolves
+the parent shipment by its **system-generated id (a cuid)**, not by the
+human-readable reference (`SH-2026-0001`). Use the id that flows in
+automatically from the "Historical shipment" section above, or paste the
+cuid; pasting the human-readable reference will 404.
 
 `historical-spare-parts.csv` uses placeholder SKUs (`SP-AIR-FILTER-001`,
 etc.). The first run creates these as new spare parts; re-running the
