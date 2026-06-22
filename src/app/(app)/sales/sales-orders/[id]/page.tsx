@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import CancelSalesOrderModal from "@/components/sales-orders/CancelSalesOrderModal";
+import InitiateReturnModal, {
+  type ReturnableUnit,
+} from "@/components/returns/InitiateReturnModal";
+import ReturnStatusPill from "@/components/returns/ReturnStatusPill";
 import PrintButton from "@/components/invoices/PrintButton";
 import SoStatusPill from "@/components/sales-orders/SoStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
@@ -21,6 +25,7 @@ import {
   getInvoiceForSo,
   getSalesOrder,
   listPayments,
+  listReturns,
   parseI4Conflict,
   recordPayment,
   recordProofOfDelivery,
@@ -35,6 +40,7 @@ import {
   type Invoice,
   type Payment,
   type RecordPaymentBody,
+  type ReturnRow,
   type SaleForm,
   type SalesOrderDetail,
   type SalesOrderLine,
@@ -122,6 +128,8 @@ export default function SalesOrderDetailPage() {
   // Cancel flow (prompt 37): confirmation modal + a mirror users map to render
   // the cancelled-by name from cancelledById.
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [soReturns, setSoReturns] = useState<ReturnRow[]>([]);
   const [usersById, setUsersById] = useState<Map<string, string>>(new Map());
   useEffect(() => {
     let cancelled = false;
@@ -288,6 +296,20 @@ export default function SalesOrderDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Returns for this order. There is no returns mirror bucket and no server-side
+  // filter by sales order, so fetch the list and narrow by salesOrderId. Returns
+  // volume is low; refine if it ever grows.
+  const loadSoReturns = useRef<() => void>(() => {});
+  loadSoReturns.current = () => {
+    if (!id) return;
+    listReturns().then((r) => {
+      if (r.kind === "ok") setSoReturns(r.data.filter((x) => x.salesOrderId === id));
+    });
+  };
+  useEffect(() => {
+    loadSoReturns.current();
+  }, [id]);
+
   if (state.status === "loading")
     return <div className="max-w-[1080px] mx-auto py-10 text-center text-[var(--color-ink-500)]">Loading...</div>;
   if (state.status === "not_found")
@@ -325,6 +347,11 @@ export default function SalesOrderDetailPage() {
   // Cancel mirrors the backend gate (salesorder.create) and the service's
   // cancellable-state allowlist (DRAFT / AWAITING_PAYMENT / PAYMENT_RECEIVED).
   const canCancel = has("salesorder.create") && soIsCancellable(so.status);
+  // Returns: only a unit currently SOLD on this order can be returned (I-15).
+  const soldUnits: ReturnableUnit[] = so.lines
+    .filter((l) => l.unit && (l.unit.status === "SOLD_AS_CKD" || l.unit.status === "SOLD_AS_CBU"))
+    .map((l) => ({ id: l.unit!.id, engineNumber: l.unit!.engineNumber }));
+  const canInitiateReturn = has("return.manage") && soldUnits.length > 0;
 
   // ------ confirmed-update wrappers ------
   const handle = async <T,>(label: string, op: () => Promise<ApiResult<T>>, onOk?: (data: T) => void) => {
@@ -447,6 +474,17 @@ export default function SalesOrderDetailPage() {
               {pending === "Authorise release" ? "Authorising..." : "Authorise Release"}
             </button>
           )}
+          {canInitiateReturn && (
+            <button
+              type="button"
+              onClick={() => setReturnOpen(true)}
+              disabled={pending !== null}
+              data-testid="initiate-return-button"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-navy-700)] bg-white text-[var(--color-navy-700)] hover:bg-[var(--color-navy-50)] disabled:opacity-50 inline-flex items-center"
+            >
+              Initiate return
+            </button>
+          )}
           {canCancel && (
             <button
               type="button"
@@ -460,6 +498,25 @@ export default function SalesOrderDetailPage() {
           )}
         </div>
       </header>
+
+      {has("return.manage") && (
+        <InitiateReturnModal
+          open={returnOpen}
+          onClose={() => setReturnOpen(false)}
+          salesOrderId={so.id}
+          soNumber={so.soNumber}
+          units={soldUnits}
+          onSuccess={(created) => {
+            setReturnOpen(false);
+            void refresh();
+            loadSoReturns.current();
+            setBanner({
+              kind: "info",
+              message: `Return initiated for unit ${created.unit.engineNumber}.`,
+            });
+          }}
+        />
+      )}
 
       {canCancel && (
         <CancelSalesOrderModal
@@ -492,6 +549,37 @@ export default function SalesOrderDetailPage() {
       />
       <SoftReservationNotice so={so} />
       <LinesCard lines={so.lines} so={so} />
+
+      {soReturns.length > 0 && (
+        <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-6" data-testid="so-returns-card">
+          <header className="px-5 py-3 border-b border-[var(--color-border-default)] flex items-center justify-between">
+            <h2 className="m-0 text-[14px] font-semibold text-[var(--color-ink-900)]">Returns</h2>
+            <span className="text-[11px] text-[var(--color-ink-500)] font-medium bg-[var(--color-ink-100)] px-2 py-0.5 rounded-full">
+              {soReturns.length}
+            </span>
+          </header>
+          <ul className="divide-y divide-[var(--color-border-default)]">
+            {soReturns.map((r) => (
+              <li key={r.id} className="px-5 py-2.5 flex items-center justify-between gap-3 text-[12.5px]">
+                <Link
+                  href={`/sales/returns/${r.id}`}
+                  className="font-mono text-[var(--color-navy-700)] hover:underline"
+                >
+                  {r.unit.engineNumber}
+                </Link>
+                <span className="flex items-center gap-3">
+                  {r.reason && (
+                    <span className="text-[var(--color-ink-500)] truncate max-w-[280px] hidden sm:inline">
+                      {r.reason}
+                    </span>
+                  )}
+                  <ReturnStatusPill status={r.status} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <InvoiceCard
         invoice={invoice}

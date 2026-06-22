@@ -14,6 +14,24 @@ export type {
   HistoricalSparePartsCommitResult,
 } from "./historical-load";
 export { listUnits, getUnit, adjustUnit, type AdjustUnitBody } from "./units";
+export {
+  listReturns,
+  getReturn,
+  initiateReturn,
+  inspectReturn,
+  resolveReturn,
+  RETURN_STATUS,
+  RETURN_DISPOSITION,
+} from "./returns";
+export type {
+  ReturnStatus,
+  ReturnDisposition,
+  ResolvableDisposition,
+  ReturnRow,
+  ReturnDetail,
+  InitiateReturnBody,
+  ResolveReturnBody,
+} from "./returns";
 export { listStockMovements } from "./stock-movements";
 export { listSpareParts, getSparePart } from "./spare-parts";
 export { listPrices, setPrice } from "./price-lists";

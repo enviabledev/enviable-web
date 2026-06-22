@@ -283,6 +283,11 @@ export default function UnitDetailPage() {
   const unit = state.unit;
   const isFromMirror = state.fromMirror === true;
   const variantFull = formatVariantName(unit.productVariant, unit.productVariant.product.name);
+  // Cross-context link to the return: the RETURN movement carries the return id
+  // as its referenceId, so no extra fetch is needed. Most recent first.
+  const returnRef = unit.movements.find(
+    (m) => m.referenceType === "RETURN" && m.referenceId,
+  )?.referenceId;
 
   return (
     <div className="max-w-[1120px] mx-auto pb-10">
@@ -326,6 +331,24 @@ export default function UnitDetailPage() {
           </button>
         )}
       </header>
+
+      {returnRef && (
+        <div
+          data-testid="unit-return-callout"
+          className="mb-6 px-4 py-3 rounded-[4px] border border-[var(--color-navy-700)] bg-[var(--color-navy-50)] flex items-center justify-between gap-3 flex-wrap"
+        >
+          <span className="text-[12.5px] text-[var(--color-ink-900)]">
+            This unit has a customer return on record.
+          </span>
+          <Link
+            href={`/sales/returns/${returnRef}`}
+            data-testid="unit-return-link"
+            className="text-[12.5px] font-medium text-[var(--color-navy-700)] hover:underline shrink-0"
+          >
+            View return →
+          </Link>
+        </div>
+      )}
 
       <SummaryCard unit={unit} />
       <TimelineCard movements={unit.movements} currentStatus={unit.status} />

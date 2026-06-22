@@ -47,6 +47,15 @@ export function ProformaIcon(props: IconProps) {
   );
 }
 
+export function ReturnsIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M6 5L3 8l3 3" />
+      <path d="M3 8h6.5A3.5 3.5 0 0113 11.5V13" />
+    </svg>
+  );
+}
+
 export function SuppliersIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

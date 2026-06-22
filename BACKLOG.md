@@ -1013,3 +1013,58 @@ Decisions / findings:
   entries (pre-existing generic audit render). The adjust write + audit are verified
   at the API/contract level (round-trip + audit annotation), not the audit-screen
   render.
+
+## Returns module (prompt 40)
+
+Shipped: Returns nav entry + list (/sales/returns, network-only, status filter),
+return detail (/sales/returns/:id) with state-gated Begin-inspection and Resolve
+actions, InitiateReturnModal (from the SO detail, SO-scoped), ResolveReturnModal
+(REPAIR / WRITE_OFF + consequence), ReturnStatusPill, and cross-context surfaces:
+an Initiate-return affordance + a Returns card on the sales-order detail, and a
+"View return" callout on the unit detail (sourced from the RETURN movement's
+referenceId, no extra fetch). All writes gated return.manage; reads salesorder.read.
+
+Audit-first findings (the backend is much leaner than the prompt assumed):
+- The Return model is minimal: one unit + one SO + a free-text reason + a
+  disposition. Workflow is INITIATED -> INSPECTING -> RESOLVED.
+- Dispositions are ONLY REPAIR and WRITE_OFF. There is no refund / replace /
+  supplier-claim, and no condition-claimed/condition-actual inspection fields.
+  Inspect takes NO body (it just advances the status). The elaborate resolution
+  modals in the prompt were not buildable; built exactly what exists.
+- Permissions are COARSE: a single return.manage gates initiate + inspect +
+  resolve (not granular per-step). Mirrored on the client.
+- Initiate is sales-order-scoped (POST /sales-orders/:id/returns): the entry
+  point is the SO detail, picking a currently-SOLD unit on that order (I-15).
+- Resolution cascades the unit: REPAIR -> IN_REPAIR, WRITE_OFF -> WRITTEN_OFF;
+  initiate cascades SOLD_* -> RETURNED. Verified live end to end.
+
+e2e (returns.spec): full workflow initiate->inspect->resolve(REPAIR); list +
+status filter; cross-context unit-return callout; permission gating (a
+salesorder.read user sees the list but no Initiate action); responsive
+375/768/1280. The full-workflow test is CONSUMPTIVE (the workflow is forward-
+only, so each run turns one SOLD unit into a return) and test.skip()s gracefully
+once the fixture order's SOLD units are exhausted, so the suite stays green on
+re-run. SO-2026-0002's SOLD units are now exhausted by this round's runs; a
+future workflow run needs a different SO with SOLD units (or a re-seed).
+
+Deferred / open findings:
+- WARRANTY (flag for Theresa): the backend resolve() has an explicit deferred
+  warranty hook (currently a no-op) "pending Theresa's contractual answers and a
+  future schema change." When warranty-validity tracking lands it will inform or
+  constrain the disposition (e.g. in-warranty defects routed to REPAIR at no
+  charge). The UI will need warranty surfacing then; nothing to build until the
+  backend does.
+- Customer-context returns link NOT built: the returns list endpoint has no
+  customer filter and rows carry only the sales order (not the customer), so a
+  per-customer returns view would need a client-side return->SO->customer join
+  against an unfiltered list. Deferred rather than build a fragile join; revisit
+  if a customer returns view is wanted (likely a small backend filter is the
+  right fix).
+- Returns are not in the sync mirror, so the returns screens are network-only
+  (offline shows a graceful notice). Acceptable: returns are a deliberate online
+  workflow. If offline read is wanted later, add a returns mirror bucket.
+- e2e NOT written at visible-outcome level for: the WRITE_OFF resolution path
+  (only REPAIR is driven; WRITE_OFF is covered by the modal option + the live
+  contract probe), and the audit-log rendering of return.initiate/inspect/
+  resolve (generic audit render, not asserted). Covered by construction +
+  walkthrough.
