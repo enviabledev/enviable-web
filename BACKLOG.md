@@ -932,3 +932,36 @@ Deferred / open findings:
   rendering. The UI compiles and the read/dry/modal paths are verified; the
   write-commit and audit-render paths are verified at the API/contract level,
   not yet at the visible-outcome level.
+
+## Historical-load shipment selector (prompt 38)
+
+Shipped: free-text shipment-id input replaced with a ShipmentSelect dropdown
+(label = reference SH-YYYY-NNNN, value = cuid). Mirror-first + listShipments
+revalidate, recent-first by createdAt, status shown per option. Section-1
+auto-flow now passes {id, reference} and the just-created shipment is injected
+ahead of the mirror so it shows selected immediately. Closes the cuid-vs-
+reference UX failure carried from the historical-load diagnostic round.
+
+e2e (shipment-selector.spec, 3 scenarios, green): lists-by-reference + cuid-in-
+request-path (never the reference); section-1 auto-flow pre-selects the created
+shipment; responsive 375/768/1280. The historical-load-dryrun + variant-
+autocreate specs were updated from .fill() to .selectOption() and stay green.
+
+Decisions / notes:
+- NO hard shipment-status filter. Section 1 creates the parent shipment directly
+  in RECEIVED (isHistoricalImport=true) and the backend units-load does not gate
+  on status, so a pre-receive filter would hide the exact shipments this screen
+  targets and break the auto-flow. Status is shown per option as context instead.
+  If an "actionable states only" view is wanted later, add it as an opt-in toggle,
+  not a default.
+- The units free-text input (and its input-layer trim from the prior round) is
+  gone; the selector makes a whitespace/wrong-shape id structurally impossible.
+  The defensive trim in loadHistoricalUnits (API helper) stays as a backstop for
+  any other caller.
+- Empty-state branch ("No shipments available yet…") is NOT driven by a live e2e
+  assertion: the dev DB always has shipments and the mirror fills on sync, so the
+  zero-shipments + empty-mirror condition is not reproducible without DB/IDB
+  surgery. Covered by construction + typecheck; flagged here honestly.
+- No display cap on the option list yet (all shipments, recent-first). Fine at
+  current scale; add a "most recent N + typeahead" cap if the shipment count
+  grows large.

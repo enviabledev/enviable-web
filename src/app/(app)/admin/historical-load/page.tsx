@@ -45,6 +45,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { HistoricalLoadIcon } from "@/components/icons";
+import ShipmentSelect from "@/components/shipments/ShipmentSelect";
 import Modal from "@/components/ui/Modal";
 import {
   createHistoricalShipment,
@@ -62,9 +63,14 @@ export default function HistoricalLoadPage() {
   const { has } = usePermissions();
   const canRun = has("historicalload.run");
 
-  // Cross-section state: the shipment id created in section 1 flows
-  // automatically into section 2's "Shipment id" field as a convenience.
-  const [createdShipmentId, setCreatedShipmentId] = useState<string>("");
+  // Cross-section state: the shipment created in section 1 flows automatically
+  // into section 2's shipment selector as a convenience. Carries the reference
+  // (not just the id) so the selector can show it labelled and selected even
+  // before the mirror has synced the new row.
+  const [createdShipment, setCreatedShipment] = useState<{
+    id: string;
+    reference: string;
+  } | null>(null);
 
   if (!canRun) {
     return (
@@ -107,8 +113,8 @@ export default function HistoricalLoadPage() {
       <BulkAdminWarning />
 
       <div className="grid gap-4">
-        <ShipmentSection onCreated={setCreatedShipmentId} />
-        <UnitsSection initialShipmentId={createdShipmentId} />
+        <ShipmentSection onCreated={setCreatedShipment} />
+        <UnitsSection initialShipment={createdShipment} />
         <SparePartsSection />
       </div>
     </div>
@@ -152,7 +158,11 @@ type ShipmentFormState =
   | { status: "success"; result: CreatedHistoricalShipment }
   | { status: "error"; message: string };
 
-function ShipmentSection({ onCreated }: { onCreated: (shipmentId: string) => void }) {
+function ShipmentSection({
+  onCreated,
+}: {
+  onCreated: (shipment: { id: string; reference: string }) => void;
+}) {
   const [suppliers, setSuppliers] = useState<Counterparty[]>([]);
   const [form, setForm] = useState({
     supplierId: "",
@@ -203,7 +213,7 @@ function ShipmentSection({ onCreated }: { onCreated: (shipmentId: string) => voi
     const r = await createHistoricalShipment(body);
     if (r.kind === "ok") {
       setState({ status: "success", result: r.data });
-      onCreated(r.data.id);
+      onCreated({ id: r.data.id, reference: r.data.shipment.shipmentReference });
     } else if (r.kind === "validation") {
       setState({
         status: "error",
@@ -384,14 +394,18 @@ function ShipmentSection({ onCreated }: { onCreated: (shipmentId: string) => voi
 // SECTION 2: Historical Units (CSV upload + dry-run/commit)
 // =====================================================================
 
-function UnitsSection({ initialShipmentId }: { initialShipmentId: string }) {
+function UnitsSection({
+  initialShipment,
+}: {
+  initialShipment: { id: string; reference: string } | null;
+}) {
   return (
     <CsvUploadSection
       title="Historical units"
       description="Bulk-create Units (with paired RECEIPT stock movements) under an existing Shipment. CSV columns: productVariantSku, engineNumber, chassisNumber. Validation is all-or-nothing: any row error rejects the whole commit."
       csvColumns={["productVariantSku", "engineNumber", "chassisNumber"]}
       requiresShipmentId
-      initialShipmentId={initialShipmentId}
+      initialShipment={initialShipment}
       kind="units"
     />
   );
@@ -408,7 +422,7 @@ function SparePartsSection() {
       description="Bulk-upsert SparePart catalogue rows (incrementing quantityOnHand by sku). CSV columns: sku, name, quantity. New SKUs are created; existing SKUs have their quantity added to."
       csvColumns={["sku", "name", "quantity"]}
       requiresShipmentId={false}
-      initialShipmentId=""
+      initialShipment={null}
       kind="spareParts"
     />
   );
@@ -442,16 +456,17 @@ function CsvUploadSection({
   description,
   csvColumns,
   requiresShipmentId,
-  initialShipmentId,
+  initialShipment,
   kind,
 }: {
   title: string;
   description: string;
   csvColumns: string[];
   requiresShipmentId: boolean;
-  initialShipmentId: string;
+  initialShipment: { id: string; reference: string } | null;
   kind: "units" | "spareParts";
 }) {
+  const initialShipmentId = initialShipment?.id ?? "";
   const [shipmentId, setShipmentId] = useState(initialShipmentId);
   const [file, setFile] = useState<File | null>(null);
   const [state, setState] = useState<CsvUploadState>({ status: "idle" });
@@ -558,24 +573,22 @@ function CsvUploadSection({
       </div>
 
       {requiresShipmentId && (
-        <Field label="Shipment id (required)">
-          <input
-            type="text"
+        <Field label="Shipment (required)">
+          {/* A selector, not a free-text input: the backend keys on the shipment
+              cuid, but users only ever see the reference (SH-YYYY-NNNN). The
+              dropdown shows references as labels and submits cuids as values, so
+              a request can never carry a wrong-shaped id. The section-1 auto-flow
+              passes its just-created shipment via `injected` so it shows selected
+              immediately. */}
+          <ShipmentSelect
             value={shipmentId}
-            onChange={(e) => {
-              // Trim on entry: pasting a shipment id/reference commonly carries a
-              // leading/trailing space, which would otherwise become %20 in the
-              // request path and 404. Paired with a defensive trim in
-              // loadHistoricalUnits (the API helper); both are intentional, do not
-              // remove one as a "cleanup". Input trim catches the common paste
-              // case here; helper trim protects any future caller that bypasses
-              // this input.
-              setShipmentId(e.target.value.trim());
+            onChange={(id) => {
+              setShipmentId(id);
+              // Changing the shipment changes the upload context; reset the gate.
               setState({ status: "idle" });
             }}
-            data-testid={`hist-${kind}-shipmentId`}
-            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px] font-mono w-full max-w-[400px]"
-            placeholder="paste from above, or use the shipment created in section 1"
+            injected={initialShipment}
+            testId={`hist-${kind}-shipmentId`}
           />
         </Field>
       )}

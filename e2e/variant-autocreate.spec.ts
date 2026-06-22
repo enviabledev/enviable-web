@@ -99,7 +99,7 @@ test("historical-load: newVariants preview, similarity warning, and override tog
   ).toBeVisible();
 
   const stamp = Date.now();
-  await page.getByTestId("hist-units-shipmentId").fill(SHIPMENT_CUID);
+  await page.getByTestId("hist-units-shipmentId").selectOption(SHIPMENT_CUID);
 
   // A genuinely-new SKU previews in the "will create N new variants" surface.
   const newCsv = writeCsv("e2e-new.csv", [

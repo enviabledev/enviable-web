@@ -38,7 +38,7 @@ async function login(page: Page) {
   await page.waitForURL((u) => !u.pathname.startsWith("/login"));
 }
 
-test("real CSV dry-run: input trims, and the real SKU now resolves clean", async ({
+test("real CSV dry-run: select shipment, real SKU resolves clean", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -48,11 +48,10 @@ test("real CSV dry-run: input trims, and the real SKU now resolves clean", async
     page.getByRole("heading", { name: "Historical data load" }),
   ).toBeVisible();
 
-  // Type a LEADING SPACE before the valid cuid. Pre-fix this would survive
-  // into the path as %20 and 404; the input now trims on entry.
-  const idInput = page.getByTestId("hist-units-shipmentId");
-  await idInput.fill(` ${SHIPMENT_CUID}`);
-  await expect(idInput).toHaveValue(SHIPMENT_CUID); // trimmed, no leading space
+  // Pick the parent shipment from the selector (label = reference, value = cuid).
+  // The old free-text input + leading-space %20 failure is structurally gone: a
+  // select submits the cuid value and can never carry whitespace.
+  await page.getByTestId("hist-units-shipmentId").selectOption(SHIPMENT_CUID);
 
   // Attach the real Enviable CSV (92 rows, all SKU "TVS KING GS+ DP CKD EXP10
   // G YELLOW").
