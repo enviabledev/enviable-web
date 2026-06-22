@@ -896,3 +896,39 @@ e2e: 11 assertions (visibility by state + permission, pre-seeding, partial qty,
 line removal, DISCONTINUED-kept, create+link to detail IN_TRANSIT, edit-persists,
 edit-hidden-after-receive, end-to-end create->clear->receive into inventory,
 responsive 375/768/1280).
+
+## Variant auto-create UI (prompt 37-followup)
+
+Shipped (verified + committed b5c48b4): similarity-warning surfaces, pending-
+classification list/detail, reclassification, PO line SKU-or-id input, shared
+SimilarityWarningModal, historical-load newVariants/similarity/override toggle,
+audit surfacing of productvariant.autocreate.
+
+e2e added (variant-autocreate.spec, 3 scenarios, green against live backend):
+pending banner + filter + pill + detail curation surface; historical-load
+newVariants preview + similarity warning + override-moves-to-newVariants; PO
+line SKU mode opens the SimilarityWarningModal with both SKUs + three choices.
+Base variant-mgmt suite (9) still green; historical-load-dryrun spec updated to
+the resolved-catalog reality.
+
+Deferred / open findings:
+- Per-row override on historical-load is file-level only (one toggle applies to
+  every similarity-flagged row). The data model supports per-row decisions; the
+  API does not expose them yet. MVP-acceptable: a mixed upload is handled by
+  editing specific row SKUs or overriding the whole file. Revisit post-launch if
+  operators hit it.
+- supplierSkuCode has no DB unique index; app-level uniqueness holds at single-
+  operator scale but a high-volume concurrent upload could theoretically race a
+  duplicate. Low risk for Enviable's scale. Backend hardening (enviable-system),
+  not blocking.
+- Historical-load shipment-id field takes the system cuid, not the human-readable
+  reference (SH-2026-NNNN). The Section-1 auto-flow passes the cuid correctly, but
+  a manual paste of the reference 404s. Frontend fix: replace the free-text field
+  with a recent-shipments selector (value = cuid, label = reference). In scope,
+  not yet done. Carried from the historical-load trim-fix round.
+- e2e coverage NOT yet written for: destructive commit paths (historical-load
+  commit auto-creating real variants; PO create persisting an auto-created
+  variant; an actual reclassification mutation), and the audit-log auto-create
+  rendering. The UI compiles and the read/dry/modal paths are verified; the
+  write-commit and audit-render paths are verified at the API/contract level,
+  not yet at the visible-outcome level.
