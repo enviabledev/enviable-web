@@ -10,6 +10,7 @@ import type { UnitStatus } from "./types";
  *   POST /api/assembly-jobs            bulk start (assembly.perform), body { unitRefs }
  *   POST /api/assembly-jobs/:id/complete         (assembly.perform)
  *   POST /api/assembly-jobs/:id/fail             (assembly.perform)
+ *   POST /api/assembly-jobs/:id/cancel           (assembly.perform), body { reason }
  *
  * NOTE the corrected permission: every write requires assembly.perform (not
  * the assembly.start / assembly.complete the design handoff implied). Start is
@@ -17,6 +18,13 @@ import type { UnitStatus } from "./types";
  * IN_PROGRESS job per unit and pivots each IN_WAREHOUSE_CKD unit to
  * IN_ASSEMBLY, atomically. complete pivots the unit to IN_WAREHOUSE_CBU; fail
  * pivots it to DAMAGED.
+ *
+ * cancel (prompt 44) cleanly reverses an IN_PROGRESS job: it pivots the unit
+ * back to IN_WAREHOUSE_CKD (intact) via an ADJUSTMENT movement and closes the
+ * job as CANCELLED, atomically. It requires a non-empty (trimmed) reason,
+ * threaded to the reversal movement notes and the job notes. The intact
+ * reversal is only legal from IN_PROGRESS; a completed CBU unit that needs
+ * damage handling goes through the generic adjust flow instead.
  *
  * Conflicts are string-message ConflictExceptions (not the structured-
  * violations shape that unit receipt uses), e.g.:
@@ -30,6 +38,7 @@ export const ASSEMBLY_JOB_STATUS = [
   "IN_PROGRESS",
   "COMPLETED",
   "FAILED",
+  "CANCELLED",
 ] as const;
 export type AssemblyJobStatus = (typeof ASSEMBLY_JOB_STATUS)[number];
 
@@ -114,9 +123,27 @@ export async function failAssembly(
 }
 
 /**
- * State-machine legality. complete and fail both require the job to be
+ * Clean cancel of an IN_PROGRESS job. Reverts the unit to IN_WAREHOUSE_CKD
+ * (intact) and closes the job as CANCELLED. The reason is mandatory and
+ * non-empty after trimming; the backend 400s on a blank reason (mirror that
+ * client-side) and 409s if the job is no longer IN_PROGRESS. Returns the
+ * updated job (full JOB_INCLUDE shape, the same as complete/fail).
+ */
+export async function cancelAssembly(
+  id: string,
+  reason: string,
+): Promise<ApiResult<AssemblyJob>> {
+  const encoded = encodeURIComponent(id);
+  return apiFetch<AssemblyJob>(`/api/assembly-jobs/${encoded}/cancel`, {
+    method: "POST",
+    body: { reason },
+  });
+}
+
+/**
+ * State-machine legality. complete, fail, and cancel all require the job to be
  * IN_PROGRESS (the backend re-asserts this and 409s otherwise). Mirror the
- * gate on the client so the action only renders when legal, the same
+ * gate on the client so the actions only render when legal, the same
  * state-and-permission gate the other workflow screens use.
  */
 export function assemblyJobIsActionable(status: AssemblyJobStatus): boolean {

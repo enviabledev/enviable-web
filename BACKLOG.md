@@ -1068,3 +1068,67 @@ Deferred / open findings:
   contract probe), and the audit-log rendering of return.initiate/inspect/
   resolve (generic audit render, not asserted). Covered by construction +
   walkthrough.
+
+## Assembly cancel (prompt 44b) - shipped (frontend-only)
+
+Shipped against the 44a backend (`POST /api/assembly-jobs/:id/cancel`, body
+`{reason}`, gated assembly.perform, IN_ASSEMBLY -> IN_WAREHOUSE_CKD intact, job
+-> CANCELLED): a "Cancel Assembly" action on the assembly job detail (visible
+only when the job is IN_PROGRESS and the principal has assembly.perform, sitting
+alongside Complete/Fail), a `CancelAssemblyJobModal` reason-capture modal
+(reusing the SO-cancel pattern: pick-list + Other free-text, required non-empty
+trimmed reason mirroring the backend 400), CANCELLED added to the frontend
+`ASSEMBLY_JOB_STATUS` enum and the `AssemblyStatusPill` (grey tone, "Cancelled"
+label + shorthand). Cross-context verified end to end (Playwright + DB): job
+CANCELLED, unit reverted to IN_WAREHOUSE_CKD, the cancel-reason ADJUSTMENT
+movement appears in the unit's timeline (fromState IN_ASSEMBLY -> toState
+IN_WAREHOUSE_CKD, notes = reason), and the audit entry (`assembly.cancel`,
+AssemblyJob, actor present, afterState.status CANCELLED + notes = reason) is
+written. Online-only write (modal blocks offline), consistent with SO cancel.
+
+Findings / observations:
+
+- UX, cancel-vs-fail decision point: the detail page now offers three terminal
+  actions (Complete / Fail / Cancel) with NO inline guidance on when Cancel
+  applies versus Fail. The semantic line is real and easy to get wrong: Fail
+  marks the unit DAMAGED (irreversible damage handling), Cancel reverts the unit
+  to IN_WAREHOUSE_CKD intact (clean, re-assemblable). A supervisor who picks the
+  wrong one creates a wrong unit state with real downstream cost (a DAMAGED unit
+  needs a separate adjust to recover). The modal's framing text disambiguates
+  Cancel, and the Fail ConfirmBar disambiguates Fail, but only AFTER the button
+  is clicked. Consider a one-line helper under the action row ("Cancel = stop an
+  in-progress build, unit stays intact. Fail = the unit was damaged during
+  assembly.") so the distinction is visible before commitment. Deferred: the
+  per-action confirmation copy already states the consequence; a pre-click hint
+  is a refinement, not a correctness gap.
+
+- Pill tone choice (recorded, not a gap): CANCELLED is rendered grey, NOT danger
+  (red), deliberately distinct from FAILED. A cancel is a clean intact reversal,
+  not a failure; the SO pill uses danger for CANCELLED, but for assembly the
+  red is reserved for FAILED (Damaged) so the two terminal-but-different outcomes
+  read apart at a glance. If a future design pass wants cross-entity pill-tone
+  uniformity for CANCELLED, this is the deliberate deviation to revisit.
+
+- Assembly jobs LIST has no status-filter control at all (it is a plain table,
+  no filter UI). The prompt asked to "include CANCELLED in the status filter if
+  not already present"; since there is no filter to extend, the deliverable
+  reduced to the CANCELLED pill shorthand (shipped). If a status filter is wanted
+  on the assembly list later, build it to include all four states
+  (IN_PROGRESS / COMPLETED / FAILED / CANCELLED).
+
+- Mobile responsiveness (375/768/1280 verified): the three action buttons stack
+  full-width at <640px (existing flex-col) and sit in a row at sm+. With three
+  terminal actions the mobile stack is now three full-width buttons tall before
+  the lifecycle card; acceptable at 375 but the action column is getting heavy.
+  If a fourth action is ever added, reconsider collapsing secondary actions
+  (Fail/Cancel) into an overflow menu on mobile rather than a fourth stacked
+  full-width button. No change needed now.
+
+- Cancel is online-only with no offline queue (unlike Complete/Fail, which queue
+  through the sync engine). This matches SO cancel and the reason-capture write
+  pattern. If field supervisors need to cancel offline later, the queueing
+  machinery exists (queueCompleteAssembly/queueFailAssembly) and a
+  queueCancelAssembly with the reason payload would follow the same shape; the
+  honest "saved locally, will sync" UX would need the reason captured before the
+  offline branch. Deferred: cancel is an administrative correction, less
+  time-critical than complete/fail on the floor.

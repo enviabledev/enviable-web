@@ -29,16 +29,21 @@ const TONE_CLASSES: Record<PillTone, { bg: string; fg: string; dot: string }> = 
   },
 };
 
+// CANCELLED is grey, not danger: a cancel is a clean, intact reversal back to
+// CKD, not a failure (FAILED, red, marks the unit Damaged). Keeping the two
+// tones distinct lets the pill carry that semantic difference at a glance.
 const STATUS_TONE: Record<AssemblyJobStatus, PillTone> = {
   IN_PROGRESS: "amber",
   COMPLETED: "success",
   FAILED: "danger",
+  CANCELLED: "grey",
 };
 
 const STATUS_LABEL: Record<AssemblyJobStatus, string> = {
   IN_PROGRESS: "In Progress",
   COMPLETED: "Completed",
   FAILED: "Failed",
+  CANCELLED: "Cancelled",
 };
 
 // Fixed mobile shorthand (RESPONSIVE.md): same input -> same output, full label at sm+.
@@ -46,6 +51,7 @@ const SHORT_LABEL: Record<AssemblyJobStatus, string> = {
   IN_PROGRESS: "Active",
   COMPLETED: "Done",
   FAILED: "Failed",
+  CANCELLED: "Cancelled",
 };
 
 export default function AssemblyStatusPill({ status }: { status: AssemblyJobStatus }) {

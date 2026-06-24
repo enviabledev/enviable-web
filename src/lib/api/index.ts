@@ -64,6 +64,7 @@ export {
   startAssembly,
   completeAssembly,
   failAssembly,
+  cancelAssembly,
   assemblyJobIsActionable,
   ASSEMBLY_JOB_STATUS,
 } from "./assembly";

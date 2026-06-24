@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import AssemblyStatusPill from "@/components/assembly/AssemblyStatusPill";
+import CancelAssemblyJobModal from "@/components/assembly/CancelAssemblyJobModal";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import StatusPill from "@/components/units/StatusPill";
@@ -97,6 +98,10 @@ export default function AssemblyJobDetailPage() {
 
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [action, setAction] = useState<ActionState>({ status: "idle" });
+  // Cancel runs through its own reason-capture modal (it needs a mandatory
+  // reason, unlike the binary complete/fail confirm), so it is kept out of the
+  // ActionState union and driven by this flag.
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   useEffect(() => {
     if (!canRead || !id) return;
@@ -349,6 +354,15 @@ export default function AssemblyJobDetailPage() {
             >
               {action.status === "submitting" && action.action === "fail" ? "Failing..." : "Fail Assembly"}
             </button>
+            <button
+              type="button"
+              onClick={() => setCancelOpen(true)}
+              disabled={action.status === "submitting"}
+              data-testid="cancel-assembly-open"
+              className="h-8 px-3 rounded-[3px] text-[12.5px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-ink-700)] hover:bg-[var(--color-ink-100)] disabled:opacity-50 inline-flex items-center justify-center"
+            >
+              Cancel Assembly
+            </button>
           </div>
         )}
         {actionable && !canPerform && (
@@ -437,6 +451,24 @@ export default function AssemblyJobDetailPage() {
 
       <LifecycleCard unitStatus={d.unitStatus} jobStatus={d.status} />
       <DetailCard d={d} />
+
+      <CancelAssemblyJobModal
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        jobId={id}
+        engineNumber={d.engineNumber}
+        onSuccess={(job) => {
+          // Reflect the server's authoritative new state: job CANCELLED and the
+          // embedded unit reverted to IN_WAREHOUSE_CKD. Reuse the current
+          // variant context (unchanged by a cancel).
+          setCancelOpen(false);
+          setAction({ status: "idle" });
+          setState((prev) => {
+            const variant = prev.status === "ok" ? prev.detail.variant : { label: null, sku: null, productName: null };
+            return { status: "ok", detail: detailFromJob(job, variant), fromMirror: false };
+          });
+        }}
+      />
     </div>
   );
 }
