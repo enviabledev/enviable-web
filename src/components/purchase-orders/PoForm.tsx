@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
+import ProductTypeFilterChip from "@/components/products/ProductTypeFilterChip";
 import SimilarityWarningModal from "@/components/products/SimilarityWarningModal";
 import {
   flattenVariantOptions,
@@ -13,10 +14,12 @@ import {
   type CreatePoLine,
   type Counterparty,
   type PoDetail,
+  type ProductType,
   type ProductWithVariants,
   type SimilarVariantConflict,
 } from "@/lib/api";
 import { formatNGN } from "@/lib/format";
+import { useVariantTypeMap } from "@/lib/products/use-variant-type-map";
 
 // A line references a variant by EITHER the picker (existing id) OR a free-text
 // SKU (the auto-create path for a variant not yet in the catalogue). mode
@@ -121,12 +124,22 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
     return () => ctrl.abort();
   }, []);
 
-  const variantOptions = useMemo(() => flattenVariantOptions(products), [products]);
+  const allVariantOptions = useMemo(() => flattenVariantOptions(products), [products]);
   const variantById = useMemo(() => {
-    const m = new Map<string, (typeof variantOptions)[number]>();
-    for (const v of variantOptions) m.set(v.productVariantId, v);
+    const m = new Map<string, (typeof allVariantOptions)[number]>();
+    for (const v of allVariantOptions) m.set(v.productVariantId, v);
     return m;
-  }, [variantOptions]);
+  }, [allVariantOptions]);
+
+  // Type filter chip (prompt 45). A PO can mix wheeler types (Enviable orders
+  // both from VSK), so this is a convenience filter, not enforcement. /api/products
+  // omits productType, so it is read from the shared variant-type map.
+  const variantTypeMap = useVariantTypeMap();
+  const [typeFilter, setTypeFilter] = useState<ProductType | "ALL">("ALL");
+  const variantOptions = useMemo(() => {
+    if (typeFilter === "ALL") return allVariantOptions;
+    return allVariantOptions.filter((v) => variantTypeMap.get(v.productVariantId) === typeFilter);
+  }, [allVariantOptions, typeFilter, variantTypeMap]);
 
   const lineTotal = (l: LineRow): number => {
     const q = Number(l.quantityOrdered);
@@ -373,11 +386,12 @@ export default function PoForm({ mode, initial, onSubmit, submitLabel }: PoFormP
 
       <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-4">
         <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex items-center justify-between">
-          <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">
+          <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)] flex items-center gap-3 flex-wrap">
             Line items
-            <span className="text-[11px] text-[var(--color-ink-500)] font-medium ml-2">
+            <span className="text-[11px] text-[var(--color-ink-500)] font-medium">
               {lines.length} {lines.length === 1 ? "line" : "lines"}
             </span>
+            <ProductTypeFilterChip value={typeFilter} onChange={setTypeFilter} testId="po-type-filter" />
           </h2>
           <button
             type="button"

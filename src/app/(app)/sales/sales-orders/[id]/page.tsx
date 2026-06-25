@@ -46,8 +46,10 @@ import {
   type SoStatus,
   type UnitStatus,
 } from "@/lib/api";
+import ProductTypePill from "@/components/products/ProductTypePill";
 import RecordPaymentForm from "@/components/sales-orders/RecordPaymentForm";
 import { SalesPiCard } from "@/components/sales-orders/SalesProformaInvoiceLinks";
+import { useVariantTypeMap } from "@/lib/products/use-variant-type-map";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime, formatNGN } from "@/lib/format";
 import { salesInvoiceDoc } from "@/lib/invoices/pdf";
@@ -118,6 +120,9 @@ export default function SalesOrderDetailPage() {
   const id = useUrlLastSegment();
 
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  // Order type (prompt 45) = the first line's variant productType. The SO line
+  // shape omits productType, so it is resolved from the shared variant-type map.
+  const variantTypeMap = useVariantTypeMap();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [invoiceChecked, setInvoiceChecked] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -353,6 +358,9 @@ export default function SalesOrderDetailPage() {
 
   const so = state.so;
   const isFromMirror = state.fromMirror === true;
+  const orderType = so.lines[0]
+    ? variantTypeMap.get(so.lines[0].productVariantId) ?? null
+    : null;
   const canEditSo = has("salesorder.create") && soIsEditable(so.status);
   const canSubmit = has("salesorder.create") && so.status === "DRAFT";
   const canGenerateInvoice = has("salesorder.create") && invoiceChecked && !invoice &&
@@ -473,6 +481,12 @@ export default function SalesOrderDetailPage() {
               <span className="font-mono">{so.soNumber}</span>
             </h1>
             <SoStatusPill status={so.status} />
+            {orderType && (
+              <span data-testid="so-detail-order-type" className="inline-flex items-center gap-1 text-[11px] text-[var(--color-ink-500)]">
+                <ProductTypePill type={orderType} />
+                order
+              </span>
+            )}
             {isFromMirror && <FreshnessBadge />}
           </div>
           <div className="text-[13px] text-[var(--color-ink-500)]">

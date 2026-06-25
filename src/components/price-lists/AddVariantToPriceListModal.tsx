@@ -18,8 +18,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import Modal from "@/components/ui/Modal";
-import { flattenVariantOptions, listProducts, type ProductWithVariants } from "@/lib/api";
+import ProductTypeFilterChip from "@/components/products/ProductTypeFilterChip";
+import { flattenVariantOptions, listProducts, type ProductType, type ProductWithVariants } from "@/lib/api";
 import { useConnectivity } from "@/lib/sync/connectivity";
+import { useVariantTypeMap } from "@/lib/products/use-variant-type-map";
 
 type TierOption = { id: string; name: string };
 
@@ -42,6 +44,8 @@ export default function AddVariantToPriceListModal({
   const [search, setSearch] = useState("");
   const [variantId, setVariantId] = useState("");
   const [tierId, setTierId] = useState(initialTierId);
+  const [typeFilter, setTypeFilter] = useState<ProductType | "ALL">("ALL");
+  const variantTypeMap = useVariantTypeMap();
 
   useEffect(() => {
     if (!open) return;
@@ -60,12 +64,12 @@ export default function AddVariantToPriceListModal({
 
   const filtered = useMemo(() => {
     const q = search.trim().toUpperCase();
-    if (!q) return options;
-    return options.filter(
-      (o) =>
-        o.label.toUpperCase().includes(q) || o.productName.toUpperCase().includes(q),
-    );
-  }, [options, search]);
+    return options.filter((o) => {
+      if (typeFilter !== "ALL" && variantTypeMap.get(o.productVariantId) !== typeFilter) return false;
+      if (!q) return true;
+      return o.label.toUpperCase().includes(q) || o.productName.toUpperCase().includes(q);
+    });
+  }, [options, search, typeFilter, variantTypeMap]);
 
   const canSubmit = variantId.length > 0 && tierId.length > 0 && !offline;
 
@@ -134,6 +138,9 @@ export default function AddVariantToPriceListModal({
           <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">
             Variant
           </span>
+          <div className="mb-1">
+            <ProductTypeFilterChip value={typeFilter} onChange={setTypeFilter} testId="price-list-type-filter" />
+          </div>
           <input
             type="text"
             value={search}

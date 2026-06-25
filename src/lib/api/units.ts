@@ -14,6 +14,7 @@ export async function listUnits(
     page: query.page,
     pageSize: query.pageSize,
     variantId: query.variantId,
+    productType: query.productType,
     status: query.status,
     warehouseId: query.warehouseId,
     receivedFrom: query.receivedFrom,

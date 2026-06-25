@@ -1273,3 +1273,80 @@ Decisions / findings:
   No horizontal overflow at any of the three widths; the affordances are 28px tall
   (tappable). The invoices-tab inline PI link reuses the existing row-action
   cluster (View / Print), so it inherited the responsive behavior for free.
+
+## ProductType (2-wheeler / 3-wheeler) integration (prompt 45b) - shipped (frontend)
+
+Shipped against the 45a backend (ProductType { TWO_WHEELER, THREE_WHEELER } on
+ProductVariant; create requires it, PATCH accepts it, GET /api/product-variants
+?productType=&status=&search= returns it, GET /api/units?productType= filters via
+the variant relation, SO type enforced off lines[0] with a 409, PI/invoice bank
+routing by type on the backend): a required product-type selector on the variant
+create form; an editable type + "Change product type" affordance + a "verify type"
+curation cue on the variant detail; a productType filter + column on the variant
+list (re-sourced from GET /api/product-variants, which carries productType, vs the
+old GET /api/products which omits it); SO single-type enforcement (the line picker
+filters to the order's established type, an "This order: Nw" indicator, and a clear
+409 panel on mismatch); an order-type pill on the SO detail; type filter chips on
+the PO and price-list pickers; a productType filter + column on the units list and
+a Product Type row on the unit detail; a shared ProductTypePill, ProductTypeFilterChip,
+useVariantTypeMap hook, and product-type lib. 35/35 + 4/4 Playwright assertions
+pass (a-ff; y is skip-by-design). Documents need no frontend change (bank routing
+is backend); verified the 3-wheeler PI shows the real account and the 2-wheeler PI
+shows the 0000000000 placeholder.
+
+Findings / observations:
+
+- SKD-vs-CBU OPERATIONAL LANGUAGE (flag for Theresa bundle): per the 45a audit,
+  there is NO SKD-vs-CBU distinction in the codebase: both wheeler types complete
+  assembly to IN_WAREHOUSE_CBU, so the assembly UI is product-type agnostic (no
+  conditional was added). If users expect "SKD-ready" labelling on 3-wheelers (or
+  any 2W-vs-3W difference in the assembly flow), that is a product-language gap
+  between operations and engineering, not a code gap. Surfacing it here so the
+  Theresa bundle can decide whether the assembly screens need type-aware copy.
+
+- No backend guard on reclassification (verified live): PATCH productType on a
+  variant that is already referenced by SO lines / units succeeds with 200 (no
+  409). The frontend surfaces a conflict cleanly IF the backend ever adds a guard
+  (saveEdit handles the conflict kind), but today reclassifying a referenced
+  variant silently changes the type that downstream documents route on. The unit
+  rows inherit the new type immediately (the type is read live from the variant,
+  not snapshotted). If finance needs reclassification to be blocked or warned when
+  references exist, that is a backend guard to add; the frontend is ready for it.
+
+- The 2-wheeler bank account is the placeholder 0000000000 until Theresa provides
+  the real details via the env var (45a). No frontend banner was added: the
+  document itself shows the account, and the placeholder is self-evidently a
+  placeholder. If a dev/staging "placeholder bank in use" hint is wanted, it would
+  go on the SO detail PI card, gated on the SO being 2-wheeler; deferred pending a
+  request (the deploy-time env update is the real fix).
+
+- API-shape gap (worked around, candidate for backend tidy): GET /api/products
+  (the SO/PO/price-list picker source) and GET /api/units rows do NOT carry
+  productType, only GET /api/product-variants does. The frontend bridges this with
+  a shared useVariantTypeMap hook (mirror-first, network-authoritative via
+  listProductVariants) that joins productType by variantId. This works but means
+  the type-aware picker filter, the units type column, and the SO/unit type
+  indicators depend on a second network read resolving (a brief unfiltered/"--"
+  window before it lands). If the backend adds productType to the /api/products
+  variant projection and the /api/units row projection, those joins collapse and
+  the surfaces show type on first paint. Recorded as a backend-projection request.
+
+- Mirror staleness on productType: the 45a migration backfilled productType but
+  (like other raw-SQL backfills) the mirrored productVariant rows can lag until a
+  reconcile pulls them, so useVariantTypeMap leans on its network phase as the
+  authoritative source. The variant detail's mirror paint must NOT guess a type
+  when the raw row lacks one (it would pollute the edit baseline); saveEdit now
+  sends productType unconditionally from the segmented control (which reflects the
+  authoritative current value) so a stale-baseline diff can never skip the write.
+
+- Cross-context NOT built (candidates): the customer detail page has no per-row SO
+  list, so no per-SO type pill was added there (y skipped). Reports (revenue,
+  stocks) could segment by productType, which would be genuinely useful for a
+  2-wheeler-vs-3-wheeler business view, but the report endpoints do not group by
+  type today; both are deferred pending backend support / a product decision.
+
+- Mobile (375/768/1280): no pre-existing layout change was needed. The create-form
+  type selector is a segmented control that fits at 375; the variant-list and
+  units-list gained one column each (the lists already scroll-x on narrow screens);
+  the units filter bar grid was widened from 5 to 6 columns and still stacks to one
+  column at <sm. No horizontal overflow at any width.

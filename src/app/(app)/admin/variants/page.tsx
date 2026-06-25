@@ -20,14 +20,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import CreateVariantModal from "@/components/products/CreateVariantModal";
 import PendingClassificationPill from "@/components/products/PendingClassificationPill";
+import ProductTypePill from "@/components/products/ProductTypePill";
 import VariantStatusPill from "@/components/products/VariantStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import {
-  listProducts,
+  listProductVariants,
+  PRODUCT_TYPE,
+  productTypeLabel,
   type ProductStatus,
+  type ProductType,
   type VariantAttributesMap,
 } from "@/lib/api";
+import { isProductType } from "@/lib/products/product-type";
 import { usePermissions } from "@/lib/auth";
 import { formatNGN } from "@/lib/format";
 import { isPendingClassification } from "@/lib/products/variant-classification";
@@ -42,6 +47,7 @@ type VariantRow = {
   productId: string;
   productName: string;
   attributes: VariantAttributesMap;
+  productType: ProductType | null;
   currentMarketPrice: string;
   status: ProductStatus;
   pending: boolean;
@@ -54,6 +60,7 @@ type MirrorVariant = {
   productId: string;
   supplierSkuCode: string;
   variantAttributes: VariantAttributesMap;
+  productType?: string;
   currentMarketPrice: string;
   status: ProductStatus;
 };
@@ -97,6 +104,7 @@ export default function VariantsListPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     searchParams.get("filter") === "pending" ? "PENDING" : "ALL",
   );
+  const [typeFilter, setTypeFilter] = useState<ProductType | "ALL">("ALL");
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createdVariant, setCreatedVariant] = useState<{ id: string; sku: string } | null>(null);
@@ -125,6 +133,7 @@ export default function VariantsListPage() {
           productId: v.body.productId,
           productName: productById.get(v.body.productId)?.name ?? "--",
           attributes: v.body.variantAttributes ?? {},
+          productType: isProductType(v.body.productType) ? v.body.productType : null,
           currentMarketPrice: v.body.currentMarketPrice,
           status: v.body.status,
           pending: isPendingClassification(v.body.productId),
@@ -140,25 +149,23 @@ export default function VariantsListPage() {
       }
     })();
 
-    // Phase 2: network revalidate (flatten products -> variants).
-    listProducts(ctrl.signal).then((r) => {
+    // Phase 2: network revalidate. Source the dedicated variant list (45a),
+    // which carries productType + the product relation (GET /api/products omits
+    // productType, so it cannot drive the type column/filter).
+    listProductVariants({}, ctrl.signal).then((r) => {
       if (ctrl.signal.aborted) return;
       if (r.kind === "ok") {
-        const built: VariantRow[] = [];
-        for (const p of r.data) {
-          for (const v of p.variants) {
-            built.push({
-              id: v.id,
-              sku: v.supplierSkuCode,
-              productId: p.id,
-              productName: p.name,
-              attributes: v.variantAttributes ?? {},
-              currentMarketPrice: v.currentMarketPrice,
-              status: v.status,
-              pending: isPendingClassification(p.id),
-            });
-          }
-        }
+        const built: VariantRow[] = r.data.map((v) => ({
+          id: v.id,
+          sku: v.supplierSkuCode,
+          productId: v.productId,
+          productName: v.product?.name ?? "--",
+          attributes: v.variantAttributes ?? {},
+          productType: v.productType,
+          currentMarketPrice: v.currentMarketPrice,
+          status: v.status,
+          pending: isPendingClassification(v.productId),
+        }));
         setRows(sortRows(built));
         setFromMirror(false);
         setOffline(false);
@@ -179,10 +186,12 @@ export default function VariantsListPage() {
 
   const filtered = useMemo(() => {
     if (!rows) return null;
-    if (statusFilter === "ALL") return rows;
-    if (statusFilter === "PENDING") return rows.filter((r) => r.pending);
-    return rows.filter((r) => r.status === statusFilter);
-  }, [rows, statusFilter]);
+    let out = rows;
+    if (statusFilter === "PENDING") out = out.filter((r) => r.pending);
+    else if (statusFilter !== "ALL") out = out.filter((r) => r.status === statusFilter);
+    if (typeFilter !== "ALL") out = out.filter((r) => r.productType === typeFilter);
+    return out;
+  }, [rows, statusFilter, typeFilter]);
 
   const pendingCount = useMemo(
     () => (rows ? rows.filter((r) => r.pending).length : 0),
@@ -301,7 +310,7 @@ export default function VariantsListPage() {
 
       {!offline && (
         <>
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">
               Status
             </span>
@@ -315,6 +324,22 @@ export default function VariantsListPage() {
               <option value="ACTIVE">Active</option>
               <option value="DISCONTINUED">Discontinued</option>
               <option value="PENDING">Pending classification</option>
+            </select>
+            <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium ml-1">
+              Type
+            </span>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as ProductType | "ALL")}
+              data-testid="variant-type-filter"
+              className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px]"
+            >
+              <option value="ALL">All</option>
+              {PRODUCT_TYPE.map((t) => (
+                <option key={t} value={t}>
+                  {productTypeLabel(t)}
+                </option>
+              ))}
             </select>
             {pendingCount > 0 && (
               <button
@@ -347,6 +372,9 @@ export default function VariantsListPage() {
                   <th className={`text-left font-semibold px-3 py-2 border-b border-[var(--color-border-default)] ${COL.md}`}>
                     Attributes
                   </th>
+                  <th className="text-left font-semibold px-3 py-2 border-b border-[var(--color-border-default)]">
+                    Type
+                  </th>
                   <th className="text-right font-semibold px-3 py-2 border-b border-[var(--color-border-default)]">
                     Market price
                   </th>
@@ -358,7 +386,7 @@ export default function VariantsListPage() {
               <tbody>
                 {filtered === null && (
                   <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-[12px] text-[var(--color-ink-500)]">
+                    <td colSpan={6} className="px-3 py-6 text-center text-[12px] text-[var(--color-ink-500)]">
                       {bootstrapping ? (
                         <span className="inline-flex items-center gap-2">
                           <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-navy-500)] animate-pulse" />
@@ -372,7 +400,7 @@ export default function VariantsListPage() {
                 )}
                 {filtered && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-[12px] text-[var(--color-ink-500)]">
+                    <td colSpan={6} className="px-3 py-6 text-center text-[12px] text-[var(--color-ink-500)]">
                       {bootstrapping ? (
                         <span className="inline-flex items-center gap-2">
                           <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-navy-500)] animate-pulse" />
@@ -415,6 +443,9 @@ export default function VariantsListPage() {
                     </td>
                     <td className={`px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)] ${COL.md}`}>
                       {attributesLabel(v.attributes)}
+                    </td>
+                    <td className="px-3 h-[30px] border-b border-[var(--color-border-default)]">
+                      <ProductTypePill type={v.productType} />
                     </td>
                     <td className="px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-900)] text-right font-mono text-[12px]">
                       {formatNGN(v.currentMarketPrice)}

@@ -10,18 +10,24 @@ import OfflineNotice from "@/components/sync/OfflineNotice";
 import MultiSelectFilter, {
   type MultiSelectOption,
 } from "@/components/units/MultiSelectFilter";
+import ProductTypePill from "@/components/products/ProductTypePill";
 import StatusPill from "@/components/units/StatusPill";
 import { usePermissions } from "@/lib/auth";
 import { COL } from "@/lib/responsive";
 import {
   listUnits,
+  PRODUCT_TYPE,
+  productTypeLabel,
   UNIT_STATUS,
   type ApiResult,
+  type ProductType,
   type UnitListResponse,
   type UnitListRow,
   type UnitStatus,
   type VariantAttributes,
 } from "@/lib/api";
+import { isProductType } from "@/lib/products/product-type";
+import { useVariantTypeMap } from "@/lib/products/use-variant-type-map";
 import { listByType } from "@/lib/sync/mirror/store";
 
 // Mirror shape: the unit bucket stores the unit's flat fields (productVariantId,
@@ -93,8 +99,10 @@ function readParams(sp: URLSearchParams) {
   const receivedFrom = sp.get("receivedFrom") ?? "";
   const receivedTo = sp.get("receivedTo") ?? "";
   const search = sp.get("search") ?? "";
+  const ptRaw = sp.get("productType") ?? "";
+  const productType: ProductType | "" = isProductType(ptRaw) ? ptRaw : "";
 
-  return { page, pageSize, variantId, status, warehouseId, receivedFrom, receivedTo, search };
+  return { page, pageSize, variantId, status, warehouseId, receivedFrom, receivedTo, search, productType };
 }
 
 function buildHref(params: Partial<ReturnType<typeof readParams>>): string {
@@ -107,6 +115,7 @@ function buildHref(params: Partial<ReturnType<typeof readParams>>): string {
   if (params.receivedFrom) sp.set("receivedFrom", params.receivedFrom);
   if (params.receivedTo) sp.set("receivedTo", params.receivedTo);
   if (params.search) sp.set("search", params.search);
+  if (params.productType) sp.set("productType", params.productType);
   const qs = sp.toString();
   return qs ? `?${qs}` : "";
 }
@@ -118,6 +127,10 @@ export default function UnitsListingPage() {
   const showLandedCost = has("costdata.view");
 
   const params = useMemo(() => readParams(new URLSearchParams(sp.toString())), [sp]);
+  // Per-row wheeler type: /api/units rows omit productType, so it is joined from
+  // the shared variant-type map by productVariant.id. Also backs the mirror-path
+  // type filter (the network path filters server-side via ?productType=).
+  const variantTypeMap = useVariantTypeMap();
   const [searchDraft, setSearchDraft] = useState(params.search);
   const [data, setData] = useState<UnitListResponse | null>(null);
   const [result, setResult] = useState<ApiResult<UnitListResponse>["kind"] | "idle">("idle");
@@ -149,6 +162,7 @@ export default function UnitsListingPage() {
           .map((m) => m.body)
           .filter((u) => {
             if (params.variantId.length > 0 && !params.variantId.includes(u.productVariantId)) return false;
+            if (params.productType && variantTypeMap.get(u.productVariantId) !== params.productType) return false;
             if (params.status.length > 0 && !params.status.includes(u.status)) return false;
             if (params.warehouseId && u.currentWarehouseId !== params.warehouseId) return false;
             if (params.search) {
@@ -208,6 +222,7 @@ export default function UnitsListingPage() {
         page: params.page,
         pageSize: params.pageSize,
         variantId: params.variantId.length > 0 ? params.variantId : undefined,
+        productType: params.productType || undefined,
         status: params.status.length > 0 ? params.status : undefined,
         warehouseId: params.warehouseId || undefined,
         receivedFrom: params.receivedFrom || undefined,
@@ -240,7 +255,7 @@ export default function UnitsListingPage() {
       }
     });
     return () => ctrl.abort();
-  }, [params, router]);
+  }, [params, router, variantTypeMap]);
 
   const navigate = useCallback(
     (next: Partial<ReturnType<typeof readParams>>) => {
@@ -346,6 +361,9 @@ export default function UnitsListingPage() {
                 <th className={`text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${COL.sm}`}>
                   Variant
                 </th>
+                <th className={`text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap ${COL.md}`}>
+                  Type
+                </th>
                 <th className="text-left font-medium text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] bg-[var(--color-ink-100)] whitespace-nowrap">
                   Status
                 </th>
@@ -366,7 +384,7 @@ export default function UnitsListingPage() {
               {result === "idle" && (
                 <tr>
                   <td
-                    colSpan={showLandedCost ? 7 : 6}
+                    colSpan={showLandedCost ? 8 : 7}
                     className="px-3.5 py-12 text-center text-[var(--color-ink-500)]"
                   >
                     Loading units...
@@ -376,7 +394,7 @@ export default function UnitsListingPage() {
               {result === "forbidden" && (
                 <tr>
                   <td
-                    colSpan={showLandedCost ? 7 : 6}
+                    colSpan={showLandedCost ? 8 : 7}
                     className="px-3.5 py-12 text-center text-[var(--color-ink-500)]"
                   >
                     You do not have access to view units.
@@ -386,7 +404,7 @@ export default function UnitsListingPage() {
               {offline && (
                 <tr>
                   <td
-                    colSpan={showLandedCost ? 7 : 6}
+                    colSpan={showLandedCost ? 8 : 7}
                     className="px-3.5 py-8"
                   >
                     <OfflineNotice body="The units list will load when the connection returns. Any units cached during a prior online visit appear here when present in the local mirror." />
@@ -398,7 +416,7 @@ export default function UnitsListingPage() {
                 result === "network_error") && (
                 <tr>
                   <td
-                    colSpan={showLandedCost ? 7 : 6}
+                    colSpan={showLandedCost ? 8 : 7}
                     className="px-3.5 py-12 text-center text-[var(--color-danger-700)]"
                   >
                     {errMsg || "Something went wrong loading units."}
@@ -408,7 +426,7 @@ export default function UnitsListingPage() {
               {result === "ok" && data && data.data.length === 0 && (
                 <tr>
                   <td
-                    colSpan={showLandedCost ? 7 : 6}
+                    colSpan={showLandedCost ? 8 : 7}
                     className="px-3.5 py-12 text-center text-[var(--color-ink-500)]"
                   >
                     No units match the current filters.
@@ -421,6 +439,7 @@ export default function UnitsListingPage() {
                   <UnitRow
                     key={row.id}
                     row={row}
+                    productType={variantTypeMap.get(row.productVariant.id) ?? null}
                     showLandedCost={showLandedCost}
                     even={i % 2 === 1}
                   />
@@ -445,10 +464,12 @@ export default function UnitsListingPage() {
 
 function UnitRow({
   row,
+  productType,
   showLandedCost,
   even,
 }: {
   row: UnitListRow;
+  productType: ProductType | null;
   showLandedCost: boolean;
   even: boolean;
 }) {
@@ -475,6 +496,9 @@ function UnitRow({
         <div className="font-mono text-[10.5px] text-[var(--color-ink-500)] font-medium mt-0.5">
           {row.productVariant.supplierSkuCode}
         </div>
+      </td>
+      <td className={`px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] whitespace-nowrap ${COL.md}`}>
+        <ProductTypePill type={productType} />
       </td>
       <td className="px-2 sm:px-3.5 py-2.5 border-b border-[var(--color-border-default)] whitespace-nowrap">
         <StatusPill status={row.status} />
@@ -519,7 +543,7 @@ function FilterBar({
   disabledReset: boolean;
 }) {
   return (
-    <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] p-3.5 mb-3.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[repeat(5,1fr)_auto] gap-3 sm:items-end">
+    <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] p-3.5 mb-3.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[repeat(6,1fr)_auto] gap-3 sm:items-end">
       <MultiSelectFilter
         label="Variant"
         placeholder="All variants"
@@ -542,6 +566,25 @@ function FilterBar({
           </svg>
         }
       />
+
+      <div className="flex flex-col gap-1 min-w-0">
+        <span className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)]">
+          Type
+        </span>
+        <select
+          value={params.productType}
+          onChange={(e) => onChange({ productType: (e.target.value || "") as ProductType | "" })}
+          data-testid="unit-type-filter"
+          className="h-8 px-2.5 bg-white border border-[var(--color-border-strong)] rounded-[3px] text-[13px] text-[var(--color-ink-900)] cursor-pointer focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_3px_rgba(31,78,121,0.10)]"
+        >
+          <option value="">All types</option>
+          {PRODUCT_TYPE.map((t) => (
+            <option key={t} value={t}>
+              {productTypeLabel(t)}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="flex flex-col gap-1 min-w-0">
         <span className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)]">

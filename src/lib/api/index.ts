@@ -166,6 +166,7 @@ export { listProducts, flattenVariantOptions } from "./products";
 export type { ProductWithVariants, ProductVariantSummary, ProductCategory, ProductStatus } from "./products";
 export {
   getProductVariant,
+  listProductVariants,
   createProductVariant,
   updateProductVariant,
   loadVariantAutoCreate,
@@ -173,6 +174,7 @@ export {
 } from "./product-variants";
 export type {
   ProductVariant,
+  ProductVariantListQuery,
   VariantAttributesMap,
   CreateProductVariantBody,
   UpdateProductVariantBody,
@@ -180,6 +182,13 @@ export type {
   SimilarVariantConflict,
   SimilarVariantMatch,
 } from "./product-variants";
+export {
+  PRODUCT_TYPE,
+  productTypeLabel,
+  productTypeShort,
+  isProductType,
+} from "@/lib/products/product-type";
+export type { ProductType } from "@/lib/products/product-type";
 export {
   listShipments,
   getShipment,

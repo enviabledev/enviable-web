@@ -1,6 +1,7 @@
 import { apiFetch, buildQuery, type ApiResult } from "./client";
 import type { ProductStatus } from "./products";
 import type { AutoCreateSource } from "@/lib/products/variant-classification";
+import type { ProductType } from "@/lib/products/product-type";
 
 /**
  * Product-variant management (prompt 33-B). Create and edit only; there is
@@ -33,6 +34,7 @@ export type ProductVariant = {
   productId: string;
   supplierSkuCode: string;
   variantAttributes: VariantAttributesMap;
+  productType: ProductType;
   currentMarketPrice: string;
   status: ProductStatus;
   createdAt?: string;
@@ -44,6 +46,8 @@ export type CreateProductVariantBody = {
   productId: string;
   supplierSkuCode: string;
   variantAttributes: VariantAttributesMap;
+  // Required by the backend (45a); a create without it is a 400.
+  productType: ProductType;
   currentMarketPrice: string;
   status?: ProductStatus;
 };
@@ -62,7 +66,35 @@ export type UpdateProductVariantBody = {
   currentMarketPrice?: string;
   status?: ProductStatus;
   productId?: string;
+  // Reclassification between wheeler types (45a). PATCH accepts it.
+  productType?: ProductType;
 };
+
+/** Query for the dedicated variant LIST endpoint (45a). */
+export type ProductVariantListQuery = {
+  productType?: ProductType;
+  status?: ProductStatus;
+  search?: string;
+};
+
+/**
+ * GET /api/product-variants?productType=&status=&search= (45a). The dedicated
+ * variant list, gated product.read. Unlike GET /api/products (which nests
+ * variants but omits productType), this returns productType on every row, so it
+ * is the source of truth for type-aware pickers and the variant catalogue.
+ * Returns a flat array.
+ */
+export async function listProductVariants(
+  query: ProductVariantListQuery = {},
+  signal?: AbortSignal,
+): Promise<ApiResult<ProductVariant[]>> {
+  const qs = buildQuery({
+    productType: query.productType,
+    status: query.status,
+    search: query.search,
+  });
+  return apiFetch<ProductVariant[]>(`/api/product-variants${qs}`, { signal });
+}
 
 /**
  * The structured body of a 409 with kind `similar-variant`, thrown by any

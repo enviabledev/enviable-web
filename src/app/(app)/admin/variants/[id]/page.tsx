@@ -21,6 +21,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import ChangeProductModal from "@/components/products/ChangeProductModal";
 import PendingClassificationPill from "@/components/products/PendingClassificationPill";
+import ProductTypePill from "@/components/products/ProductTypePill";
 import VariantStatusPill from "@/components/products/VariantStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
@@ -29,11 +30,15 @@ import {
   listPrices,
   loadVariantAutoCreate,
   updateProductVariant,
+  PRODUCT_TYPE,
+  productTypeLabel,
   type ProductStatus,
+  type ProductType,
   type ProductVariant,
   type VariantAttributesMap,
   type VariantAutoCreate,
 } from "@/lib/api";
+import { isProductType } from "@/lib/products/product-type";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime, formatNGN } from "@/lib/format";
 import {
@@ -57,11 +62,12 @@ type MirrorVariant = {
   productId: string;
   supplierSkuCode: string;
   variantAttributes: VariantAttributesMap;
+  productType?: string;
   currentMarketPrice: string;
   status: ProductStatus;
 };
 
-type EditDraft = { model: string; colour: string; price: string };
+type EditDraft = { model: string; colour: string; price: string; productType: ProductType };
 
 type ManageState =
   | { status: "idle" }
@@ -133,6 +139,7 @@ export default function VariantDetailPage() {
           productId: v.productId,
           supplierSkuCode: v.supplierSkuCode,
           variantAttributes: v.variantAttributes ?? {},
+          productType: isProductType(v.productType) ? v.productType : "THREE_WHEELER",
           currentMarketPrice: v.currentMarketPrice,
           status: v.status,
           product: { id: v.productId, name: product?.body.name ?? "--" },
@@ -253,6 +260,7 @@ export default function VariantDetailPage() {
         model: variant.variantAttributes.model ?? "",
         colour: variant.variantAttributes.colour ?? "",
         price: variant.currentMarketPrice,
+        productType: variant.productType,
       },
     });
   };
@@ -278,6 +286,10 @@ export default function VariantDetailPage() {
     const r = await updateProductVariant(variant.id, {
       variantAttributes: nextAttrs,
       currentMarketPrice: draft.price.trim(),
+      // Reclassification (45a). Sent on every save (like the other fields) from
+      // the value shown in the segmented control, which reflects the authoritative
+      // current type; this avoids a stale-baseline diff skipping the write.
+      productType: draft.productType,
     });
     if (r.kind === "ok") {
       // PATCH response is the authoritative variant; apply it directly (a
@@ -286,6 +298,10 @@ export default function VariantDetailPage() {
       setManage({ status: "idle" });
     } else if (r.kind === "forbidden") {
       setManage({ status: "error", message: "You do not have permission to edit variants." });
+    } else if (r.kind === "conflict") {
+      // A guard on reclassifying a referenced variant (if the backend enforces
+      // one) surfaces here. Show the server message verbatim.
+      setManage({ status: "error", message: r.message });
     } else if (r.kind === "validation") {
       setManage({
         status: "error",
@@ -466,7 +482,9 @@ export default function VariantDetailPage() {
             ) : (
               <>It was auto-created from a supply-side operation. </>
             )}
-            Assign a real product, set a price, and add attributes before it can be sold.
+            Assign a real product, set a price, add attributes, and{" "}
+            <span className="font-medium" data-testid="verify-type-cue">verify the product type</span>{" "}
+            (auto-created variants default to 3-wheeler) before it can be sold.
           </p>
         </div>
       )}
@@ -614,6 +632,37 @@ export default function VariantDetailPage() {
               />
             </label>
           </div>
+          <fieldset className="mb-3">
+            <legend className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium mb-1">
+              Product type
+            </legend>
+            <div className="flex border border-[var(--color-border-strong)] rounded-[3px] h-[32px] overflow-hidden max-w-[280px]" data-testid="edit-type">
+              {PRODUCT_TYPE.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() =>
+                    manage.status === "editing" &&
+                    setManage({ status: "editing", draft: { ...manage.draft, productType: t } })
+                  }
+                  disabled={manageBusy}
+                  data-testid={`edit-type-${t}`}
+                  aria-pressed={manage.draft.productType === t}
+                  className={`flex-1 text-[12.5px] font-medium ${
+                    manage.draft.productType === t
+                      ? "bg-[var(--color-navy-700)] text-white"
+                      : "bg-white text-[var(--color-ink-700)] hover:bg-[var(--color-ink-100)]"
+                  }`}
+                >
+                  {productTypeLabel(t)}
+                </button>
+              ))}
+            </div>
+            <span className="text-[11.5px] text-[var(--color-ink-500)] mt-1 block">
+              Reclassifying changes which bank the order documents route to and which orders this
+              variant can join.
+            </span>
+          </fieldset>
           <div className="flex gap-2">
             <button
               type="button"
@@ -693,6 +742,23 @@ export default function VariantDetailPage() {
                   className="h-[26px] px-2.5 rounded-[3px] border border-[var(--color-navy-700)] bg-white text-[var(--color-navy-700)] text-[12px] font-medium disabled:opacity-50"
                 >
                   {noAttributes ? "Add attributes" : "Edit attributes"}
+                </button>
+              )}
+            </dd>
+          </div>
+          <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 sm:items-center">
+            <dt className="text-[var(--color-ink-600)] text-[13px]">Product type</dt>
+            <dd className="m-0 flex items-center gap-3 flex-wrap" data-testid="variant-product-type">
+              <ProductTypePill type={variant.productType} />
+              {canManage && variant.status === "ACTIVE" && (
+                <button
+                  type="button"
+                  onClick={beginEdit}
+                  disabled={offlineConn}
+                  data-testid="change-product-type-button"
+                  className="h-[26px] px-2.5 rounded-[3px] border border-[var(--color-navy-700)] bg-white text-[var(--color-navy-700)] text-[12px] font-medium disabled:opacity-50"
+                >
+                  Change product type
                 </button>
               )}
             </dd>

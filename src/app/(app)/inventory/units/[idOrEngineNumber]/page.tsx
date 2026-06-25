@@ -5,17 +5,20 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import AdjustUnitModal from "@/components/units/AdjustUnitModal";
+import ProductTypePill from "@/components/products/ProductTypePill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import StatusPill from "@/components/units/StatusPill";
 import {
   getUnit,
   type MovementType,
+  type ProductType,
   type StockMovementEntry,
   type UnitDetail,
   type UnitStatus,
   type VariantAttributes,
 } from "@/lib/api";
+import { useVariantTypeMap } from "@/lib/products/use-variant-type-map";
 import { usePermissions } from "@/lib/auth";
 import { DETAIL_GRID } from "@/lib/responsive";
 import { useConnectivity } from "@/lib/sync/connectivity";
@@ -89,6 +92,9 @@ type MirroredStockMovement = {
 
 export default function UnitDetailPage() {
   const router = useRouter();
+  // Wheeler type inherited from the variant (prompt 45). GET /api/units/:id omits
+  // productType, so it is joined from the shared variant-type map.
+  const variantTypeMap = useVariantTypeMap();
   // Read from window.location, not useParams: when the SW serves a cached
   // sibling URL for an uncached detail (sibling-fallback for offline nav),
   // useParams returns the sibling's id from the RSC, not the URL bar's id.
@@ -350,7 +356,7 @@ export default function UnitDetailPage() {
         </div>
       )}
 
-      <SummaryCard unit={unit} />
+      <SummaryCard unit={unit} productType={variantTypeMap.get(unit.productVariant.id) ?? null} />
       <TimelineCard movements={unit.movements} currentStatus={unit.status} />
 
       {canAdjust && (
@@ -375,12 +381,13 @@ export default function UnitDetailPage() {
   );
 }
 
-function SummaryCard({ unit }: { unit: UnitDetail }) {
+function SummaryCard({ unit, productType }: { unit: UnitDetail; productType: ProductType | null }) {
   const kvs: { label: string; value: React.ReactNode; mono?: boolean }[] = [
     {
       label: "Variant",
       value: formatVariantName(unit.productVariant, unit.productVariant.product.name),
     },
+    { label: "Product Type", value: <ProductTypePill type={productType} /> },
     { label: "Engine Number", value: unit.engineNumber, mono: true },
     { label: "Chassis Number", value: unit.chassisNumber, mono: true },
     {

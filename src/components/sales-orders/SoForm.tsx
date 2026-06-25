@@ -7,6 +7,7 @@ import {
   listCustomers,
   listProducts,
   listUnits,
+  productTypeLabel,
   SALE_FORM,
   VAT_RATE,
   type ApiResult,
@@ -17,8 +18,10 @@ import {
   type SalesOrderDetail,
   type UnitListRow,
 } from "@/lib/api";
+import ProductTypePill from "@/components/products/ProductTypePill";
 import { usePermissions } from "@/lib/auth";
 import { formatNGN } from "@/lib/format";
+import { useVariantTypeMap } from "@/lib/products/use-variant-type-map";
 
 type LineDraft = {
   key: string;
@@ -138,6 +141,27 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
     for (const v of variantOptions) m.set(v.productVariantId, v);
     return m;
   }, [variantOptions]);
+
+  // Single-type enforcement (prompt 45). The order's type is the productType of
+  // the FIRST line that has a chosen variant. /api/products omits productType,
+  // so it is read from the shared variant-type map (mirror + network). Once an
+  // order type is established, the per-line variant picker is filtered to that
+  // type, mirroring the backend's lines[0]-defines-the-type rule (a mismatch is
+  // a 409, surfaced below as a backstop if a stale option slips through).
+  const variantTypeMap = useVariantTypeMap();
+  const orderType = useMemo(() => {
+    const first = lines.find((l) => l.productVariantId);
+    return first ? variantTypeMap.get(first.productVariantId) ?? null : null;
+  }, [lines, variantTypeMap]);
+  // Options offered in a line's variant picker: all variants until an order type
+  // is established, then only matching-type variants. The map being empty (not
+  // yet loaded) leaves orderType null, so no premature filtering hides options.
+  const optionsForPicker = useMemo(() => {
+    if (!orderType) return variantOptions;
+    return variantOptions.filter(
+      (v) => variantTypeMap.get(v.productVariantId) === orderType,
+    );
+  }, [variantOptions, orderType, variantTypeMap]);
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
 
@@ -343,9 +367,18 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
 
       <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] mb-4">
         <header className="px-4 py-2.5 border-b border-[var(--color-border-default)] flex items-center justify-between">
-          <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)]">
+          <h2 className="m-0 text-[13px] font-semibold text-[var(--color-ink-900)] flex items-center gap-2 flex-wrap">
             Lines
-            <span className="text-[11px] text-[var(--color-ink-500)] font-medium ml-2">
+            {orderType && (
+              <span
+                data-testid="so-order-type-indicator"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-ink-700)] normal-case"
+              >
+                This order:
+                <ProductTypePill type={orderType} />
+              </span>
+            )}
+            <span className="text-[11px] text-[var(--color-ink-500)] font-medium">
               {lines.length} {lines.length === 1 ? "line" : "lines"} &middot; each allocates a specific unit (soft reservation)
             </span>
           </h2>
@@ -409,7 +442,7 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
                       className="h-7 px-2 text-[12.5px] text-[var(--color-ink-900)] bg-white border border-[var(--color-border-strong)] rounded-[3px] focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)] w-full"
                     >
                       <option value="">Select a variant</option>
-                      {variantOptions.map((v) => (
+                      {optionsForPicker.map((v) => (
                         <option key={v.productVariantId} value={v.productVariantId}>
                           {v.label}
                         </option>
@@ -575,9 +608,20 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
             </>
           ) : (
             <>
-              <div className="text-[12px] mb-1">
+              <div className="text-[12px] mb-1" data-testid="so-type-mismatch">
                 Server message: <span className="font-mono">{conflictMessage}</span>
               </div>
+              {/(TWO_WHEELER|THREE_WHEELER) order\./.test(conflictMessage) && (
+                <div className="text-[12px]">
+                  A sales order can only contain one wheeler type. This order is a{" "}
+                  <span className="font-semibold">
+                    {conflictMessage.includes("THREE_WHEELER order")
+                      ? productTypeLabel("THREE_WHEELER")
+                      : productTypeLabel("TWO_WHEELER")}
+                  </span>{" "}
+                  order; remove the mismatched line or start a separate order for the other type.
+                </div>
+              )}
               {conflictMessage.includes("I-11") && (
                 <div className="text-[12px]">
                   A unit on this order is already allocated to another active sales order. Pick a

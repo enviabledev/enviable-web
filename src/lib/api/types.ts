@@ -143,6 +143,10 @@ export type UnitListQuery = {
   page?: number;
   pageSize?: 25 | 50 | 100 | 250;
   variantId?: readonly string[];
+  // Server-side filter via the variant relation (45a). NOTE: the units list
+  // ROWS do not carry productType, so a per-row type display is reconstructed
+  // client-side from the productVariant bucket; this only narrows the result.
+  productType?: import("@/lib/products/product-type").ProductType;
   status?: readonly UnitStatus[];
   warehouseId?: string;
   receivedFrom?: string;

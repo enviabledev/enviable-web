@@ -25,6 +25,9 @@ import Modal from "@/components/ui/Modal";
 import {
   createProductVariant,
   listProducts,
+  PRODUCT_TYPE,
+  productTypeLabel,
+  type ProductType,
   type ProductVariant,
 } from "@/lib/api";
 import { useConnectivity } from "@/lib/sync/connectivity";
@@ -49,6 +52,7 @@ export default function CreateVariantModal({
   const [model, setModel] = useState("");
   const [colour, setColour] = useState("");
   const [price, setPrice] = useState("");
+  const [productType, setProductType] = useState<ProductType | "">("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -60,6 +64,7 @@ export default function CreateVariantModal({
     setModel("");
     setColour("");
     setPrice("");
+    setProductType("");
     setSubmitting(false);
     setError("");
   }, [open]);
@@ -94,10 +99,11 @@ export default function CreateVariantModal({
     () =>
       productId.length > 0 &&
       sku.trim().length > 0 &&
+      productType.length > 0 &&
       priceValid &&
       !offline &&
       !submitting,
-    [productId, sku, priceValid, offline, submitting],
+    [productId, sku, productType, priceValid, offline, submitting],
   );
 
   const submit = async () => {
@@ -111,6 +117,7 @@ export default function CreateVariantModal({
       productId,
       supplierSkuCode: sku.trim(),
       variantAttributes,
+      productType: productType as ProductType,
       currentMarketPrice: price.trim(),
     });
     if (r.kind === "ok") {
@@ -202,6 +209,36 @@ export default function CreateVariantModal({
             ))}
           </select>
         </label>
+
+        <fieldset className="flex flex-col gap-1">
+          <legend className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium mb-1">
+            Product type <span className="text-[var(--color-danger-700)]">*</span>
+          </legend>
+          <div className="flex border border-[var(--color-border-strong)] rounded-[3px] h-[32px] overflow-hidden" data-testid="create-variant-type">
+            {PRODUCT_TYPE.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setProductType(t)}
+                disabled={submitting}
+                data-testid={`create-variant-type-${t}`}
+                aria-pressed={productType === t}
+                className={`flex-1 text-[12.5px] font-medium ${
+                  productType === t
+                    ? "bg-[var(--color-navy-700)] text-white"
+                    : "bg-white text-[var(--color-ink-700)] hover:bg-[var(--color-ink-100)]"
+                }`}
+              >
+                {productTypeLabel(t)}
+              </button>
+            ))}
+          </div>
+          {!productType && (
+            <span className="text-[11.5px] text-[var(--color-ink-500)]">
+              Required. Whether this variant is a 2-wheeler or a 3-wheeler.
+            </span>
+          )}
+        </fieldset>
 
         <label className="flex flex-col gap-1">
           <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">
