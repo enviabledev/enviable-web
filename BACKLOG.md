@@ -1419,3 +1419,41 @@ Findings / observations:
   extra column is fine but the table is getting wide. If more buckets are added,
   consider collapsing the breakdown into an expandable detail on mobile. Not needed
   now.
+
+## Cancelled-SO PI affordance (prompt 47b) - shipped (frontend, verification + indicator)
+
+Verified against 47a (the sales PI template renders a red "ORDER CANCELLED" banner
+with the cancellation date and strikes the Payment Details "(disregarded)" when the
+underlying SO is CANCELLED, live from SO status; no API change). Confirmed the View
+PI / Open PDF affordances on the SO detail and the per-row link on
+/sales/invoices-payments were ALREADY status-agnostic (gated only on the PI's
+presence, never on SO status), so cancelled SOs already opened the PI fine; no
+un-hiding was needed. Added the optional indicator: when the SO is CANCELLED and has
+a PI, a small red note in the Proforma Invoice card ("This SO is cancelled. The PI
+shows the cancellation marking when opened.") sets expectations before opening. 16
+Playwright assertions pass (a-p, 23 sub-checks).
+
+Findings / observations:
+
+- Indicator placement: put it as a red strip directly under the PI card header (so
+  it sits immediately next to the View PI / Open PDF buttons), not as a page-level
+  banner. The SO header already carries the CANCELLED status pill; a second
+  page-level cancellation banner would be redundant. Scoping the note to the PI card
+  ties it to the specific action it describes (opening the document). It renders only
+  when a PI exists AND the SO is cancelled; a legacy cancelled SO with no PI still
+  shows the existing "no proforma invoice was issued" note instead.
+
+- Cross-context where the cancelled marking could use more signaling: the
+  /sales/invoices-payments per-row PI link does NOT carry the cancelled indicator (it
+  is a compact "View PI" text link with no room for a note), and that page only lists
+  SOs that have reached the INVOICE stage, so a cancelled SO with a PI but no invoice
+  only surfaces its PI (and the indicator) on the SO detail. If finance wants the
+  cancelled state flagged on the invoices/payments row too, the row could show a small
+  "cancelled" tag next to the PI link; deferred as the document itself shows the
+  marking on open and the SO detail already flags it. The customer detail page has no
+  per-row SO list (noted in 43b), so there is no cancelled-PI signal to add there.
+
+- The indicator is intentionally informational only (no colour-coded danger beyond a
+  small red dot + red text), matching the "the PI speaks for itself when opened"
+  philosophy: it tells the user what they will see, it does not duplicate the full
+  cancellation treatment in the app chrome.

@@ -632,7 +632,7 @@ export default function SalesOrderDetailPage() {
         </section>
       )}
 
-      <SalesPiCard pi={so.salesProformaInvoice} known={!isFromMirror} />
+      <SalesPiCard pi={so.salesProformaInvoice} known={!isFromMirror} cancelled={so.status === "CANCELLED"} />
 
       <InvoiceCard
         invoice={invoice}

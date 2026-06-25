@@ -85,8 +85,21 @@ function InfoTooltip() {
  * - pi present  -> View PI + Open PDF, PI number, issued date, live-render hint.
  * - pi null AND known (network resolved) -> honest "no PI" note (legacy SO).
  * - pi null/undefined AND !known (mirror paint, offline) -> "loads when online".
+ *
+ * The View PI / Open PDF affordances are NEVER gated on SO status: a cancelled SO
+ * still has a PI that opens fine; the document itself shows the cancellation
+ * marking (47a, backend-rendered). When the SO is cancelled, a small indicator
+ * sets the user's expectation before they open it.
  */
-export function SalesPiCard({ pi, known }: { pi: PiSummary | null | undefined; known: boolean }) {
+export function SalesPiCard({
+  pi,
+  known,
+  cancelled = false,
+}: {
+  pi: PiSummary | null | undefined;
+  known: boolean;
+  cancelled?: boolean;
+}) {
   const { state: connState } = useConnectivity();
   const offline = connState === "offline";
   const doc = pi ? salesProformaInvoiceDoc(pi.id) : null;
@@ -104,6 +117,15 @@ export function SalesPiCard({ pi, known }: { pi: PiSummary | null | undefined; k
           </div>
         )}
       </header>
+      {pi && cancelled && (
+        <div
+          data-testid="pi-cancelled-indicator"
+          className="px-5 py-2 border-b border-[var(--color-border-default)] bg-[var(--color-danger-50)] text-[12px] text-[var(--color-danger-700)] flex items-center gap-1.5"
+        >
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-danger-700)]" aria-hidden />
+          This SO is cancelled. The PI shows the cancellation marking when opened.
+        </div>
+      )}
       <div className="px-5 py-3">
         {pi ? (
           <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-x-3 gap-y-1.5 text-[13px]">
