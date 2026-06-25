@@ -20,6 +20,20 @@ export type PaymentStatus = (typeof PAYMENT_STATUS)[number];
 
 export type PaymentConfirmationSource = "MANUAL_UPLOAD" | "WEBHOOK";
 
+/**
+ * Overpayment capture (42a). When a payment's amount exceeds the SO's remaining
+ * balance (total minus the sum of CONFIRMED payments, floored at 0), the excess
+ * and how the user resolved it are recorded 1:1 with the payment. The system is
+ * a recording medium: it does not process the refund or issue the credit, it
+ * captures the user's stated resolution. REFUND carries a mechanism (and an
+ * optional reference); CREDIT carries an optional note.
+ */
+export const OVERPAYMENT_RESOLUTION = ["REFUND", "CREDIT"] as const;
+export type OverpaymentResolution = (typeof OVERPAYMENT_RESOLUTION)[number];
+
+export const REFUND_MECHANISM = ["BANK_TRANSFER", "CASH"] as const;
+export type RefundMechanism = (typeof REFUND_MECHANISM)[number];
+
 export type PaymentMethodSummary = {
   id: string;
   name: string;
@@ -40,12 +54,25 @@ export type Payment = {
   clientId: string | null;
   createdAt: string;
   paymentMethod: PaymentMethodSummary;
+  // Overpayment fields, all null on a normal (non-overpaying) payment.
+  overpaymentAmount: string | null;
+  overpaymentResolution: OverpaymentResolution | null;
+  refundMechanism: RefundMechanism | null;
+  refundReference: string | null;
+  creditNotes: string | null;
 };
 
 export type RecordPaymentBody = {
   paymentMethodId: string;
   amount: string;
   referenceNumber?: string;
+  // Overpayment resolution. Sent only when the amount exceeds the remaining
+  // balance; the backend 400s if supplied without an overpayment, and 400s if
+  // an overpayment is present without it. REFUND requires refundMechanism.
+  overpaymentResolution?: OverpaymentResolution;
+  refundMechanism?: RefundMechanism;
+  refundReference?: string;
+  creditNotes?: string;
 };
 
 export async function listPayments(

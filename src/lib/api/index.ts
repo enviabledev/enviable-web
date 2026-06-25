@@ -247,6 +247,8 @@ export {
   confirmPayment,
   rejectPayment,
   PAYMENT_STATUS,
+  OVERPAYMENT_RESOLUTION,
+  REFUND_MECHANISM,
   SEED_PAYMENT_METHODS,
 } from "./payments";
 export type {
@@ -255,6 +257,8 @@ export type {
   PaymentConfirmationSource,
   PaymentMethodSummary,
   RecordPaymentBody,
+  OverpaymentResolution,
+  RefundMechanism,
 } from "./payments";
 export { authoriseRelease, parseI4Conflict } from "./release";
 export {

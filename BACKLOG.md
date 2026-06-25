@@ -1132,3 +1132,77 @@ Findings / observations:
   honest "saved locally, will sync" UX would need the reason captured before the
   offline branch. Deferred: cancel is an administrative correction, less
   time-critical than complete/fail on the floor.
+
+## Overpayment handling (prompt 42b) - shipped (frontend)
+
+Shipped against the 42a backend (POST /api/sales-orders/:id/payments extended
+with overpaymentResolution / refundMechanism / refundReference / creditNotes,
+required IFF amount > remaining where remaining = SO.total - sum(CONFIRMED),
+floored at 0): client-side overpayment detection on the record-payment form
+(extracted to src/components/sales-orders/RecordPaymentForm.tsx with internal
+state and exact integer-cents math), a resolution sub-form (Refund -> mechanism
+required + optional reference; Credit -> optional notes) that reveals/hides live
+as the amount crosses the threshold and clears its values on reversal, the
+overpayment fields on the API types (Payment + RecordPaymentBody) and api index,
+SO-detail payment-row rendering of the recorded resolution ("Refund issued via
+Bank Transfer (ref: X)" / "Credit applied (notes: X)") as a distinct warning
+sub-row, the PENDING-balance caveat on the indicator, and a distinct "Overpay"
+badge on the /sales/invoices-payments payments tab (cross-context). The sales
+invoice payment+overpayment block is backend-rendered (template already carries
+it); the frontend embeds the backend HTML/PDF and was verified end to end.
+33/33 Playwright visible-outcome assertions pass (a-w) plus audit DB + UI.
+
+Findings / observations:
+
+- BACKEND ENV (operational, surfaced during 42b verification): the running dev
+  backend (nest start --watch, serving from dist/) was rendering a STALE invoice
+  template. dist/src/documents/templates/sales-invoice.hbs had 0 matches for the
+  new payment block while the committed source had it (6 matches), so the invoice
+  HTML/PDF omitted Amount Paid / Balance Due / Overpayment despite confirmed
+  payments. The Handlebars template is compiled ONCE at engine construction and
+  cached in memory, so even refreshing the dist file needs a process restart.
+  Compounding it, a stale watcher child kept :3000 (EADDRINUSE on the new one),
+  so the old in-memory template kept serving. Resolved for verification by
+  refreshing the dist artifact + a clean single restart (no source edit). This is
+  the same class as the existing "invoice template assets land in the wrong dist
+  path" finding: the nest-cli asset-copy for templates is not reliably refreshing
+  dist on watch rebuilds. Backend should fix the asset pipeline so a rebuild
+  always recopies templates; until then, a backend restart is required after any
+  template change to see it rendered.
+
+- UX, the PENDING-balance caveat (item 7, implemented): detection is on the
+  CONFIRMED balance, so a freshly-recorded (still PENDING) payment does not move
+  the displayed remaining. The caveat ("Based on payments currently confirmed.
+  Pending payments may affect the actual balance.") shows on the indicator only
+  when the SO has PENDING payments. This is honest but subtle: a clerk recording
+  a second payment while the first is unconfirmed may see an "overpayment" that
+  will not be one once the first confirms (or vice versa). Considered, not built:
+  surfacing the pending total inline ("X confirmed, Y pending") so the user sees
+  the two balances side by side. Deferred as visual cost vs benefit; the caveat
+  plus the backend-as-source-of-truth (it re-derives on submit, and the form
+  re-reveals on a stale 400) is sufficient. Revisit if clerks report confusion.
+
+- Cross-context where overpayment is operationally useful: built the payments-tab
+  badge this round. Other useful surfaces NOT built: (1) customer detail has no
+  payments section at all, so a customer's overpayment history is not visible
+  anywhere customer-scoped; if finance wants "which customers are carrying
+  credits," that is a new surface (likely needs a backend customer-payments
+  filter, none exists today). (2) Reports: a "credits outstanding" / "refunds to
+  process" report would be genuinely operational (the system records refund/credit
+  INTENT but does not process it, so someone must action the refunds), but there
+  is no backend aggregation endpoint for it. Both are findings for a future round,
+  gated on backend support.
+
+- Stale-data (item/assert k): handled by re-fetching the balance on a validation
+  400 (the parent refreshes payments, the form re-derives and re-reveals the
+  sub-form with the prompt) plus a focus/visibilitychange re-fetch while the form
+  is open. There is no optimistic lock / version token on the payment write, so
+  two clerks racing can still both submit; the backend balance check is the
+  backstop. Acceptable for this workflow; note if payment contention grows.
+
+- Mobile (375): the resolution sub-form is a conditional addition to an existing
+  3-column record form. No pre-existing layout change was needed: the record form
+  already reflows to single-column at <sm, and the sub-form uses the same grid,
+  so it stacks cleanly. The overpayment row on the SO-detail payments table is a
+  full-width colspan sub-row, which reads well on mobile (no extra column added to
+  an already 7-column table). No horizontal overflow at 375/768/1280.

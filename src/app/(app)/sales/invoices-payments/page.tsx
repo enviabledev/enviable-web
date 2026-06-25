@@ -71,6 +71,7 @@ type MirroredPayment = {
   clientId: string | null;
   createdAt: string;
   updatedAt: string;
+  overpaymentAmount: string | null;
 };
 
 type MirroredSalesOrder = {
@@ -106,6 +107,7 @@ type PaymentRow = {
   paymentMethodName: string;
   referenceNumber: string | null;
   confirmedByName: string | null;
+  overpaymentAmount: string | null;
 };
 
 function readParams(sp: URLSearchParams) {
@@ -214,6 +216,7 @@ export default function InvoicesPaymentsPage() {
               paymentMethodName: m?.name ?? p.paymentMethodId,
               referenceNumber: p.referenceNumber,
               confirmedByName: confirmer?.fullName ?? null,
+              overpaymentAmount: p.overpaymentAmount ?? null,
             };
           })
           .sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
@@ -666,8 +669,9 @@ function PaymentsPanel({
                 >
                   {r.soNumber}
                 </Link>
-                <span className="font-mono tabular-nums text-[14px] font-semibold text-[var(--color-ink-900)]">
+                <span className="font-mono tabular-nums text-[14px] font-semibold text-[var(--color-ink-900)] inline-flex items-center gap-1.5">
                   {formatNGN(r.amount)}
+                  <OverpayBadge amount={r.overpaymentAmount} />
                 </span>
               </div>
               <div className="mt-1 flex items-center justify-between gap-2">
@@ -712,7 +716,10 @@ function PaymentsPanel({
                 </Td>
                 <Td>{r.customerName}</Td>
                 <Td align="right" mono>
-                  <span className="text-[var(--color-ink-900)] font-semibold">{formatNGN(r.amount)}</span>
+                  <span className="text-[var(--color-ink-900)] font-semibold inline-flex items-center gap-1.5">
+                    {formatNGN(r.amount)}
+                    <OverpayBadge amount={r.overpaymentAmount} />
+                  </span>
                 </Td>
                 <Td>
                   <StatusPill status={r.status} />
@@ -752,6 +759,22 @@ function StatusPill({ status }: { status: PaymentStatus }) {
     >
       <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${tone.dot}`} aria-hidden />
       {status === "PENDING" ? "Pending" : status === "CONFIRMED" ? "Confirmed" : "Rejected"}
+    </span>
+  );
+}
+
+// Distinct marker for an overpayment-bearing payment in the cross-context list.
+// The detail lives on the SO detail; here a compact badge (with the excess in
+// the tooltip) flags it so a clerk scanning payments sees which ones overpaid.
+function OverpayBadge({ amount }: { amount: string | null }) {
+  if (!amount || Number(amount) <= 0) return null;
+  return (
+    <span
+      data-testid="payments-list-overpay-badge"
+      title={`Overpayment of ${formatNGN(amount)}`}
+      className="inline-flex items-center h-[16px] px-1.5 rounded-full text-[9.5px] font-semibold uppercase tracking-[0.03em] bg-[var(--color-warning-50)] text-[var(--color-warning-700)] whitespace-nowrap"
+    >
+      Overpay
     </span>
   );
 }

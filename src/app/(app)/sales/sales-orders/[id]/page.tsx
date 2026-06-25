@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 import CancelSalesOrderModal from "@/components/sales-orders/CancelSalesOrderModal";
 import InitiateReturnModal, {
@@ -30,7 +30,6 @@ import {
   recordPayment,
   recordProofOfDelivery,
   rejectPayment,
-  SEED_PAYMENT_METHODS,
   soIsCancellable,
   soIsEditable,
   submitSalesOrder,
@@ -47,6 +46,7 @@ import {
   type SoStatus,
   type UnitStatus,
 } from "@/lib/api";
+import RecordPaymentForm from "@/components/sales-orders/RecordPaymentForm";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime, formatNGN } from "@/lib/format";
 import { salesInvoiceDoc } from "@/lib/invoices/pdf";
@@ -109,8 +109,6 @@ type ActionBanner =
   | { kind: "error"; message: string }
   | { kind: "info"; message: string };
 
-const UNIT_PRICE_RE = /^\d+(\.\d{1,2})?$/;
-
 export default function SalesOrderDetailPage() {
   const router = useRouter();
   const { has } = usePermissions();
@@ -146,11 +144,10 @@ export default function SalesOrderDetailPage() {
     };
   }, []);
 
-  // Form: record payment.
+  // Form: record payment. Field state (amount, method, reference, and the
+  // overpayment resolution sub-form) lives inside RecordPaymentForm; the parent
+  // owns only the open/submitting flags.
   const [showRecord, setShowRecord] = useState(false);
-  const [recordAmount, setRecordAmount] = useState("");
-  const [recordMethodId, setRecordMethodId] = useState(SEED_PAYMENT_METHODS[0]?.id ?? "");
-  const [recordReference, setRecordReference] = useState("");
   const [recordSubmitting, setRecordSubmitting] = useState(false);
 
   // Form: delivery note.
@@ -310,6 +307,26 @@ export default function SalesOrderDetailPage() {
     loadSoReturns.current();
   }, [id]);
 
+  // While the record-payment form is open, keep the remaining balance fresh:
+  // re-fetch on focus/visibility so a balance moved by another session (a
+  // confirm/reject elsewhere) is reflected before the user submits. This is the
+  // (h) stale-data guard at the read side; the submit handler also refreshes on
+  // a validation 400, and the backend remains the source of truth.
+  const refreshOnFocusRef = useRef<() => void>(() => {});
+  refreshOnFocusRef.current = () => {
+    if (showRecord && id) void refresh();
+  };
+  useEffect(() => {
+    if (!showRecord) return;
+    const fn = () => refreshOnFocusRef.current();
+    window.addEventListener("focus", fn);
+    document.addEventListener("visibilitychange", fn);
+    return () => {
+      window.removeEventListener("focus", fn);
+      document.removeEventListener("visibilitychange", fn);
+    };
+  }, [showRecord]);
+
   if (state.status === "loading")
     return <div className="max-w-[1080px] mx-auto py-10 text-center text-[var(--color-ink-500)]">Loading...</div>;
   if (state.status === "not_found")
@@ -353,6 +370,19 @@ export default function SalesOrderDetailPage() {
     .map((l) => ({ id: l.unit!.id, engineNumber: l.unit!.engineNumber }));
   const canInitiateReturn = has("return.manage") && soldUnits.length > 0;
 
+  // Overpayment detection inputs (prompt 42b). Remaining balance = SO total
+  // minus the sum of CONFIRMED payments, floored at 0, mirroring the backend's
+  // balance basis exactly (cents math, no float drift). hasPendingPayments
+  // drives the "confirmed-only" caveat on the overpayment indicator: a PENDING
+  // payment does not reduce the balance yet, so the displayed remaining may not
+  // be the eventual one.
+  const totalCents = Math.round(Number(so.total) * 100);
+  const confirmedCents = payments
+    .filter((p) => p.status === "CONFIRMED")
+    .reduce((acc, p) => acc + Math.round(Number(p.amount) * 100), 0);
+  const remainingBalance = Math.max(0, totalCents - confirmedCents) / 100;
+  const hasPendingPayments = payments.some((p) => p.status === "PENDING");
+
   // ------ confirmed-update wrappers ------
   const handle = async <T,>(label: string, op: () => Promise<ApiResult<T>>, onOk?: (data: T) => void) => {
     if (pending) return;
@@ -379,41 +409,47 @@ export default function SalesOrderDetailPage() {
     }
   };
 
-  const submitRecord = async () => {
+  // Records the payment (and, when present, its overpayment resolution) in one
+  // call. Returns the outcome so RecordPaymentForm can map known 400s onto the
+  // field that caused them; the parent owns the success banner + refresh.
+  const submitRecord = async (
+    body: RecordPaymentBody,
+  ): Promise<{ ok: boolean; message?: string }> => {
     setBanner({ kind: "idle" });
-    if (!UNIT_PRICE_RE.test(recordAmount)) {
-      setBanner({ kind: "error", message: "Amount must be a decimal with up to 2 places." });
-      return;
-    }
-    if (!recordMethodId) {
-      setBanner({ kind: "error", message: "Pick a payment method." });
-      return;
-    }
     setRecordSubmitting(true);
-    const body: RecordPaymentBody = {
-      paymentMethodId: recordMethodId,
-      amount: recordAmount,
-      ...(recordReference.trim() ? { referenceNumber: recordReference.trim() } : {}),
-    };
     const r = await recordPayment(so.id, body);
     setRecordSubmitting(false);
     if (r.kind === "ok") {
       setShowRecord(false);
-      setRecordAmount("");
-      setRecordReference("");
       await refresh();
-      setBanner({ kind: "info", message: `Payment of ${formatNGN(body.amount)} recorded (PENDING).` });
-    } else if (r.kind === "validation") {
-      setBanner({ kind: "error", message: typeof r.message === "string" ? r.message : r.message.join("; ") });
-    } else if (r.kind === "forbidden") {
-      setBanner({ kind: "error", message: "You do not have payment.record permission." });
-    } else if (r.kind === "conflict") {
-      setBanner({ kind: "conflict", message: r.message });
-    } else if (r.kind === "network_error") {
-      setBanner({ kind: "error", message: r.message });
-    } else {
-      setBanner({ kind: "error", message: "Unexpected response recording payment." });
+      const over = body.overpaymentResolution
+        ? ` Overpayment recorded as ${body.overpaymentResolution === "REFUND" ? "a refund" : "a credit"}.`
+        : "";
+      setBanner({ kind: "info", message: `Payment of ${formatNGN(body.amount)} recorded (PENDING).${over}` });
+      return { ok: true };
     }
+    if (r.kind === "validation") {
+      // Re-fetch so the remaining balance re-derives (covers the stale-balance
+      // case), and hand the message back to the form for field-level mapping.
+      await refresh();
+      return { ok: false, message: typeof r.message === "string" ? r.message : r.message.join("; ") };
+    }
+    if (r.kind === "forbidden") {
+      const m = "You do not have payment.record permission.";
+      setBanner({ kind: "error", message: m });
+      return { ok: false, message: m };
+    }
+    if (r.kind === "conflict") {
+      setBanner({ kind: "conflict", message: r.message });
+      return { ok: false, message: r.message };
+    }
+    if (r.kind === "network_error") {
+      setBanner({ kind: "error", message: r.message });
+      return { ok: false, message: r.message };
+    }
+    const m = "Unexpected response recording payment.";
+    setBanner({ kind: "error", message: m });
+    return { ok: false, message: m };
   };
 
   return (
@@ -595,14 +631,14 @@ export default function SalesOrderDetailPage() {
         canRecord={canRecordPayment}
         canConfirm={canConfirmPayment}
         showRecord={showRecord}
-        onOpenRecord={() => setShowRecord(true)}
+        onOpenRecord={() => {
+          setShowRecord(true);
+          // Start from a fresh balance so detection reflects the latest confirms.
+          void refresh();
+        }}
         onCloseRecord={() => setShowRecord(false)}
-        recordAmount={recordAmount}
-        onAmountChange={setRecordAmount}
-        recordMethodId={recordMethodId}
-        onMethodChange={setRecordMethodId}
-        recordReference={recordReference}
-        onReferenceChange={setRecordReference}
+        remainingBalance={remainingBalance}
+        hasPendingPayments={hasPendingPayments}
         recordSubmitting={recordSubmitting}
         onSubmitRecord={submitRecord}
         onConfirm={(pid) => handle("Confirm payment", () => confirmPayment(pid))}
@@ -954,6 +990,25 @@ function InvoiceCard({
   );
 }
 
+// Human label for a payment's recorded overpayment resolution, or null when the
+// payment did not overpay. The system records the user's stated resolution; it
+// neither processes the refund nor issues the credit.
+function overpaymentSummary(p: Payment): string | null {
+  if (!p.overpaymentAmount || !p.overpaymentResolution) return null;
+  if (p.overpaymentResolution === "REFUND") {
+    const mech =
+      p.refundMechanism === "BANK_TRANSFER"
+        ? "Bank Transfer"
+        : p.refundMechanism === "CASH"
+          ? "Cash"
+          : "an unspecified mechanism";
+    const ref = p.refundReference ? ` (ref: ${p.refundReference})` : "";
+    return `Refund issued via ${mech}${ref}`;
+  }
+  const notes = p.creditNotes ? ` (notes: ${p.creditNotes})` : "";
+  return `Credit applied${notes}`;
+}
+
 function PaymentsCard({
   payments,
   so,
@@ -962,12 +1017,8 @@ function PaymentsCard({
   showRecord,
   onOpenRecord,
   onCloseRecord,
-  recordAmount,
-  onAmountChange,
-  recordMethodId,
-  onMethodChange,
-  recordReference,
-  onReferenceChange,
+  remainingBalance,
+  hasPendingPayments,
   recordSubmitting,
   onSubmitRecord,
   onConfirm,
@@ -981,14 +1032,10 @@ function PaymentsCard({
   showRecord: boolean;
   onOpenRecord: () => void;
   onCloseRecord: () => void;
-  recordAmount: string;
-  onAmountChange: (v: string) => void;
-  recordMethodId: string;
-  onMethodChange: (v: string) => void;
-  recordReference: string;
-  onReferenceChange: (v: string) => void;
+  remainingBalance: number;
+  hasPendingPayments: boolean;
   recordSubmitting: boolean;
-  onSubmitRecord: () => void;
+  onSubmitRecord: (body: RecordPaymentBody) => Promise<{ ok: boolean; message?: string }>;
   onConfirm: (id: string) => void;
   onReject: (id: string) => void;
   pending: string | null;
@@ -1037,56 +1084,13 @@ function PaymentsCard({
       </div>
 
       {showRecord && (
-        <div className="px-5 py-3 border-b border-[var(--color-border-default)] bg-[var(--color-navy-50)]">
-          <h3 className="m-0 mb-2 text-[12.5px] font-semibold text-[var(--color-ink-900)]">Record payment (PENDING)</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
-            <label className="block">
-              <span className="block text-[10.5px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)] mb-1">Amount (NGN)</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={recordAmount}
-                onChange={(e) => onAmountChange(e.target.value)}
-                placeholder="0.00"
-                className="h-7 w-full px-2 text-[12.5px] tabular-nums font-mono text-right text-[var(--color-ink-900)] bg-white border border-[var(--color-border-strong)] rounded-[3px] focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)]"
-              />
-            </label>
-            <label className="block">
-              <span className="block text-[10.5px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)] mb-1">Method</span>
-              <select
-                value={recordMethodId}
-                onChange={(e) => onMethodChange(e.target.value)}
-                className="h-7 w-full px-2 text-[12.5px] text-[var(--color-ink-900)] bg-white border border-[var(--color-border-strong)] rounded-[3px] focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)]"
-              >
-                {SEED_PAYMENT_METHODS.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="block text-[10.5px] font-medium uppercase tracking-[0.04em] text-[var(--color-ink-500)] mb-1">Reference</span>
-              <input
-                type="text"
-                value={recordReference}
-                onChange={(e) => onReferenceChange(e.target.value)}
-                placeholder="optional"
-                className="h-7 w-full px-2 text-[12.5px] text-[var(--color-ink-900)] bg-white border border-[var(--color-border-strong)] rounded-[3px] focus:outline-none focus:border-[var(--color-navy-700)] focus:shadow-[0_0_0_2px_rgba(31,78,121,0.14)]"
-              />
-            </label>
-          </div>
-          <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={onCloseRecord} className="h-7 px-2.5 text-[12px] text-[var(--color-ink-700)]">Cancel</button>
-            <button
-              type="button"
-              onClick={onSubmitRecord}
-              disabled={recordSubmitting}
-              className="h-7 px-3 rounded-[3px] text-[12px] font-medium text-white disabled:opacity-50"
-              style={{ background: "var(--color-navy-700)" }}
-            >
-              {recordSubmitting ? "Recording..." : "Record"}
-            </button>
-          </div>
-        </div>
+        <RecordPaymentForm
+          remainingBalance={remainingBalance}
+          hasPendingPayments={hasPendingPayments}
+          submitting={recordSubmitting}
+          onCancel={onCloseRecord}
+          onSubmit={onSubmitRecord}
+        />
       )}
 
       <div className="overflow-x-auto">
@@ -1110,8 +1114,12 @@ function PaymentsCard({
               </td>
             </tr>
           )}
-          {payments.map((p, i) => (
-            <tr key={p.id} className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} border-b border-[var(--color-border-default)] last:border-b-0`}>
+          {payments.map((p, i) => {
+            const rowBg = i % 2 ? "bg-[#FBFBFC]" : "bg-white";
+            const op = overpaymentSummary(p);
+            return (
+            <Fragment key={p.id}>
+            <tr className={`${rowBg} ${op ? "" : "border-b border-[var(--color-border-default)] last:border-b-0"}`}>
               <Td><PaymentStatusPill status={p.status} /></Td>
               <Td>{p.paymentMethod.name}</Td>
               <NumTd mono strong>{formatNGN(p.amount)}</NumTd>
@@ -1145,7 +1153,24 @@ function PaymentsCard({
                 )}
               </td>
             </tr>
-          ))}
+            {op && (
+              <tr className={`${rowBg} border-b border-[var(--color-border-default)] last:border-b-0`} data-testid="overpayment-row">
+                <td colSpan={7} className="px-3.5 pb-2.5 pt-0">
+                  <div className="rounded-[3px] border border-[var(--color-warning-100)] bg-[var(--color-warning-50)] px-2.5 py-1.5 text-[11.5px] text-[var(--color-ink-900)] flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span className="font-semibold uppercase tracking-[0.03em] text-[10px] text-[var(--color-warning-700)]">Overpayment</span>
+                    <span>
+                      Of <span className="font-mono tabular-nums font-semibold">{formatNGN(p.amount)}</span> paid,{" "}
+                      <span className="font-mono tabular-nums font-semibold">{formatNGN(p.overpaymentAmount ?? "0")}</span> was excess.
+                    </span>
+                    <span className="text-[var(--color-ink-300)]">&middot;</span>
+                    <span data-testid="overpayment-resolution">{op}</span>
+                  </div>
+                </td>
+              </tr>
+            )}
+            </Fragment>
+            );
+          })}
         </tbody>
       </table>
       </div>
