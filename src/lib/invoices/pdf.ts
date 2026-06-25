@@ -37,6 +37,21 @@ export function proformaInvoiceDoc(piId: string): InvoiceDoc {
   };
 }
 
+/**
+ * Sales-side proforma invoice (43a), the customer-facing PI auto-issued on SO
+ * creation. Distinct from proformaInvoiceDoc above, which is the PROCUREMENT
+ * side (VSK -> Enviable). The sales PI PDF is served Content-Disposition:
+ * inline, so the frontend OPENS BOTH the html and pdf in a new browser tab for
+ * the user to print, rather than forcing a download. Both gated salesorder.read.
+ */
+export function salesProformaInvoiceDoc(piId: string): InvoiceDoc {
+  const e = encodeURIComponent(piId);
+  return {
+    html: `/api/sales-proforma-invoices/${e}/html`,
+    pdf: `/api/sales-proforma-invoices/${e}/pdf`,
+  };
+}
+
 export type PdfOutcome =
   | { ok: true; filename: string }
   | {

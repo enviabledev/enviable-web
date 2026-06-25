@@ -47,6 +47,7 @@ import {
   type UnitStatus,
 } from "@/lib/api";
 import RecordPaymentForm from "@/components/sales-orders/RecordPaymentForm";
+import { SalesPiCard } from "@/components/sales-orders/SalesProformaInvoiceLinks";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime, formatNGN } from "@/lib/format";
 import { salesInvoiceDoc } from "@/lib/invoices/pdf";
@@ -616,6 +617,8 @@ export default function SalesOrderDetailPage() {
           </ul>
         </section>
       )}
+
+      <SalesPiCard pi={so.salesProformaInvoice} known={!isFromMirror} />
 
       <InvoiceCard
         invoice={invoice}

@@ -34,6 +34,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PaymentsIcon, SearchIcon } from "@/components/icons";
 import PrintButton from "@/components/invoices/PrintButton";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
+import { SalesPiInlineLink, type PiSummary } from "@/components/sales-orders/SalesProformaInvoiceLinks";
+import { listSalesOrders } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateShort, formatDateTime, formatNGN } from "@/lib/format";
 import { salesInvoiceDoc } from "@/lib/invoices/pdf";
@@ -147,6 +149,11 @@ export default function InvoicesPaymentsPage() {
 
   const [invoices, setInvoices] = useState<InvoiceRow[] | null>(null);
   const [payments, setPayments] = useState<PaymentRow[] | null>(null);
+  // soId -> sales proforma invoice, fetched over the network (the SO list
+  // carries the PI join; the mirror salesOrder rows do not). Used to surface a
+  // per-row "View PI" link in the invoices tab. Empty offline, which is fine:
+  // the PI document only opens with a connection anyway.
+  const [piBySoId, setPiBySoId] = useState<Map<string, PiSummary>>(new Map());
   const watermark = useMirrorFreshness();
   const bootstrapping = watermark ? !watermark.historyComplete : true;
 
@@ -250,6 +257,32 @@ export default function InvoicesPaymentsPage() {
     };
   }, [canSee]);
 
+  // PI map, network-sourced (the SO list carries salesProformaInvoice; the
+  // mirror does not). Refreshed on focus/online so a PI issued after mount
+  // surfaces. Best-effort: a failure leaves the map empty (no PI links), which
+  // is acceptable since opening the document needs a connection regardless.
+  useEffect(() => {
+    if (!canSee) return;
+    let cancelled = false;
+    const loadPis = async () => {
+      const r = await listSalesOrders();
+      if (cancelled || r.kind !== "ok") return;
+      const map = new Map<string, PiSummary>();
+      for (const so of r.data) {
+        if (so.salesProformaInvoice) map.set(so.id, so.salesProformaInvoice);
+      }
+      setPiBySoId(map);
+    };
+    void loadPis();
+    window.addEventListener("focus", loadPis);
+    window.addEventListener("online", loadPis);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", loadPis);
+      window.removeEventListener("online", loadPis);
+    };
+  }, [canSee]);
+
   if (!canSee) {
     return (
       <div className="max-w-[1080px] mx-auto py-10 text-center text-[var(--color-ink-500)]">
@@ -292,7 +325,7 @@ export default function InvoicesPaymentsPage() {
       />
 
       {params.tab === "invoices" ? (
-        <InvoicesPanel rows={invoices} params={params} bootstrapping={bootstrapping} />
+        <InvoicesPanel rows={invoices} params={params} bootstrapping={bootstrapping} piBySoId={piBySoId} />
       ) : (
         <PaymentsPanel rows={payments} params={params} bootstrapping={bootstrapping} />
       )}
@@ -465,10 +498,12 @@ function InvoicesPanel({
   rows,
   params,
   bootstrapping,
+  piBySoId,
 }: {
   rows: InvoiceRow[] | null;
   params: ReturnType<typeof readParams>;
   bootstrapping: boolean;
+  piBySoId: Map<string, PiSummary>;
 }) {
   if (!rows) {
     return <div className="py-10 text-center text-[var(--color-ink-500)]">Loading invoices...</div>;
@@ -544,6 +579,7 @@ function InvoicesPanel({
                   fallbackFilename={`${r.invoiceNumber}.pdf`}
                   variant="row"
                 />
+                <SalesPiInlineLink pi={piBySoId.get(r.salesOrderId)} />
               </div>
             </div>
           ))}
@@ -598,6 +634,7 @@ function InvoicesPanel({
                       fallbackFilename={`${r.invoiceNumber}.pdf`}
                       variant="row"
                     />
+                    <SalesPiInlineLink pi={piBySoId.get(r.salesOrderId)} />
                   </span>
                 </Td>
               </tr>

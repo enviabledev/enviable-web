@@ -221,6 +221,7 @@ export type {
   SalesOrderLine,
   SalesOrderListRow,
   SalesOrderDetail,
+  SalesProformaInvoiceSummary,
   SalesOrderListQuery,
   CreateSoLine,
   CreateSoBody,

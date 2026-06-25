@@ -358,9 +358,10 @@ export default function ProformaInvoiceDetailPage() {
         <div className="mt-3 flex items-center gap-2 flex-wrap">
           <Link
             href={`/procurement/proforma-invoices/${pi.id}/document`}
+            title="VSK's proforma invoice to Enviable, an internal procurement reference, not a customer-facing document"
             className="h-[28px] px-2.5 inline-flex items-center rounded-[3px] text-[12px] font-medium border border-[var(--color-border-strong)] bg-white text-[var(--color-navy-700)] hover:bg-[var(--color-navy-50)]"
           >
-            View document
+            VSK PI reference (internal)
           </Link>
           <PrintButton
             pdfPath={proformaInvoiceDoc(pi.id).pdf}

@@ -70,6 +70,18 @@ export type SalesOrderLine = {
   unit: SoLineUnitSummary | null;
 };
 
+/**
+ * Sales-side proforma invoice summary, joined onto the SO list and detail (43a).
+ * One per SO, auto-issued on creation; null for legacy SOs created before 43a.
+ * The PI renders LIVE from the current SO (it is not re-issued on edit), so it
+ * is not an immutable snapshot. Drive the View PI affordance off `id`.
+ */
+export type SalesProformaInvoiceSummary = {
+  id: string;
+  piNumber: string;
+  issuedAt: string;
+};
+
 export type SalesOrderListRow = {
   id: string;
   soNumber: string;
@@ -83,6 +95,7 @@ export type SalesOrderListRow = {
   createdAt: string;
   updatedAt: string;
   customer: { id: string; name: string };
+  salesProformaInvoice: SalesProformaInvoiceSummary | null;
   _count?: { lines: number };
 };
 
@@ -108,6 +121,10 @@ export type SalesOrderDetail = {
   cancelledById: string | null;
   customer: SoCustomerSummary;
   lines: SalesOrderLine[];
+  // Present on the network detail (43a). Optional so the mirror-reconstructed
+  // SO (which has no PI relation in its raw row) is "unknown" rather than a
+  // confirmed null; the detail page uses fromMirror to tell the two apart.
+  salesProformaInvoice?: SalesProformaInvoiceSummary | null;
 };
 
 export type SalesOrderListQuery = {

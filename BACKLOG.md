@@ -1206,3 +1206,70 @@ Findings / observations:
   so it stacks cleanly. The overpayment row on the SO-detail payments table is a
   full-width colspan sub-row, which reads well on mobile (no extra column added to
   an already 7-column table). No horizontal overflow at 375/768/1280.
+
+## Sales-side proforma invoice (prompt 43b) - shipped (frontend)
+
+Shipped against the 43a backend (SalesProformaInvoice auto-issued on SO
+creation; GET /api/sales-proforma-invoices/:id{,/html,/pdf}, all salesorder.read,
+PDF Content-Disposition: inline; the SO list + detail now carry
+salesProformaInvoice {id, piNumber, issuedAt} | null): a Proforma Invoice card on
+the SO detail (View PI + Open PDF opening the html/pdf in a NEW TAB, PI number,
+issued date, a live-render info tooltip, and an honest "no PI was issued" note
+for legacy SOs), a per-row View PI link on the invoices tab of
+/sales/invoices-payments, the salesProformaInvoiceDoc endpoint builder, the
+SalesProformaInvoiceSummary type on the SO list + detail, and the procurement PI
+relabel ("View document" -> "VSK PI reference (internal)" with a clarifying
+title). 31/31 Playwright visible-outcome assertions pass (a-f, h-w); g and m are
+intentionally skipped (see below).
+
+Decisions / findings:
+
+- (g) SO list: NOT added. The sales-orders list is text-only (rows link to the
+  detail; no per-row document affordances), so per the prompt's "if the list has
+  per-row actions" condition, PI access stays on the SO detail. Adding a per-row
+  PI column to a list with no other actions would be inconsistent with the
+  existing convention.
+
+- (m) Customer detail: NOT added. The customer detail page does not render a
+  per-row SO list with actions (it surfaces deletion/deactivation, not an SO
+  table), so there is no row to hang a PI link on. PI is reachable via the SO
+  detail. Operationally a customer-scoped "their proforma invoices" view could be
+  useful (a dealer asking for a re-send), but it needs a new customer->SOs surface
+  (and ideally a backend customer-SO filter); deferred as a future round.
+
+- invoices-payments PI link is INVOICE-stage-scoped. That tab lists invoices
+  (and payments), both downstream of SO progression, so a brand-new SO that has a
+  PI but no invoice/payment yet does NOT appear there. The PI link therefore shows
+  only for SOs that have reached the invoice stage; the SO detail is the universal
+  PI surface. If we want PI links for every PI-bearing SO on that page, it would
+  need an SO-centric tab or list, which the page is not currently shaped for.
+
+- No salesProformaInvoice mirror bucket exists (43a did not add one to the sync
+  ALL_TYPES), so the invoices-tab PI links are sourced from a network fetch of the
+  SO list (which carries the PI join) rather than the mirror. Offline, the PI
+  links simply do not render, which is acceptable: opening the document requires a
+  connection regardless. The SO detail PI card distinguishes "offline/unknown"
+  (mirror paint) from "confirmed no PI" (network) via the fromMirror flag, so a
+  new SO viewed offline shows "loads when online" rather than a false "no PI".
+
+- OPERATIONAL AMBIGUITY (flag for the team): the PI renders LIVE from the current
+  SO and the affordance shows for ANY status, including CANCELLED. A cancelled
+  order still has its salesProformaInvoice row, so the SO detail shows View PI and
+  the document renders the (now cancelled) order's current details, with no
+  "cancelled" marking on the PI itself. Backend behavior is unchanged and this is
+  arguably fine (the PI is a live reference, not a contract), but sending a
+  cancelled order's PI to a customer would be misleading. If the team wants it,
+  the UX fix is small: when so.status is CANCELLED, add a caveat on the PI card
+  ("This order was cancelled; the proforma invoice no longer reflects an active
+  order") and/or suppress the affordance. Not built pending a product call.
+
+- Single bank on the PI today (per 43a); per-product-type bank routing arrives
+  with prompt 45. The frontend renders whatever the backend template emits, so no
+  frontend change is needed when routing lands.
+
+- Mobile (375/768/1280): no pre-existing layout adjustment was needed. The PI card
+  reuses the InvoiceCard card+grid pattern (label/value rows that stack to a single
+  column at <sm), and the View PI / Open PDF buttons sit in a wrap-friendly row.
+  No horizontal overflow at any of the three widths; the affordances are 28px tall
+  (tappable). The invoices-tab inline PI link reuses the existing row-action
+  cluster (View / Print), so it inherited the responsive behavior for free.
