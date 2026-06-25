@@ -25,7 +25,7 @@ export function formatUnitStatus(status: string): string {
     .toLowerCase()
     .split("_")
     .map((part) => {
-      if (part === "ckd" || part === "cbu") return part.toUpperCase();
+      if (part === "ckd" || part === "cbu" || part === "skd") return part.toUpperCase();
       return part.charAt(0).toUpperCase() + part.slice(1);
     })
     .join("");
@@ -41,6 +41,7 @@ const SHORT_UNIT_STATUS: Record<UnitStatus, string> = {
   IN_TRANSIT: "Transit",
   IN_WAREHOUSE_CKD: "WH CKD",
   IN_ASSEMBLY: "Assembly",
+  IN_WAREHOUSE_SKD: "WH SKD",
   IN_WAREHOUSE_CBU: "WH CBU",
   SOLD_AS_CKD: "Sold CKD",
   SOLD_AS_CBU: "Sold CBU",
@@ -62,7 +63,7 @@ export function shortUnitStatus(status: string): string {
   return SHORT_UNIT_STATUS[status as UnitStatus] ?? formatUnitStatus(status);
 }
 
-export type PillTone = "navy" | "amber" | "success" | "danger" | "grey";
+export type PillTone = "navy" | "amber" | "success" | "danger" | "grey" | "teal";
 
 export function toneOfUnitStatus(status: UnitStatus): PillTone {
   switch (status) {
@@ -71,6 +72,10 @@ export function toneOfUnitStatus(status: UnitStatus): PillTone {
     case "DEMO":
     case "INTERNAL_USE":
       return "navy";
+    // SKD gets a distinct cool teal so a semi-knocked-down 3-wheeler reads
+    // clearly apart from a fully-built CBU (navy) at a glance.
+    case "IN_WAREHOUSE_SKD":
+      return "teal";
     case "IN_ASSEMBLY":
     case "IN_REPAIR":
     case "RETURNED":
@@ -93,6 +98,7 @@ export function toneOfUnitStatus(status: UnitStatus): PillTone {
  */
 export function toneOfMaybeStatus(status: string | null | undefined): PillTone {
   if (!status) return "grey";
+  if (status === "IN_WAREHOUSE_SKD") return "teal";
   if ((["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_CBU", "DEMO", "INTERNAL_USE"] as const).includes(
     status as never,
   )) return "navy";

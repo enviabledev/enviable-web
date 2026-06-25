@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import AdjustUnitModal from "@/components/units/AdjustUnitModal";
+import UpgradeToCbuModal from "@/components/units/UpgradeToCbuModal";
 import ProductTypePill from "@/components/products/ProductTypePill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
@@ -102,10 +103,15 @@ export default function UnitDetailPage() {
   const idOrEngineNumber = useUrlLastSegment();
   const { has } = usePermissions();
   const canAdjust = has("unit.adjust");
+  // SKD -> CBU upgrade authorisation (46a), gated assembly.upgrade.
+  const canUpgrade = has("assembly.upgrade");
   const { state: connState } = useConnectivity();
   const offlineConn = connState === "offline";
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [adjustOpen, setAdjustOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  // After a successful upgrade authorisation, the created job (to link to).
+  const [upgradeJobId, setUpgradeJobId] = useState<string | null>(null);
   // Bumped after a successful adjustment to re-run the load effect so the new
   // status and the new movement land on the timeline.
   const [reloadTick, setReloadTick] = useState(0);
@@ -325,18 +331,52 @@ export default function UnitDetailPage() {
             </span>
           </div>
         </div>
-        {canAdjust && canAdjustFrom(unit.status) && (
-          <button
-            type="button"
-            onClick={() => setAdjustOpen(true)}
-            disabled={offlineConn}
-            data-testid="adjust-unit-button"
-            className="h-[32px] px-3 rounded-[3px] border border-[var(--color-navy-700)] bg-white text-[var(--color-navy-700)] text-[12.5px] font-medium disabled:opacity-50 shrink-0"
-          >
-            Adjust status
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {canUpgrade && unit.status === "IN_WAREHOUSE_SKD" && (
+            <button
+              type="button"
+              onClick={() => setUpgradeOpen(true)}
+              disabled={offlineConn}
+              data-testid="upgrade-cbu-button"
+              className="h-[32px] px-3 rounded-[3px] text-[12.5px] font-medium text-white disabled:opacity-50"
+              style={{ background: "var(--color-navy-700)" }}
+            >
+              Upgrade to CBU
+            </button>
+          )}
+          {canAdjust && canAdjustFrom(unit.status) && (
+            <button
+              type="button"
+              onClick={() => setAdjustOpen(true)}
+              disabled={offlineConn}
+              data-testid="adjust-unit-button"
+              className="h-[32px] px-3 rounded-[3px] border border-[var(--color-navy-700)] bg-white text-[var(--color-navy-700)] text-[12.5px] font-medium disabled:opacity-50"
+            >
+              Adjust status
+            </button>
+          )}
+        </div>
       </header>
+
+      {upgradeJobId && (
+        <div
+          role="status"
+          data-testid="upgrade-success-banner"
+          className="mb-6 px-4 py-3 rounded-[4px] border border-[var(--color-success-700)] bg-[var(--color-success-100)] flex items-center justify-between gap-3 flex-wrap"
+        >
+          <span className="text-[12.5px] text-[var(--color-ink-900)]">
+            Upgrade job created. The unit is now <span className="font-semibold">In Assembly</span> until
+            the full build completes.
+          </span>
+          <Link
+            href={`/inventory/assembly-jobs/${upgradeJobId}`}
+            data-testid="upgrade-job-link"
+            className="text-[12.5px] font-medium text-[var(--color-success-700)] hover:underline shrink-0"
+          >
+            View upgrade job →
+          </Link>
+        </div>
+      )}
 
       {returnRef && (
         <div
@@ -371,6 +411,27 @@ export default function UnitDetailPage() {
             setState((prev) =>
               prev.status === "ok"
                 ? { status: "ok", unit: { ...prev.unit, status: newStatus } }
+                : prev,
+            );
+            setReloadTick((n) => n + 1);
+          }}
+        />
+      )}
+
+      {canUpgrade && (
+        <UpgradeToCbuModal
+          open={upgradeOpen}
+          onClose={() => setUpgradeOpen(false)}
+          unitId={unit.id}
+          engineNumber={unit.engineNumber}
+          onSuccess={(job) => {
+            setUpgradeOpen(false);
+            setUpgradeJobId(job.id);
+            // Optimistic: the unit is now In Assembly; the tick refetches the
+            // authoritative state and the new ASSEMBLY_START movement.
+            setState((prev) =>
+              prev.status === "ok"
+                ? { status: "ok", unit: { ...prev.unit, status: "IN_ASSEMBLY" } }
                 : prev,
             );
             setReloadTick((n) => n + 1);

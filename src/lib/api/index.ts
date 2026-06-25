@@ -65,12 +65,16 @@ export {
   completeAssembly,
   failAssembly,
   cancelAssembly,
+  upgradeToCbu,
   assemblyJobIsActionable,
+  assemblyJobTypeLabel,
   ASSEMBLY_JOB_STATUS,
+  ASSEMBLY_JOB_TYPE,
 } from "./assembly";
 export type {
   AssemblyJob,
   AssemblyJobStatus,
+  AssemblyJobType,
   AssemblyJobUnitSummary,
   AssemblyJobSupervisor,
 } from "./assembly";

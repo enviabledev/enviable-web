@@ -110,17 +110,20 @@ export default function StocksReportPage() {
     (acc, v) => ({
       ckd: acc.ckd + v.counts.ckd,
       inAssembly: acc.inAssembly + v.counts.inAssembly,
+      skd: acc.skd + (v.counts.skd ?? 0),
       cbu: acc.cbu + v.counts.cbu,
       sold: acc.sold + v.counts.sold,
       other: acc.other + v.counts.other,
       total: acc.total + v.counts.total,
     }),
-    { ckd: 0, inAssembly: 0, cbu: 0, sold: 0, other: 0, total: 0 },
+    { ckd: 0, inAssembly: 0, skd: 0, cbu: 0, sold: 0, other: 0, total: 0 },
   );
 
-  // CKD/CBU split for the Total Units footer breakdown.
+  // On-hand split for the Total Units footer breakdown. SKD and CBU are distinct
+  // assembled buckets (46a); both are on-hand stock.
   const totalsInStock = {
     ckd: r.variants.reduce((s, v) => s + v.counts.ckd, 0),
+    skd: r.variants.reduce((s, v) => s + (v.counts.skd ?? 0), 0),
     cbu: r.variants.reduce((s, v) => s + v.counts.cbu, 0),
     inAssembly: r.variants.reduce((s, v) => s + v.counts.inAssembly, 0),
   };
@@ -156,7 +159,8 @@ export default function StocksReportPage() {
           </KpiValue>
           <KpiFoot>
             <Split label="CKD" value={formatCount(totalsInStock.ckd)} tone="navy" />
-            <Split label="CBU" value={formatCount(totalsInStock.cbu)} tone="success" />
+            <Split label="SKD" value={formatCount(totalsInStock.skd)} tone="teal" testId="stocks-skd-onhand" />
+            <Split label="CBU" value={formatCount(totalsInStock.cbu)} tone="success" testId="stocks-cbu-onhand" />
             <Split label="In Assembly" value={formatCount(totalsInStock.inAssembly)} tone="amber" />
           </KpiFoot>
         </KpiCard>
@@ -201,6 +205,7 @@ export default function StocksReportPage() {
                 <Th>Variant</Th>
                 <Th align="right" sub="in warehouse" className={COL.md}>CKD</Th>
                 <Th align="right" className={COL.lg}>In Assembly</Th>
+                <Th align="right" sub="in warehouse" className={COL.md}>SKD</Th>
                 <Th align="right" sub="in warehouse" className={COL.md}>CBU</Th>
                 <Th align="right" className={COL.lg}>Sold</Th>
                 <Th align="right" className={COL.lg}>Other</Th>
@@ -222,6 +227,7 @@ export default function StocksReportPage() {
                   </Td>
                   <NumTd zero={v.counts.ckd === 0} className={COL.md}>{formatCount(v.counts.ckd)}</NumTd>
                   <NumTd zero={v.counts.inAssembly === 0} className={COL.lg}>{formatCount(v.counts.inAssembly)}</NumTd>
+                  <NumTd zero={(v.counts.skd ?? 0) === 0} className={COL.md}>{formatCount(v.counts.skd ?? 0)}</NumTd>
                   <NumTd zero={v.counts.cbu === 0} className={COL.md}>{formatCount(v.counts.cbu)}</NumTd>
                   <NumTd zero={v.counts.sold === 0} className={COL.lg}>{formatCount(v.counts.sold)}</NumTd>
                   <NumTd zero={v.counts.other === 0} className={COL.lg}>{formatCount(v.counts.other)}</NumTd>
@@ -238,6 +244,7 @@ export default function StocksReportPage() {
                 </FootTd>
                 <FootNumTd className={COL.md}>{formatCount(totals.ckd)}</FootNumTd>
                 <FootNumTd className={COL.lg}>{formatCount(totals.inAssembly)}</FootNumTd>
+                <FootNumTd className={COL.md}>{formatCount(totals.skd)}</FootNumTd>
                 <FootNumTd className={COL.md}>{formatCount(totals.cbu)}</FootNumTd>
                 <FootNumTd className={COL.lg}>{formatCount(totals.sold)}</FootNumTd>
                 <FootNumTd className={COL.lg}>{formatCount(totals.other)}</FootNumTd>
@@ -362,15 +369,27 @@ function KpiFoot({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Split({ label, value, tone }: { label: string; value: string; tone: "navy" | "success" | "amber" }) {
+function Split({
+  label,
+  value,
+  tone,
+  testId,
+}: {
+  label: string;
+  value: string;
+  tone: "navy" | "success" | "amber" | "teal";
+  testId?: string;
+}) {
   const dotClass =
     tone === "navy"
       ? "bg-[var(--color-navy-700)]"
       : tone === "success"
         ? "bg-[var(--color-success-700)]"
-        : "bg-[var(--color-warning-700)]";
+        : tone === "teal"
+          ? "bg-[#0E9AAA]"
+          : "bg-[var(--color-warning-700)]";
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex items-center gap-1.5" data-testid={testId}>
       <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} aria-hidden />
       <b className="text-[var(--color-ink-900)] tabular-nums font-semibold">{value}</b>
       <span>{label}</span>

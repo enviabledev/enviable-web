@@ -15,6 +15,9 @@ import { apiFetch, buildQuery, type ApiResult } from "./client";
 export type StocksBucketCounts = {
   ckd: number;
   inAssembly: number;
+  // SKD on-hand (46a): 3-wheelers that completed assembly to semi-knocked-down.
+  // Distinct from cbu; both are on-hand assembled stock.
+  skd: number;
   cbu: number;
   sold: number;
   other: number;

@@ -28,6 +28,7 @@ import type {
 type UnitStatus =
   | "IN_WAREHOUSE_CKD"
   | "IN_ASSEMBLY"
+  | "IN_WAREHOUSE_SKD"
   | "IN_WAREHOUSE_CBU"
   | "SOLD_AS_CKD"
   | "SOLD_AS_CBU"
@@ -40,7 +41,7 @@ type UnitStatus =
   | "RETURNED"
   | "WRITTEN_OFF";
 
-type Bucket = "ckd" | "inAssembly" | "cbu" | "sold" | "other";
+type Bucket = "ckd" | "inAssembly" | "skd" | "cbu" | "sold" | "other";
 
 // Replicates STATUS_BUCKET from reports.service.ts. Adding a new UnitStatus
 // without giving it a bucket would corrupt the partition; the assertion at
@@ -48,6 +49,7 @@ type Bucket = "ckd" | "inAssembly" | "cbu" | "sold" | "other";
 const STATUS_BUCKET: Record<UnitStatus, Bucket> = {
   IN_WAREHOUSE_CKD: "ckd",
   IN_ASSEMBLY: "inAssembly",
+  IN_WAREHOUSE_SKD: "skd",
   IN_WAREHOUSE_CBU: "cbu",
   SOLD_AS_CKD: "sold",
   SOLD_AS_CBU: "sold",
@@ -61,10 +63,11 @@ const STATUS_BUCKET: Record<UnitStatus, Bucket> = {
   WRITTEN_OFF: "other",
 };
 
-const IN_STOCK_BUCKETS: Bucket[] = ["ckd", "inAssembly", "cbu"];
+// SKD and CBU are both assembled on-hand stock (46a).
+const IN_STOCK_BUCKETS: Bucket[] = ["ckd", "inAssembly", "skd", "cbu"];
 
 function emptyCounts(): Record<Bucket, number> {
-  return { ckd: 0, inAssembly: 0, cbu: 0, sold: 0, other: 0 };
+  return { ckd: 0, inAssembly: 0, skd: 0, cbu: 0, sold: 0, other: 0 };
 }
 
 // Mirror shapes (flat fields from the pull's referenceData).
@@ -173,7 +176,7 @@ export async function recomputeStocksFromMirror(
       if (!variant) return null;
       const counts = countsByVariant.get(id) ?? emptyCounts();
       const total =
-        counts.ckd + counts.inAssembly + counts.cbu + counts.sold + counts.other;
+        counts.ckd + counts.inAssembly + counts.skd + counts.cbu + counts.sold + counts.other;
       const inStockCount = IN_STOCK_BUCKETS.reduce(
         (acc, b) => acc + counts[b],
         0,
@@ -190,6 +193,7 @@ export async function recomputeStocksFromMirror(
         counts: {
           ckd: counts.ckd,
           inAssembly: counts.inAssembly,
+          skd: counts.skd,
           cbu: counts.cbu,
           sold: counts.sold,
           other: counts.other,

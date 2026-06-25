@@ -7,11 +7,14 @@ import AssemblyStatusPill from "@/components/assembly/AssemblyStatusPill";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import StatusPill from "@/components/units/StatusPill";
 import {
+  assemblyJobTypeLabel,
+  ASSEMBLY_JOB_TYPE,
   listAssemblyJobs,
   listProducts,
   listUnits,
   type AssemblyJob,
   type AssemblyJobStatus,
+  type AssemblyJobType,
   type UnitStatus,
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
@@ -27,6 +30,7 @@ import { listByType } from "@/lib/sync/mirror/store";
 type AssemblyRow = {
   id: string;
   status: AssemblyJobStatus;
+  jobType: AssemblyJobType;
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
@@ -83,6 +87,7 @@ function reconstruct(
     return {
       id: job.id,
       status: job.status,
+      jobType: job.jobType ?? "CKD_TO_ASSEMBLED",
       startedAt: job.startedAt,
       completedAt: job.completedAt,
       createdAt: job.createdAt,
@@ -100,6 +105,7 @@ export default function AssemblyJobsListPage() {
   const canRead = has("assembly.read");
   const canPerform = has("assembly.perform");
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [typeFilter, setTypeFilter] = useState<AssemblyJobType | "ALL">("ALL");
 
   useEffect(() => {
     if (!canRead) return;
@@ -202,6 +208,11 @@ export default function AssemblyJobsListPage() {
 
   const rows = state.status === "ok" ? state.rows : null;
   const fromMirror = state.status === "ok" && state.fromMirror;
+  const visibleRows = rows
+    ? typeFilter === "ALL"
+      ? rows
+      : rows.filter((r) => r.jobType === typeFilter)
+    : null;
 
   return (
     <div className="max-w-[1480px] mx-auto pb-10">
@@ -222,9 +233,9 @@ export default function AssemblyJobsListPage() {
             {fromMirror && <FreshnessBadge />}
           </h1>
           <div className="text-[13px] text-[var(--color-ink-500)] mt-1 max-w-[820px]">
-            An assembly job takes a unit from knocked-down (CKD) through assembly to built-up (CBU).
-            Starting a job pivots the unit to In Assembly; completing it pivots to In Warehouse CBU;
-            failing it marks the unit Damaged.
+            An initial build takes a unit through assembly: a 3-wheeler completes to In Warehouse SKD,
+            a 2-wheeler to In Warehouse CBU. A separate Upgrade to CBU job builds an SKD 3-wheeler up to
+            CBU. Failing a job marks the unit Damaged.
           </div>
         </div>
         {canPerform && (
@@ -238,12 +249,37 @@ export default function AssemblyJobsListPage() {
         )}
       </header>
 
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">
+          Type
+        </span>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as AssemblyJobType | "ALL")}
+          data-testid="assembly-type-filter"
+          className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px]"
+        >
+          <option value="ALL">All types</option>
+          {ASSEMBLY_JOB_TYPE.map((t) => (
+            <option key={t} value={t}>
+              {assemblyJobTypeLabel(t)}
+            </option>
+          ))}
+        </select>
+        {visibleRows && (
+          <span className="text-[11.5px] text-[var(--color-ink-500)]">
+            {visibleRows.length} shown
+          </span>
+        )}
+      </div>
+
       <section className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
             <tr>
               <Th>Unit</Th>
               <Th className={COL.sm}>Variant</Th>
+              <Th>Type</Th>
               <Th className={COL.md}>Unit Status</Th>
               <Th>Job Status</Th>
               <Th className={COL.md}>Started</Th>
@@ -254,29 +290,36 @@ export default function AssemblyJobsListPage() {
           <tbody>
             {state.status === "loading" && (
               <tr>
-                <td colSpan={7} className="px-3.5 py-12 text-center text-[var(--color-ink-500)]">
+                <td colSpan={8} className="px-3.5 py-12 text-center text-[var(--color-ink-500)]">
                   Loading assembly jobs...
                 </td>
               </tr>
             )}
             {state.status === "error" && (
               <tr>
-                <td colSpan={7} className="px-3.5 py-12 text-center text-[var(--color-danger-700)]">
+                <td colSpan={8} className="px-3.5 py-12 text-center text-[var(--color-danger-700)]">
                   {state.message}
                 </td>
               </tr>
             )}
             {rows && rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3.5 py-12 text-center text-[var(--color-ink-500)]">
+                <td colSpan={8} className="px-3.5 py-12 text-center text-[var(--color-ink-500)]">
                   {fromMirror
                     ? "No assembly jobs are cached on this device. Jobs appear here after syncing online."
                     : "No assembly jobs yet. Start one to take a CKD unit through assembly."}
                 </td>
               </tr>
             )}
-            {rows &&
-              rows.map((row, i) => (
+            {rows && rows.length > 0 && visibleRows && visibleRows.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-3.5 py-12 text-center text-[var(--color-ink-500)]">
+                  No assembly jobs match this type filter.
+                </td>
+              </tr>
+            )}
+            {visibleRows &&
+              visibleRows.map((row, i) => (
                 <tr
                   key={row.id}
                   className={`${i % 2 ? "bg-[#FBFBFC]" : "bg-white"} hover:bg-[var(--color-navy-50)] border-b border-[var(--color-border-default)]`}
@@ -296,6 +339,14 @@ export default function AssemblyJobsListPage() {
                     ) : (
                       <span className="text-[var(--color-ink-400)]">--</span>
                     )}
+                  </Td>
+                  <Td>
+                    <span
+                      data-testid={`assembly-row-type-${row.jobType}`}
+                      className="inline-flex items-center h-4 px-1.5 rounded-[3px] text-[10px] font-semibold uppercase tracking-[0.02em] whitespace-nowrap bg-[var(--color-navy-50)] text-[var(--color-navy-800)]"
+                    >
+                      {assemblyJobTypeLabel(row.jobType)}
+                    </span>
                   </Td>
                   <Td className={COL.md}>
                     {row.unitStatus ? (

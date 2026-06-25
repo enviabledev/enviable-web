@@ -13,6 +13,9 @@ export const UNIT_STATUS = [
   "IN_TRANSIT",
   "IN_WAREHOUSE_CKD",
   "IN_ASSEMBLY",
+  // Semi Knocked Down (46a): a 3-wheeler that has completed assembly. Distinct
+  // from CBU (fully built); the SKD -> CBU upgrade is a separate assembly job.
+  "IN_WAREHOUSE_SKD",
   "IN_WAREHOUSE_CBU",
   "SOLD_AS_CKD",
   "SOLD_AS_CBU",

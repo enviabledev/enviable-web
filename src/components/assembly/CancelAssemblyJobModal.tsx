@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import Modal from "@/components/ui/Modal";
-import { cancelAssembly, type AssemblyJob } from "@/lib/api";
+import { cancelAssembly, type AssemblyJob, type AssemblyJobType } from "@/lib/api";
 import { useConnectivity } from "@/lib/sync/connectivity";
 
 const REASONS = [
@@ -30,17 +30,22 @@ export default function CancelAssemblyJobModal({
   open,
   onClose,
   jobId,
+  jobType = "CKD_TO_ASSEMBLED",
   engineNumber,
   onSuccess,
 }: {
   open: boolean;
   onClose: () => void;
   jobId: string;
+  jobType?: AssemblyJobType;
   engineNumber: string;
   onSuccess: (job: AssemblyJob) => void;
 }) {
   const { state: connState } = useConnectivity();
   const offline = connState === "offline";
+  // The intact revert target differs by job type: an upgrade reverts to SKD, a
+  // kit build reverts to CKD (44a).
+  const revertLabel = jobType === "SKD_TO_CBU" ? "In Warehouse SKD" : "In Warehouse CKD";
 
   const [reason, setReason] = useState<string>("");
   const [other, setOther] = useState("");
@@ -125,10 +130,13 @@ export default function CancelAssemblyJobModal({
       }
     >
       <div className="flex flex-col gap-3">
-        <p className="text-[12.5px] text-[var(--color-ink-700)] leading-[1.5]">
-          Cancelling will return the unit to <span className="font-semibold">In Warehouse CKD</span> and
-          close this assembly job as <span className="font-semibold">Cancelled</span>. The unit can be
-          re-assembled later. This action is irreversible for this job.
+        <p className="text-[12.5px] text-[var(--color-ink-700)] leading-[1.5]" data-testid="cancel-revert-copy">
+          Cancelling will return the unit to <span className="font-semibold">{revertLabel}</span> and
+          close this assembly job as <span className="font-semibold">Cancelled</span>.{" "}
+          {jobType === "SKD_TO_CBU"
+            ? "The unit can be upgraded again later."
+            : "The unit can be re-assembled later."}{" "}
+          This action is irreversible for this job.
         </p>
         {offline && (
           <div className="px-3 py-2 rounded-[3px] bg-[var(--color-warning-100)] text-[var(--color-warning-700)] text-[12px]">

@@ -42,6 +42,15 @@ export const ASSEMBLY_JOB_STATUS = [
 ] as const;
 export type AssemblyJobStatus = (typeof ASSEMBLY_JOB_STATUS)[number];
 
+/**
+ * Assembly job type (46a). CKD_TO_ASSEMBLED is the kit build (CKD -> SKD for a
+ * 3-wheeler, CKD -> CBU for a 2-wheeler); SKD_TO_CBU is the separately
+ * authorised storefront upgrade of a 3-wheeler from SKD to CBU. The same
+ * complete/fail/cancel endpoints serve both; jobType drives their target state.
+ */
+export const ASSEMBLY_JOB_TYPE = ["CKD_TO_ASSEMBLED", "SKD_TO_CBU"] as const;
+export type AssemblyJobType = (typeof ASSEMBLY_JOB_TYPE)[number];
+
 /** Joined unit summary the API embeds on each job (JOB_INCLUDE). */
 export type AssemblyJobUnitSummary = {
   id: string;
@@ -66,6 +75,7 @@ export type AssemblyJob = {
   id: string;
   unitId: string;
   status: AssemblyJobStatus;
+  jobType: AssemblyJobType;
   startedAt: string | null;
   completedAt: string | null;
   supervisorId: string | null;
@@ -123,11 +133,36 @@ export async function failAssembly(
 }
 
 /**
- * Clean cancel of an IN_PROGRESS job. Reverts the unit to IN_WAREHOUSE_CKD
- * (intact) and closes the job as CANCELLED. The reason is mandatory and
- * non-empty after trimming; the backend 400s on a blank reason (mirror that
- * client-side) and 409s if the job is no longer IN_PROGRESS. Returns the
- * updated job (full JOB_INCLUDE shape, the same as complete/fail).
+ * SKD -> CBU upgrade (46a). Authorises the full build of a single 3-wheeler that
+ * is IN_WAREHOUSE_SKD, as a new assembly job (jobType SKD_TO_CBU). The unit
+ * pivots to IN_ASSEMBLY; the returned job then runs through the shared
+ * complete/fail/cancel endpoints (complete -> CBU, fail -> DAMAGED, cancel ->
+ * back to SKD). Permission assembly.upgrade. 409 if the unit is not SKD or not a
+ * 3-wheeler. unitRef is a cuid id or an engine number.
+ */
+export async function upgradeToCbu(
+  unitRef: string,
+): Promise<ApiResult<AssemblyJob>> {
+  return apiFetch<AssemblyJob>("/api/assembly-jobs/upgrade", {
+    method: "POST",
+    body: { unitRef },
+  });
+}
+
+/**
+ * Human label + the cancel/complete consequence for a job type. CKD_TO_ASSEMBLED
+ * is the kit build; SKD_TO_CBU is the storefront upgrade.
+ */
+export function assemblyJobTypeLabel(t: AssemblyJobType): string {
+  return t === "SKD_TO_CBU" ? "Upgrade to CBU" : "Initial Build";
+}
+
+/**
+ * Clean cancel of an IN_PROGRESS job. Reverts the unit intact and closes the job
+ * as CANCELLED. The revert target depends on jobType: CKD_TO_ASSEMBLED -> CKD,
+ * SKD_TO_CBU -> SKD. The reason is mandatory and non-empty after trimming; the
+ * backend 400s on a blank reason (mirror that client-side) and 409s if the job
+ * is no longer IN_PROGRESS. Returns the updated job (full JOB_INCLUDE shape).
  */
 export async function cancelAssembly(
   id: string,

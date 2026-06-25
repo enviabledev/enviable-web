@@ -1350,3 +1350,72 @@ Findings / observations:
   units-list gained one column each (the lists already scroll-x on narrow screens);
   the units filter bar grid was widened from 5 to 6 columns and still stacks to one
   column at <sm. No horizontal overflow at any width.
+
+## SKD state + SKD->CBU upgrade (prompt 46b) - shipped (frontend)
+
+Shipped against 46a (IN_WAREHOUSE_SKD as a real UnitStatus; 3-wheeler kit assembly
+completes to SKD, 2-wheeler to CBU; POST /api/assembly-jobs/upgrade {unitRef},
+permission assembly.upgrade, jobType SKD_TO_CBU; shared complete/fail/cancel branch
+by jobType; counts.skd in the stocks report; sales accept SKD or CBU 3-wheelers):
+IN_WAREHOUSE_SKD added to the UnitStatus mirror (+ a distinct teal pill tone, "WH
+SKD" shorthand) and AssemblyJobType added; the unit detail surfaces an "Upgrade to
+CBU" action (gated assembly.upgrade, SKD-only) + an UpgradeToCbuModal; the assembly
+job detail shows the job-type badge, a jobType/productType-aware completion target
+(3-wheeler kit -> SKD), and a jobType-aware lifecycle strip; the cancel modal copy
+branches (upgrade -> SKD, kit -> CKD); the assembly list gained a Type column +
+filter; the adjust map mirrors the backend's SKD edges; the units list status filter
+includes SKD; the stocks report (and the offline mirror recompute) carry a distinct
+SKD on-hand bucket; the SO form offers SKD units on CBU-form lines. 26/26 Playwright
+assertions pass (a-z).
+
+Findings / observations:
+
+- ENUM-DRIFT SWEEP (per the 44b finding): swept UnitStatus, MovementType,
+  AssemblyJobStatus, AssemblyJobType frontend-vs-backend. Only UnitStatus was out
+  of sync (missing IN_WAREHOUSE_SKD, now added). MovementType (14), AssemblyJobStatus
+  (4), and the new AssemblyJobType (2) are all in sync. No further drift found. The
+  recurring shape: a new backend enum VALUE (not a new enum) is the silent drift;
+  the typed Record<Enum, ...> maps (pills, shorthand, tones, stocks buckets) are the
+  safety net that turns a missing value into a compile error, which is why every
+  surface that maps UnitStatus needed a one-line addition rather than silently
+  mis-rendering.
+
+- Upgrade modal has NO notes field, by design. The 46a contract (POST
+  /api/assembly-jobs/upgrade) accepts only { unitRef } (no supervisor, no notes), so
+  the modal is an honest confirm. The prompt suggested an optional Notes textarea; a
+  field the backend cannot persist would be dishonest UX, so it was omitted. If notes
+  on an upgrade are wanted operationally, the backend DTO needs a notes field first;
+  then the modal grows one textarea with no other change.
+
+- The 2-wheeler upgrade rejection (assert m) is effectively unreachable through a
+  valid SKD unit: a 2-wheeler never enters IN_WAREHOUSE_SKD, so startUpgrade's status
+  check (not SKD -> 409) fires before the productType check. The UI never offers the
+  action on a 2-wheeler (the affordance is SKD-only and 2-wheelers are CBU), so the
+  productType 409 is a pure backend backstop. Both 409 paths surface identically in
+  the modal; no UX gap, noted only so the "2-wheeler rejected" path is understood as
+  status-gated in practice.
+
+- SKD pill tone: chose a cool teal (distinct hex, not a design-token colour) so SKD
+  reads clearly apart from CBU's navy at a glance. This is the first non-token pill
+  colour in the unit status set; if a teal token is added to globals.css later, swap
+  the two inline hexes (StatusPill + AssemblyStatusPill) for the var. Recorded so the
+  inline colour is not mistaken for an oversight.
+
+- Cross-context coherence verified everywhere (unit list/detail, SO line items,
+  assembly job detail, stock movements, audit log, reports). One minor copy note: the
+  SO-detail line "Soft reservation" hint renders only for CKD/CBU units, not SKD, so
+  an SKD line shows the SKD pill without the reservation hint. The reservation
+  semantics are identical; if the hint is wanted on SKD lines too, extend the
+  CKD/CBU condition to include IN_WAREHOUSE_SKD. Deferred (cosmetic).
+
+- Mobile (375/768/1280): no pre-existing layout change needed. The Upgrade to CBU
+  button joins the existing Adjust action row (wraps cleanly at 375); the upgrade
+  modal reuses the Modal primitive; the assembly-list Type column and the stocks SKD
+  bucket fit the existing scroll-x tables and the KPI split row. No horizontal
+  overflow at any width.
+
+- Stocks report layout: the variant table now has CKD / In Assembly / SKD / CBU /
+  Sold / Other / Total columns (one wider). Already scroll-x on narrow screens; the
+  extra column is fine but the table is getting wide. If more buckets are added,
+  consider collapsing the breakdown into an expandable detail on mobile. Not needed
+  now.

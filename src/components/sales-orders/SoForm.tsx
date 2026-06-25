@@ -17,6 +17,7 @@ import {
   type SaleForm,
   type SalesOrderDetail,
   type UnitListRow,
+  type UnitStatus,
 } from "@/lib/api";
 import ProductTypePill from "@/components/products/ProductTypePill";
 import { usePermissions } from "@/lib/auth";
@@ -120,11 +121,15 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
     Promise.all([
       listCustomers({ status: "ACTIVE", pageSize: 100 }, ctrl.signal),
       listProducts(ctrl.signal),
-      // Pull all units in IN_WAREHOUSE_CKD or IN_WAREHOUSE_CBU. The units
-      // endpoint can't filter on "already allocated", so the picker shows all
-      // matching-status units and relies on the I-11 409 to catch double-
-      // allocation. That matches receipt's duplicate-handling pattern.
-      listUnits({ pageSize: 250, status: ["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_CBU"] }, ctrl.signal),
+      // Pull all sellable warehouse units. CKD lines sell CKD units; CBU lines
+      // sell CBU OR SKD units (46a: a 3-wheeler sells from SKD or, once upgraded,
+      // CBU). The endpoint can't filter on "already allocated", so the picker
+      // shows all matching-status units and relies on the I-11 409 to catch
+      // double-allocation, matching receipt's duplicate-handling pattern.
+      listUnits(
+        { pageSize: 250, status: ["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_SKD", "IN_WAREHOUSE_CBU"] },
+        ctrl.signal,
+      ),
     ]).then(([cRes, pRes, uRes]) => {
       if (ctrl.signal.aborted) return;
       if (cRes.kind === "ok") setCustomers(cRes.data.data);
@@ -173,14 +178,17 @@ export default function SoForm({ mode, initial, submitLabel, onSubmit }: SoFormP
    */
   const unitsForLine = (line: LineDraft): UnitListRow[] => {
     if (!line.productVariantId) return [];
-    const wantedStatus = line.saleForm === "CKD" ? "IN_WAREHOUSE_CKD" : "IN_WAREHOUSE_CBU";
+    // CKD lines take a CKD unit; CBU lines take a fully-built CBU unit OR a
+    // semi-knocked-down SKD 3-wheeler (46a: 3-wheelers sell from SKD).
+    const wantedStatuses: UnitStatus[] =
+      line.saleForm === "CKD" ? ["IN_WAREHOUSE_CKD"] : ["IN_WAREHOUSE_CBU", "IN_WAREHOUSE_SKD"];
     const usedOnOtherLines = new Set(
       lines.filter((l) => l.key !== line.key && l.unitId).map((l) => l.unitId),
     );
     return availableUnits.filter(
       (u) =>
         u.productVariant.id === line.productVariantId &&
-        u.status === wantedStatus &&
+        wantedStatuses.includes(u.status) &&
         !usedOnOtherLines.has(u.id),
     );
   };

@@ -32,6 +32,12 @@ const TONE_CLASSES: Record<PillTone, { bg: string; fg: string; dot: string }> = 
     fg: "text-[var(--color-ink-700)]",
     dot: "bg-[var(--color-ink-500)]",
   },
+  // Cool teal for SKD (semi knocked down), distinct from CBU's navy.
+  teal: {
+    bg: "bg-[#E0F2F4]",
+    fg: "text-[#0E6F7A]",
+    dot: "bg-[#0E9AAA]",
+  },
 };
 
 export default function StatusPill({ status }: { status: UnitStatus }) {

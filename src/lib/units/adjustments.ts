@@ -19,11 +19,15 @@ import type { UnitStatus } from "@/lib/api";
 export const UNIT_ADJUSTMENT_TARGETS: Partial<Record<UnitStatus, UnitStatus[]>> = {
   IN_TRANSIT: ["DAMAGED"],
   IN_WAREHOUSE_CKD: ["DAMAGED", "DEMO", "INTERNAL_USE", "WRITTEN_OFF"],
+  // SKD (46a) mirrors CBU's adjustment edges exactly (a semi-knocked-down
+  // 3-wheeler diverts as a CBU unit does). Sale and the SKD -> CBU upgrade are
+  // workflow paths, not adjustments, so they are deliberately absent here.
+  IN_WAREHOUSE_SKD: ["DAMAGED", "DEMO", "INTERNAL_USE", "IN_REPAIR", "WRITTEN_OFF"],
   IN_WAREHOUSE_CBU: ["DAMAGED", "DEMO", "INTERNAL_USE", "IN_REPAIR", "WRITTEN_OFF"],
   DAMAGED: ["IN_REPAIR", "WRITTEN_OFF"],
-  IN_REPAIR: ["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_CBU", "WRITTEN_OFF"],
-  DEMO: ["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_CBU", "INTERNAL_USE", "WRITTEN_OFF"],
-  INTERNAL_USE: ["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_CBU", "WRITTEN_OFF"],
+  IN_REPAIR: ["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_SKD", "IN_WAREHOUSE_CBU", "WRITTEN_OFF"],
+  DEMO: ["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_SKD", "IN_WAREHOUSE_CBU", "INTERNAL_USE", "WRITTEN_OFF"],
+  INTERNAL_USE: ["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_SKD", "IN_WAREHOUSE_CBU", "WRITTEN_OFF"],
 };
 
 export function adjustmentTargets(status: UnitStatus): UnitStatus[] {
@@ -53,6 +57,8 @@ export function adjustmentConsequence(toStatus: UnitStatus): string {
       return "The unit is moved to internal use and is unavailable for sale until it is returned to stock.";
     case "IN_WAREHOUSE_CKD":
       return "The unit returns to sellable warehouse stock as a CKD kit.";
+    case "IN_WAREHOUSE_SKD":
+      return "The unit returns to sellable warehouse stock as a semi-knocked-down (SKD) 3-wheeler.";
     case "IN_WAREHOUSE_CBU":
       return "The unit returns to sellable warehouse stock as an assembled (CBU) unit.";
     default:

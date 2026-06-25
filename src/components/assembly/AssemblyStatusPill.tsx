@@ -27,6 +27,12 @@ const TONE_CLASSES: Record<PillTone, { bg: string; fg: string; dot: string }> = 
     fg: "text-[var(--color-ink-700)]",
     dot: "bg-[var(--color-ink-500)]",
   },
+  // Present for PillTone completeness; assembly job statuses do not use teal.
+  teal: {
+    bg: "bg-[#E0F2F4]",
+    fg: "text-[#0E6F7A]",
+    dot: "bg-[#0E9AAA]",
+  },
 };
 
 // CANCELLED is grey, not danger: a cancel is a clean, intact reversal back to

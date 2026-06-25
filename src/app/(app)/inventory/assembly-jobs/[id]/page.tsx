@@ -11,6 +11,7 @@ import OfflineNotice from "@/components/sync/OfflineNotice";
 import StatusPill from "@/components/units/StatusPill";
 import {
   assemblyJobIsActionable,
+  assemblyJobTypeLabel,
   completeAssembly,
   failAssembly,
   getAssemblyJob,
@@ -18,10 +19,13 @@ import {
   type ApiResult,
   type AssemblyJob,
   type AssemblyJobStatus,
+  type AssemblyJobType,
+  type ProductType,
   type UnitStatus,
 } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
+import { useVariantTypeMap } from "@/lib/products/use-variant-type-map";
 import { DETAIL_GRID } from "@/lib/responsive";
 import { queueCompleteAssembly, queueFailAssembly } from "@/lib/sync/actions/assembly";
 import { useConnectivity } from "@/lib/sync/connectivity";
@@ -30,13 +34,19 @@ import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
 // Variant context joined from the unit. Same fields online (getUnit) and
 // offline (productVariant bucket), so the detail shape is source-independent.
-type VariantInfo = { label: string | null; sku: string | null; productName: string | null };
+type VariantInfo = {
+  label: string | null;
+  sku: string | null;
+  productName: string | null;
+  productVariantId: string | null;
+};
 
 // The shape the renderer consumes. Field-access audit: every field read by the
 // view is assigned in detailFromJob with an explicit fallback.
 type AssemblyDetail = {
   id: string;
   status: AssemblyJobStatus;
+  jobType: AssemblyJobType;
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
@@ -68,6 +78,7 @@ function detailFromJob(job: AssemblyJob, variant: VariantInfo): AssemblyDetail {
   return {
     id: job.id,
     status: job.status,
+    jobType: job.jobType,
     startedAt: job.startedAt,
     completedAt: job.completedAt,
     createdAt: job.createdAt,
@@ -102,6 +113,9 @@ export default function AssemblyJobDetailPage() {
   // reason, unlike the binary complete/fail confirm), so it is kept out of the
   // ActionState union and driven by this flag.
   const [cancelOpen, setCancelOpen] = useState(false);
+  // Wheeler type drives the completion target for a kit-assembly job (3-wheeler
+  // -> SKD, 2-wheeler -> CBU); an upgrade job always targets CBU.
+  const variantTypeMap = useVariantTypeMap();
 
   useEffect(() => {
     if (!canRead || !id) return;
@@ -120,7 +134,7 @@ export default function AssemblyJobDetailPage() {
           jobRow.body.unitId,
         );
         if (ctrl.signal.aborted) return;
-        let variant: VariantInfo = { label: null, sku: null, productName: null };
+        let variant: VariantInfo = { label: null, sku: null, productName: null, productVariantId: null };
         if (unitRow) {
           const variantRow = await getById<{ supplierSkuCode: string; variantAttributes: { model?: string; colour?: string } }>(
             "productVariant",
@@ -136,6 +150,7 @@ export default function AssemblyJobDetailPage() {
               ),
               sku: variantRow.body.supplierSkuCode,
               productName: null,
+              productVariantId: unitRow.body.productVariantId,
             };
           }
         }
@@ -185,7 +200,7 @@ export default function AssemblyJobDetailPage() {
         return;
       }
       // Join variant from the unit detail (productVariant + product).
-      let variant: VariantInfo = { label: null, sku: null, productName: null };
+      let variant: VariantInfo = { label: null, sku: null, productName: null, productVariantId: null };
       const unitRes = await getUnit(jobRes.data.unitId, ctrl.signal);
       if (ctrl.signal.aborted) return;
       if (unitRes.kind === "ok") {
@@ -194,6 +209,7 @@ export default function AssemblyJobDetailPage() {
           label: variantLabelOf(pv.variantAttributes.model, pv.variantAttributes.colour, pv.supplierSkuCode),
           sku: pv.supplierSkuCode,
           productName: pv.product?.name ?? null,
+          productVariantId: pv.id,
         };
       }
       setState({ status: "ok", detail: detailFromJob(jobRes.data, variant), fromMirror: false });
@@ -229,7 +245,7 @@ export default function AssemblyJobDetailPage() {
       // Reflect the server's authoritative new state. The unit/variant
       // association is unchanged, so reuse the current variant context.
       setState((prev) => {
-        const variant = prev.status === "ok" ? prev.detail.variant : { label: null, sku: null, productName: null };
+        const variant = prev.status === "ok" ? prev.detail.variant : { label: null, sku: null, productName: null, productVariantId: null };
         return { status: "ok", detail: detailFromJob(r.data, variant), fromMirror: false };
       });
       setAction({ status: "idle" });
@@ -300,6 +316,18 @@ export default function AssemblyJobDetailPage() {
   const isFromMirror = state.fromMirror;
   const actionable = assemblyJobIsActionable(d.status);
   const showActions = actionable && canPerform;
+  const productType: ProductType | null = d.variant.productVariantId
+    ? variantTypeMap.get(d.variant.productVariantId) ?? null
+    : null;
+  // The state the unit lands in on completion: an upgrade -> CBU; a kit build ->
+  // SKD for a 3-wheeler, CBU for a 2-wheeler (or when the type is not yet known).
+  const completionTarget: UnitStatus =
+    d.jobType === "SKD_TO_CBU"
+      ? "IN_WAREHOUSE_CBU"
+      : productType === "THREE_WHEELER"
+        ? "IN_WAREHOUSE_SKD"
+        : "IN_WAREHOUSE_CBU";
+  const completionLabel = completionTarget === "IN_WAREHOUSE_SKD" ? "In Warehouse SKD" : "In Warehouse CBU";
 
   return (
     <div className="max-w-[1080px] mx-auto pb-10">
@@ -321,6 +349,13 @@ export default function AssemblyJobDetailPage() {
               Assembly of <span className="font-mono">{d.engineNumber}</span>
             </h1>
             <AssemblyStatusPill status={d.status} />
+            <span
+              data-testid="assembly-job-type"
+              title={d.jobType}
+              className="inline-flex items-center h-5 px-2 rounded-[3px] text-[10.5px] font-semibold uppercase tracking-[0.03em] bg-[var(--color-navy-50)] text-[var(--color-navy-800)] border border-[var(--color-navy-100)]"
+            >
+              {assemblyJobTypeLabel(d.jobType)}
+            </span>
             {isFromMirror && <FreshnessBadge />}
           </div>
           <div className="text-[13px] text-[var(--color-ink-500)]">
@@ -376,6 +411,7 @@ export default function AssemblyJobDetailPage() {
         <ConfirmBar
           action={action.action}
           engineNumber={d.engineNumber}
+          completionLabel={completionLabel}
           onConfirm={() => runAction(action.action)}
           onCancel={() => setAction({ status: "idle" })}
         />
@@ -397,7 +433,7 @@ export default function AssemblyJobDetailPage() {
               <>
                 Complete is queued. This job is still <span className="font-semibold">In Progress</span> on
                 the server; when the connection returns, the engine will run the transition and the unit
-                will pivot to <span className="font-semibold">In Warehouse CBU</span>.
+                will pivot to <span className="font-semibold">{completionLabel}</span>.
               </>
             ) : (
               <>
@@ -449,13 +485,14 @@ export default function AssemblyJobDetailPage() {
         </div>
       )}
 
-      <LifecycleCard unitStatus={d.unitStatus} jobStatus={d.status} />
+      <LifecycleCard unitStatus={d.unitStatus} jobStatus={d.status} jobType={d.jobType} completionTarget={completionTarget} />
       <DetailCard d={d} />
 
       <CancelAssemblyJobModal
         open={cancelOpen}
         onClose={() => setCancelOpen(false)}
         jobId={id}
+        jobType={d.jobType}
         engineNumber={d.engineNumber}
         onSuccess={(job) => {
           // Reflect the server's authoritative new state: job CANCELLED and the
@@ -464,7 +501,7 @@ export default function AssemblyJobDetailPage() {
           setCancelOpen(false);
           setAction({ status: "idle" });
           setState((prev) => {
-            const variant = prev.status === "ok" ? prev.detail.variant : { label: null, sku: null, productName: null };
+            const variant = prev.status === "ok" ? prev.detail.variant : { label: null, sku: null, productName: null, productVariantId: null };
             return { status: "ok", detail: detailFromJob(job, variant), fromMirror: false };
           });
         }}
@@ -481,11 +518,13 @@ export default function AssemblyJobDetailPage() {
 function ConfirmBar({
   action,
   engineNumber,
+  completionLabel,
   onConfirm,
   onCancel,
 }: {
   action: "complete" | "fail";
   engineNumber: string;
+  completionLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -507,7 +546,7 @@ function ConfirmBar({
           <>
             Unit <span className="font-mono font-semibold">{engineNumber}</span> will pivot from{" "}
             <span className="font-semibold">In Assembly</span> to{" "}
-            <span className="font-semibold">In Warehouse CBU</span>. This records you as the assembler.
+            <span className="font-semibold">{completionLabel}</span>. This records you as the assembler.
           </>
         ) : (
           <>
@@ -537,13 +576,33 @@ function ConfirmBar({
   );
 }
 
-function LifecycleCard({ unitStatus, jobStatus }: { unitStatus: UnitStatus | null; jobStatus: AssemblyJobStatus }) {
-  // The unit pivot the job drives: CKD -> In Assembly -> CBU (or Damaged on
-  // fail). Highlight the unit's current position.
+function LifecycleCard({
+  unitStatus,
+  jobStatus,
+  jobType,
+  completionTarget,
+}: {
+  unitStatus: UnitStatus | null;
+  jobStatus: AssemblyJobStatus;
+  jobType: AssemblyJobType;
+  completionTarget: UnitStatus;
+}) {
+  // The pivot the job drives, by type:
+  //   - SKD_TO_CBU upgrade:  SKD -> In Assembly -> CBU
+  //   - CKD_TO_ASSEMBLED:    CKD -> In Assembly -> (SKD for a 3-wheeler, else CBU)
+  // Highlight the unit's current position. Damaged appended on fail.
+  const start: { label: string; match: UnitStatus } =
+    jobType === "SKD_TO_CBU"
+      ? { label: "In Warehouse SKD", match: "IN_WAREHOUSE_SKD" }
+      : { label: "In Warehouse CKD", match: "IN_WAREHOUSE_CKD" };
+  const end: { label: string; match: UnitStatus } =
+    completionTarget === "IN_WAREHOUSE_SKD"
+      ? { label: "In Warehouse SKD", match: "IN_WAREHOUSE_SKD" }
+      : { label: "In Warehouse CBU", match: "IN_WAREHOUSE_CBU" };
   const steps: { label: string; match: UnitStatus }[] = [
-    { label: "In Warehouse CKD", match: "IN_WAREHOUSE_CKD" },
+    start,
     { label: "In Assembly", match: "IN_ASSEMBLY" },
-    { label: "In Warehouse CBU", match: "IN_WAREHOUSE_CBU" },
+    end,
   ];
   const failed = jobStatus === "FAILED";
   return (
