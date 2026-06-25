@@ -18,6 +18,7 @@ import ReturnStatusPill from "@/components/returns/ReturnStatusPill";
 import {
   listReturns,
   RETURN_STATUS,
+  type ReturnDisposition,
   type ReturnRow,
   type ReturnStatus,
 } from "@/lib/api";
@@ -30,12 +31,16 @@ function dispositionLabel(d: ReturnRow["disposition"]): string {
       return "Repair";
     case "WRITE_OFF":
       return "Write-off";
+    case "SUPPLIER_WARRANTY_CLAIM":
+      return "Warranty claim";
     default:
       return "Pending";
   }
 }
 
 type StatusFilter = "ALL" | ReturnStatus;
+type DispositionFilter = "ALL" | ReturnDisposition;
+const RESOLVED_DISPOSITIONS: ReturnDisposition[] = ["REPAIR", "WRITE_OFF", "SUPPLIER_WARRANTY_CLAIM"];
 
 export default function ReturnsListPage() {
   const router = useRouter();
@@ -49,6 +54,7 @@ export default function ReturnsListPage() {
       ? (s as ReturnStatus)
       : "ALL";
   });
+  const [dispositionFilter, setDispositionFilter] = useState<DispositionFilter>("ALL");
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -73,9 +79,11 @@ export default function ReturnsListPage() {
 
   const filtered = useMemo(() => {
     if (!rows) return null;
-    if (statusFilter === "ALL") return rows;
-    return rows.filter((r) => r.status === statusFilter);
-  }, [rows, statusFilter]);
+    let out = rows;
+    if (statusFilter !== "ALL") out = out.filter((r) => r.status === statusFilter);
+    if (dispositionFilter !== "ALL") out = out.filter((r) => r.disposition === dispositionFilter);
+    return out;
+  }, [rows, statusFilter, dispositionFilter]);
 
   return (
     <div className="max-w-[1480px] mx-auto pb-10">
@@ -109,7 +117,7 @@ export default function ReturnsListPage() {
 
       {!offline && (
         <>
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">
               Status
             </span>
@@ -123,6 +131,22 @@ export default function ReturnsListPage() {
               {RETURN_STATUS.map((s) => (
                 <option key={s} value={s}>
                   {s.charAt(0) + s.slice(1).toLowerCase()}
+                </option>
+              ))}
+            </select>
+            <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium ml-1">
+              Disposition
+            </span>
+            <select
+              value={dispositionFilter}
+              onChange={(e) => setDispositionFilter(e.target.value as DispositionFilter)}
+              data-testid="return-disposition-filter"
+              className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px]"
+            >
+              <option value="ALL">All</option>
+              {RESOLVED_DISPOSITIONS.map((d) => (
+                <option key={d} value={d}>
+                  {dispositionLabel(d)}
                 </option>
               ))}
             </select>
@@ -185,7 +209,20 @@ export default function ReturnsListPage() {
                       {formatDateShort(r.initiatedAt)}
                     </td>
                     <td className={`px-3 h-[30px] border-b border-[var(--color-border-default)] text-[var(--color-ink-700)] ${COL.md}`}>
-                      {r.status === "RESOLVED" ? dispositionLabel(r.disposition) : "--"}
+                      {r.status !== "RESOLVED" ? (
+                        "--"
+                      ) : r.disposition === "SUPPLIER_WARRANTY_CLAIM" ? (
+                        <span
+                          data-testid="disposition-warranty-badge"
+                          title="Supplier warranty claim"
+                          className="inline-flex items-center gap-1 h-4 px-1.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.02em] bg-[var(--color-warning-50)] text-[var(--color-warning-700)] whitespace-nowrap"
+                        >
+                          <span className="w-[5px] h-[5px] rounded-full bg-[var(--color-warning-700)]" aria-hidden />
+                          {dispositionLabel(r.disposition)}
+                        </span>
+                      ) : (
+                        dispositionLabel(r.disposition)
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -15,7 +15,14 @@ import ResolveReturnModal from "@/components/returns/ResolveReturnModal";
 import ReturnStatusPill, { formatReturnStatus } from "@/components/returns/ReturnStatusPill";
 import OfflineNotice from "@/components/sync/OfflineNotice";
 import StatusPill from "@/components/units/StatusPill";
-import { getReturn, inspectReturn, type ReturnDetail, type UnitStatus } from "@/lib/api";
+import {
+  getCounterparty,
+  getReturn,
+  inspectReturn,
+  type Counterparty,
+  type ReturnDetail,
+  type UnitStatus,
+} from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { DETAIL_GRID } from "@/lib/responsive";
@@ -36,6 +43,8 @@ function dispositionLabel(d: ReturnDetail["disposition"]): string {
       return "Repair";
     case "WRITE_OFF":
       return "Write-off";
+    case "SUPPLIER_WARRANTY_CLAIM":
+      return "Supplier Warranty Claim";
     default:
       return "Pending decision";
   }
@@ -53,6 +62,9 @@ export default function ReturnDetailPage() {
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState("");
   const [resolveOpen, setResolveOpen] = useState(false);
+  // Supplier name for a warranty claim. The claim carries only the counterparty
+  // id, so resolve the name (and the detail link) by id when a claim is present.
+  const [supplier, setSupplier] = useState<Counterparty | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -70,6 +82,21 @@ export default function ReturnDetailPage() {
     });
     return () => ctrl.abort();
   }, [id, router]);
+
+  // Resolve the supplier counterparty for a warranty-claim resolution.
+  const claimSupplierId =
+    state.status === "ok" ? state.ret.supplierWarrantyClaim?.supplierCounterpartyId ?? null : null;
+  useEffect(() => {
+    if (!claimSupplierId) {
+      setSupplier(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    getCounterparty(claimSupplierId, ctrl.signal).then((r) => {
+      if (!ctrl.signal.aborted && r.kind === "ok") setSupplier(r.data);
+    });
+    return () => ctrl.abort();
+  }, [claimSupplierId]);
 
   const beginInspection = async () => {
     if (state.status !== "ok") return;
@@ -176,6 +203,51 @@ export default function ReturnDetailPage() {
     },
     ...(ret.dispositionDecidedAt
       ? [{ label: "Resolved at", value: formatDateTime(ret.dispositionDecidedAt) }]
+      : []),
+    // Supplier warranty claim metadata (48a), shown only for a claim resolution.
+    ...(ret.supplierWarrantyClaim
+      ? [
+          {
+            label: "Supplier",
+            value: (
+              <span data-testid="claim-supplier-name" className="inline-flex items-center gap-2 flex-wrap">
+                <Link
+                  href={`/procurement/counterparties/${ret.supplierWarrantyClaim.supplierCounterpartyId}`}
+                  className="text-[var(--color-navy-700)] hover:underline"
+                >
+                  {supplier?.name ?? ret.supplierWarrantyClaim.supplierCounterpartyId}
+                </Link>
+              </span>
+            ),
+          },
+          {
+            label: "Claim reference",
+            value: ret.supplierWarrantyClaim.claimReference ? (
+              <span data-testid="claim-reference-value" className="font-mono">{ret.supplierWarrantyClaim.claimReference}</span>
+            ) : (
+              <span data-testid="claim-reference-pending" className="text-[var(--color-warning-700)]">Pending VSK assignment</span>
+            ),
+          },
+          {
+            label: "Claim notes",
+            value: ret.supplierWarrantyClaim.claimNotes ? (
+              <span data-testid="claim-notes-value" className="whitespace-pre-wrap">{ret.supplierWarrantyClaim.claimNotes}</span>
+            ) : (
+              <span className="text-[var(--color-ink-400)]">--</span>
+            ),
+          },
+          {
+            label: "Claim status",
+            value: (
+              <span
+                data-testid="claim-status"
+                className="inline-flex items-center h-4 px-1.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.02em] bg-[var(--color-warning-50)] text-[var(--color-warning-700)]"
+              >
+                Claimed
+              </span>
+            ),
+          },
+        ]
       : []),
   ];
 

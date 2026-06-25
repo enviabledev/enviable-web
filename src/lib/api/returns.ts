@@ -23,9 +23,29 @@ export const RETURN_DISPOSITION = [
   "PENDING_DECISION",
   "REPAIR",
   "WRITE_OFF",
+  "SUPPLIER_WARRANTY_CLAIM",
 ] as const;
 export type ReturnDisposition = (typeof RETURN_DISPOSITION)[number];
-export type ResolvableDisposition = "REPAIR" | "WRITE_OFF";
+export type ResolvableDisposition = "REPAIR" | "WRITE_OFF" | "SUPPLIER_WARRANTY_CLAIM";
+
+export type SupplierWarrantyClaimStatus = "CLAIMED";
+
+/**
+ * Supplier warranty claim (48a), 1:1 with the return that filed it. Nested on
+ * the return when disposition is SUPPLIER_WARRANTY_CLAIM; null for REPAIR /
+ * WRITE_OFF. status is CLAIMED for the MVP (claim-status-update is a deferred
+ * follow-up). The supplier's name is NOT embedded; resolve it from the
+ * counterparty id (getCounterparty) where the name is shown.
+ */
+export type SupplierWarrantyClaim = {
+  id: string;
+  returnId: string;
+  supplierCounterpartyId: string;
+  claimReference: string | null;
+  claimedAt: string;
+  claimNotes: string | null;
+  status: SupplierWarrantyClaimStatus;
+};
 
 export type ReturnRow = {
   id: string;
@@ -41,12 +61,24 @@ export type ReturnRow = {
   createdAt: string;
   unit: { id: string; engineNumber: string; status: string };
   salesOrder: { id: string; soNumber: string };
+  supplierWarrantyClaim: SupplierWarrantyClaim | null;
 };
 
 export type ReturnDetail = ReturnRow;
 
 export type InitiateReturnBody = { unitId: string; reason: string };
-export type ResolveReturnBody = { disposition: ResolvableDisposition };
+
+/**
+ * Resolve body (48a). supplierCounterpartyId is required IFF disposition is
+ * SUPPLIER_WARRANTY_CLAIM (the backend 400s otherwise); claimReference and
+ * claimNotes are optional and ignored for REPAIR / WRITE_OFF.
+ */
+export type ResolveReturnBody = {
+  disposition: ResolvableDisposition;
+  supplierCounterpartyId?: string;
+  claimReference?: string;
+  claimNotes?: string;
+};
 
 export async function listReturns(
   signal?: AbortSignal,

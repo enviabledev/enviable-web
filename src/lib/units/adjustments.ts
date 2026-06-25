@@ -1,4 +1,5 @@
 import type { UnitStatus } from "@/lib/api";
+import { formatUnitStatus } from "@/lib/units/format";
 
 /**
  * Client mirror of the backend IT-admin adjustment map
@@ -28,6 +29,11 @@ export const UNIT_ADJUSTMENT_TARGETS: Partial<Record<UnitStatus, UnitStatus[]>> 
   IN_REPAIR: ["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_SKD", "IN_WAREHOUSE_CBU", "WRITTEN_OFF"],
   DEMO: ["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_SKD", "IN_WAREHOUSE_CBU", "INTERNAL_USE", "WRITTEN_OFF"],
   INTERNAL_USE: ["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_SKD", "IN_WAREHOUSE_CBU", "WRITTEN_OFF"],
+  // Supplier warranty claim resolution (48a): once VSK rules on the claim, the
+  // warehouse manager records the outcome as an adjustment. SKD/CBU are the
+  // "VSK approved, replacement back to sellable" edges (pick by productType, 46a);
+  // IN_REPAIR / WRITTEN_OFF are the "VSK denied" edges.
+  CLAIMED_TO_SUPPLIER: ["IN_WAREHOUSE_SKD", "IN_WAREHOUSE_CBU", "IN_REPAIR", "WRITTEN_OFF"],
 };
 
 export function adjustmentTargets(status: UnitStatus): UnitStatus[] {
@@ -36,6 +42,31 @@ export function adjustmentTargets(status: UnitStatus): UnitStatus[] {
 
 export function canAdjustFrom(status: UnitStatus): boolean {
   return adjustmentTargets(status).length > 0;
+}
+
+/**
+ * Operationally-clear label for an adjustment option, source-aware. From
+ * CLAIMED_TO_SUPPLIER the bare destination names ("InWarehouseSKD") do not convey
+ * the warranty scenario, so spell out the VSK ruling; everywhere else the plain
+ * destination label is clearest. The frontend does not pick SKD-vs-CBU for the
+ * user (that is productType-dependent); both are offered with a hint.
+ */
+export function adjustmentOptionLabel(from: UnitStatus, to: UnitStatus): string {
+  if (from === "CLAIMED_TO_SUPPLIER") {
+    switch (to) {
+      case "IN_WAREHOUSE_SKD":
+        return "VSK approved: back to assembled (SKD, 3-wheeler)";
+      case "IN_WAREHOUSE_CBU":
+        return "VSK approved: back to assembled (CBU, 2-wheeler)";
+      case "IN_REPAIR":
+        return "VSK denied: repair internally";
+      case "WRITTEN_OFF":
+        return "VSK denied: write off";
+      default:
+        break;
+    }
+  }
+  return formatUnitStatus(to);
 }
 
 /**

@@ -39,6 +39,7 @@ type UnitStatus =
   | "INTERNAL_USE"
   | "TRANSFERRED"
   | "RETURNED"
+  | "CLAIMED_TO_SUPPLIER"
   | "WRITTEN_OFF";
 
 type Bucket = "ckd" | "inAssembly" | "skd" | "cbu" | "sold" | "other";
@@ -60,6 +61,7 @@ const STATUS_BUCKET: Record<UnitStatus, Bucket> = {
   INTERNAL_USE: "other",
   TRANSFERRED: "other",
   RETURNED: "other",
+  CLAIMED_TO_SUPPLIER: "other",
   WRITTEN_OFF: "other",
 };
 

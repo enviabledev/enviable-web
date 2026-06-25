@@ -1457,3 +1457,78 @@ Findings / observations:
   small red dot + red text), matching the "the PI speaks for itself when opened"
   philosophy: it tells the user what they will see, it does not duplicate the full
   cancellation treatment in the app chrome.
+
+## Supplier warranty claim disposition (prompt 48b) - shipped (frontend)
+
+Shipped against 48a (SUPPLIER_WARRANTY_CLAIM as a third return disposition;
+POST /api/returns/:id/resolve takes supplierCounterpartyId [required iff claim],
+claimReference?, claimNotes?; unit -> CLAIMED_TO_SUPPLIER; SupplierWarrantyClaim
+entity, status CLAIMED; downstream adjust map CLAIMED_TO_SUPPLIER ->
+{SKD, CBU, IN_REPAIR, WRITTEN_OFF}): the resolve modal gained the third
+disposition with type-specific fields (supplier selector defaulting to VSK, claim
+reference, claim notes) and inline supplier validation; CLAIMED_TO_SUPPLIER added
+to the UnitStatus mirror (amber pill, "Claim" shorthand), the adjust map, the unit
+list filter, and the offline stocks recompute; the return detail surfaces the claim
+metadata (supplier name + counterparty link, reference or "Pending VSK assignment",
+notes, "Claimed" status); the returns list got a warranty-claim badge + a
+disposition filter; the adjust modal shows source-aware VSK-scenario labels from
+CLAIMED. 30 Playwright assertions pass (a-dd).
+
+Findings / observations:
+
+- ENUM-DRIFT SWEEP (recurring): the frontend UnitStatus mirror was missing
+  CLAIMED_TO_SUPPLIER (added). The typed Record<UnitStatus,...> maps (pill tone,
+  shorthand, stocks bucket) each forced a one-line addition at compile time, which
+  is exactly the safety net that converts "backend added an enum value" into a
+  typecheck error rather than a silent mis-render. As with 46a/47a, the drift was a
+  new VALUE, not a new enum.
+
+- Supplier selector ergonomics: today there is exactly one supplier counterparty
+  (VSK, seed-cp-vsk), so the selector defaults to it and the "choose a supplier"
+  affordance is effectively a confirmation. Built as a real dropdown (sourced from
+  GET /api/counterparties?type=SUPPLIER&status=ACTIVE) so multi-supplier procurement
+  needs no rework. Empty-state and inactive-counterparty (race) paths are handled
+  honestly (guidance copy / inline backend-error surfacing).
+
+- Downstream lifecycle discoverability: from CLAIMED_TO_SUPPLIER the generic Adjust
+  action drives all four VSK-outcome transitions, relabelled source-aware
+  ("VSK approved: back to assembled (SKD/CBU)", "VSK denied: repair internally",
+  "VSK denied: write off") so the warehouse manager reads the operational scenario,
+  not the bare destination state. NOTE: the backend adjust map allows BOTH SKD and
+  CBU from CLAIMED regardless of the unit's productType (it does not gate the adjust
+  by type), so both "back to assembled" options are shown and the user picks the
+  correct one for the unit (SKD for a 3-wheeler, CBU for a 2-wheeler/upgraded). A
+  productType-aware filter that hid the wrong one would be a nicer UX but would mean
+  the frontend re-deriving a rule the backend deliberately leaves open; deferred as
+  a refinement, not a correctness gap. Considered surfacing the consequence copy per
+  option too; the existing adjustmentConsequence (keyed on destination) already
+  covers it.
+
+- Cross-context "Warranty Claims" section on the counterparty detail (task item 9):
+  DEFERRED, matching 48a's backend deferral. GET /api/returns takes no query params
+  (no filter by counterparty), and the counterparty findOne has no warranty-claim
+  include, so there is no first-class way to list "claims filed against this
+  supplier". A client-side filter over the full returns list (by
+  supplierWarrantyClaim.supplierCounterpartyId) is possible but would not scale and
+  would diverge from the backend's intended shape; the right fix is a backend
+  GET /api/counterparties/:id returning related claims, or GET /api/returns?supplierCounterpartyId=.
+  When that lands, add a "Warranty Claims" card to /procurement/counterparties/[id].
+
+- Claim-status-update follow-up (post-MVP, from 48a): SupplierWarrantyClaim.status is
+  CLAIMED for every row; there is no APPROVED/DENIED/SETTLED transition yet. The
+  return detail shows a static "Claimed" pill. When the backend adds claim-status
+  transitions (and likely ties them to the downstream unit adjust so the claim row
+  reflects the VSK ruling), the "Claimed" pill becomes a live status and the unit
+  adjust could optionally write the claim outcome in the same action. Reminder logged
+  so the static pill is understood as MVP, not an oversight.
+
+- Claim metadata has no dedicated card; it is folded into the existing return-detail
+  key/value grid (Supplier, Claim reference, Claim notes, Claim status rows shown
+  only for a claim resolution). Kept consistent with the page's existing density. If
+  claims grow more fields (RMA number, expected-credit, settlement date), promote to
+  a dedicated "Supplier warranty claim" card.
+
+- Mobile: the resolve modal's claim fields (supplier dropdown, reference input,
+  notes textarea) sit in a bordered sub-panel inside the existing Modal primitive;
+  no horizontal overflow at 375/768/1280 and the supplier dropdown is a native
+  select (touch-target sized). No layout change was needed beyond the new fields.

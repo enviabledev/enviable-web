@@ -51,6 +51,7 @@ const SHORT_UNIT_STATUS: Record<UnitStatus, string> = {
   INTERNAL_USE: "Internal",
   TRANSFERRED: "Transfer",
   RETURNED: "Returned",
+  CLAIMED_TO_SUPPLIER: "Claim",
   WRITTEN_OFF: "Written",
 };
 
@@ -79,6 +80,8 @@ export function toneOfUnitStatus(status: UnitStatus): PillTone {
     case "IN_ASSEMBLY":
     case "IN_REPAIR":
     case "RETURNED":
+    // Tracked-but-unresolved supplier state: amber, distinct from WRITTEN_OFF (red).
+    case "CLAIMED_TO_SUPPLIER":
       return "amber";
     case "SOLD_AS_CKD":
     case "SOLD_AS_CBU":
@@ -102,7 +105,7 @@ export function toneOfMaybeStatus(status: string | null | undefined): PillTone {
   if ((["IN_WAREHOUSE_CKD", "IN_WAREHOUSE_CBU", "DEMO", "INTERNAL_USE"] as const).includes(
     status as never,
   )) return "navy";
-  if ((["IN_ASSEMBLY", "IN_REPAIR", "RETURNED"] as const).includes(status as never)) return "amber";
+  if ((["IN_ASSEMBLY", "IN_REPAIR", "RETURNED", "CLAIMED_TO_SUPPLIER"] as const).includes(status as never)) return "amber";
   if ((["SOLD_AS_CKD", "SOLD_AS_CBU"] as const).includes(status as never)) return "success";
   if ((["DAMAGED", "WRITTEN_OFF"] as const).includes(status as never)) return "danger";
   return "grey";

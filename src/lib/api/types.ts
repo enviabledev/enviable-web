@@ -25,6 +25,10 @@ export const UNIT_STATUS = [
   "INTERNAL_USE",
   "TRANSFERRED",
   "RETURNED",
+  // Returned unit dispositioned as a supplier warranty claim (48a): filed
+  // against VSK, awaiting their approval/denial. A tracked, not-yet-resolved
+  // supplier state.
+  "CLAIMED_TO_SUPPLIER",
   "WRITTEN_OFF",
 ] as const;
 export type UnitStatus = (typeof UNIT_STATUS)[number];

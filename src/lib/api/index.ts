@@ -31,6 +31,8 @@ export type {
   ReturnDetail,
   InitiateReturnBody,
   ResolveReturnBody,
+  SupplierWarrantyClaim,
+  SupplierWarrantyClaimStatus,
 } from "./returns";
 export { listStockMovements } from "./stock-movements";
 export { listSpareParts, getSparePart } from "./spare-parts";

@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import { adjustUnit, type UnitStatus } from "@/lib/api";
 import { useConnectivity } from "@/lib/sync/connectivity";
-import { adjustmentConsequence, adjustmentTargets } from "@/lib/units/adjustments";
+import { adjustmentConsequence, adjustmentOptionLabel, adjustmentTargets } from "@/lib/units/adjustments";
 import { formatUnitStatus } from "@/lib/units/format";
 
 export default function AdjustUnitModal({
@@ -148,7 +148,7 @@ export default function AdjustUnitModal({
             <option value="">Select a new status…</option>
             {targets.map((t) => (
               <option key={t} value={t}>
-                {formatUnitStatus(t)}
+                {adjustmentOptionLabel(unit.status, t)}
               </option>
             ))}
           </select>
