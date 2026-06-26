@@ -12,27 +12,27 @@
  * deactivate / reactivate affordances).
  *
  * Tier sourcing: the tier options come from the mirror "customerTier" bucket
- * (listByType("customerTier"); each body is { id, name, status }). Only
- * RESELLER customers carry a tier; END_USER customers always send tierId null,
- * so the tier select is only shown when type === "RESELLER". Tier remains
- * optional even for resellers (tierId may be left unset).
+ * (listByType("customerTier"); each body is { id, name, status }). Tier is now
+ * type-aware (50a, Individual tier):
+ *   - END_USER: the backend auto-assigns the Individual tier, so the picker
+ *     shows Individual selected + disabled (transparency) and the request sends
+ *     tierId null (the friendly path; an explicit reseller override is an
+ *     API-only action).
+ *   - RESELLER: a reseller tier is REQUIRED (closes the latent no-tier dead-end
+ *     from 50a). The picker shows ONLY the two reseller tiers (Individual is
+ *     conceptually end-user-only) and submission is blocked with an inline
+ *     error until one is chosen.
  */
 import { useEffect, useMemo, useState } from "react";
 
 import Modal from "@/components/ui/Modal";
 import { createCustomer, type Customer, type CustomerType } from "@/lib/api";
+import { useActiveTiers } from "@/lib/pricing/use-tiers";
 import { useConnectivity } from "@/lib/sync/connectivity";
-import { listByType } from "@/lib/sync/mirror/store";
 
-type TierOption = { id: string; name: string };
-
-/** Mirror "customerTier" bucket body shape. */
-type MirrorCustomerTier = {
-  id: string;
-  name: string;
-  status: string;
-  deletedAt?: string | null;
-};
+// The seeded Individual tier (50a). Used for UX presentation only; the backend
+// owns the auto-assignment rule.
+const INDIVIDUAL_TIER_ID = "seed-tier-individual";
 
 export default function CreateCustomerModal({
   open,
@@ -46,7 +46,9 @@ export default function CreateCustomerModal({
   const { state: connState } = useConnectivity();
   const offline = connState === "offline";
 
-  const [tierOptions, setTierOptions] = useState<TierOption[]>([]);
+  // Tiers from the mirror, re-read on mirror progress (cold-mirror safe), so the
+  // reseller options populate even if the modal opens before the first sync.
+  const { tiers: tierOptions } = useActiveTiers();
   const [name, setName] = useState("");
   const [type, setType] = useState<CustomerType>("RESELLER");
   const [tierId, setTierId] = useState("");
@@ -54,6 +56,7 @@ export default function CreateCustomerModal({
   const [email, setEmail] = useState("");
   const [taxId, setTaxId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [attempted, setAttempted] = useState(false);
   const [error, setError] = useState("");
 
   // Reset the form each time the modal opens so a re-open is always clean.
@@ -66,33 +69,18 @@ export default function CreateCustomerModal({
     setEmail("");
     setTaxId("");
     setSubmitting(false);
+    setAttempted(false);
     setError("");
   }, [open]);
 
-  // Tier options from the mirror customerTier bucket. There is no list
-  // endpoint surfaced here; the mirror is the source. Hide soft-deleted and
-  // inactive tiers (a new customer should not be assigned a retired tier).
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const rows = await listByType<MirrorCustomerTier>("customerTier");
-        if (cancelled) return;
-        const opts = rows
-          .map((r) => r.body)
-          .filter((t) => t.deletedAt == null && t.status === "ACTIVE")
-          .map<TierOption>((t) => ({ id: t.id, name: t.name }))
-          .sort((a, b) => a.name.localeCompare(b.name));
-        setTierOptions(opts);
-      } catch {
-        // Mirror unavailable; the select renders empty and tier stays optional.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
+  // Individual is end-user-only; resellers pick from the remaining tiers.
+  const resellerTiers = useMemo(
+    () => tierOptions.filter((t) => t.id !== INDIVIDUAL_TIER_ID),
+    [tierOptions],
+  );
+  const individualName =
+    tierOptions.find((t) => t.id === INDIVIDUAL_TIER_ID)?.name ?? "Individual";
+  const resellerTierMissing = type === "RESELLER" && tierId === "";
 
   const canSubmit = useMemo(
     () => name.trim().length > 0 && !offline && !submitting,
@@ -100,14 +88,21 @@ export default function CreateCustomerModal({
   );
 
   const submit = async () => {
+    setAttempted(true);
     if (!canSubmit) return;
+    // RESELLER requires a tier (50a dead-end fix). Block with an inline error.
+    if (resellerTierMissing) return;
     setSubmitting(true);
     setError("");
     const r = await createCustomer({
       name: name.trim(),
       type,
-      // Only RESELLER customers carry a tier; END_USER always sends null.
-      tierId: type === "RESELLER" && tierId ? tierId : null,
+      // END_USER is sent the explicit Individual tier; RESELLER carries its
+      // chosen (required) tier. The backend auto-assigns Individual on create
+      // when tierId is null, but NOT on update (PATCH), so the customer detail
+      // edit must send it explicitly; sending it here too keeps create/edit
+      // symmetric. "Explicit tierId always wins" (50a).
+      tierId: type === "END_USER" ? INDIVIDUAL_TIER_ID : tierId,
       phone: phone.trim() || null,
       email: email.trim() || null,
       taxId: taxId.trim() || null,
@@ -215,30 +210,57 @@ export default function CreateCustomerModal({
           </select>
         </label>
 
-        {type === "RESELLER" && (
-          <label className="flex flex-col gap-1">
-            <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">
-              Tier
-            </span>
-            <select
-              value={tierId}
-              onChange={(e) => setTierId(e.target.value)}
-              disabled={submitting}
-              data-testid="create-customer-tier"
-              className="h-[32px] w-full px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[13px]"
-            >
-              <option value="">No tier</option>
-              {tierOptions.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <span className="text-[11.5px] text-[var(--color-ink-500)]">
-              Optional. Only resellers are assigned a pricing tier.
-            </span>
-          </label>
-        )}
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">
+            Tier
+          </span>
+          {type === "END_USER" ? (
+            <>
+              <select
+                value={INDIVIDUAL_TIER_ID}
+                disabled
+                data-testid="create-customer-tier"
+                className="h-[32px] w-full px-2 rounded-[3px] border border-[var(--color-border-default)] bg-[var(--color-ink-100)] text-[13px] text-[var(--color-ink-700)]"
+              >
+                <option value={INDIVIDUAL_TIER_ID}>{individualName}</option>
+              </select>
+              <span className="text-[11.5px] text-[var(--color-ink-500)]" data-testid="create-customer-tier-help">
+                End-user customers are assigned the Individual tier automatically.
+              </span>
+            </>
+          ) : (
+            <>
+              <select
+                value={tierId}
+                onChange={(e) => setTierId(e.target.value)}
+                disabled={submitting}
+                data-testid="create-customer-tier"
+                aria-invalid={attempted && resellerTierMissing}
+                className={`h-[32px] w-full px-2 rounded-[3px] border bg-white text-[13px] ${
+                  attempted && resellerTierMissing
+                    ? "border-[var(--color-danger-700)]"
+                    : "border-[var(--color-border-default)]"
+                }`}
+              >
+                <option value="">Select a tier…</option>
+                {resellerTiers.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              {attempted && resellerTierMissing ? (
+                <span className="text-[11.5px] text-[var(--color-danger-700)]" data-testid="create-customer-tier-error">
+                  Resellers must be assigned a reseller tier.
+                </span>
+              ) : (
+                <span className="text-[11.5px] text-[var(--color-ink-500)]" data-testid="create-customer-tier-help">
+                  Resellers must be assigned a reseller tier.
+                </span>
+              )}
+            </>
+          )}
+        </label>
 
         <label className="flex flex-col gap-1">
           <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">

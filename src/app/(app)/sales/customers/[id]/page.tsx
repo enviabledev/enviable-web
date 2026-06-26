@@ -23,16 +23,12 @@ import { usePermissions } from "@/lib/auth";
 import { useConnectivity } from "@/lib/sync/connectivity";
 import { syncEngine } from "@/lib/sync/engine";
 import { queueEntityUpdate } from "@/lib/sync/actions/entity-update";
-import { getById, listByType } from "@/lib/sync/mirror/store";
+import { getById } from "@/lib/sync/mirror/store";
+import { useActiveTiers } from "@/lib/pricing/use-tiers";
 import { useUrlLastSegment } from "@/lib/sync/use-url-segment";
 
-type TierOption = { id: string; name: string };
-type MirrorCustomerTier = {
-  id: string;
-  name: string;
-  status: string;
-  deletedAt?: string | null;
-};
+// The seeded Individual tier (50a): end-user-only, backend auto-assigned.
+const INDIVIDUAL_TIER_ID = "seed-tier-individual";
 
 type EditDraft = {
   name: string;
@@ -89,7 +85,8 @@ export default function CustomerDetailPage() {
   // offline-capable phone queue). Tier options come from the mirror
   // customerTier bucket; only resellers carry a tier.
   const [manage, setManage] = useState<ManageState>({ status: "idle" });
-  const [tierOptions, setTierOptions] = useState<TierOption[]>([]);
+  // Tiers from the mirror, re-read on mirror progress (cold-mirror safe).
+  const { tiers: tierOptions } = useActiveTiers();
 
   // Mirror-painted tracker, separate from network state. Lets the network
   // transient branch know whether to surface offline (mirror empty) or stay
@@ -157,30 +154,6 @@ export default function CustomerDetailPage() {
     return () => ctrl.abort();
   }, [id, loadFromMirror, loadFromNetwork]);
 
-  // Tier options for the edit form, from the mirror customerTier bucket
-  // (active, non-deleted). Loaded once management is permitted.
-  useEffect(() => {
-    if (!canManage) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const rows = await listByType<MirrorCustomerTier>("customerTier");
-        if (cancelled) return;
-        const opts = rows
-          .map((r) => r.body)
-          .filter((t) => t.deletedAt == null && t.status === "ACTIVE")
-          .map<TierOption>((t) => ({ id: t.id, name: t.name }))
-          .sort((a, b) => a.name.localeCompare(b.name));
-        setTierOptions(opts);
-      } catch {
-        // Mirror unavailable; the select renders empty and tier stays optional.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [canManage]);
-
   // Re-read from network whenever the engine signals a change (a drain
   // landed). Cheap and correct: if the sync caused a server-side phone
   // change, the re-read picks it up.
@@ -231,12 +204,18 @@ export default function CustomerDetailPage() {
   const saveEdit = async () => {
     if (manage.status !== "editing" || !customer) return;
     const draft = manage.draft;
+    // RESELLER requires a tier (50a dead-end fix). The Save button is disabled
+    // in this state; this is a defensive guard that keeps the draft intact.
+    if (draft.type === "RESELLER" && !draft.tierId) return;
     setManage({ status: "submitting", draft });
     const r = await updateCustomer(customer.id, {
       name: draft.name.trim(),
       type: draft.type,
-      // Only resellers carry a tier; end users always send null.
-      tierId: draft.type === "RESELLER" && draft.tierId ? draft.tierId : null,
+      // END_USER is sent the explicit Individual tier (the backend does NOT
+      // auto-assign on PATCH, only on POST), so a RESELLER->END_USER conversion
+      // lands on Individual instead of a null-tier dead-end. RESELLER carries
+      // its chosen (required) tier.
+      tierId: draft.type === "END_USER" ? INDIVIDUAL_TIER_ID : draft.tierId,
       phone: draft.phone.trim() || null,
       email: draft.email.trim() || null,
       taxId: draft.taxId.trim() || null,
@@ -579,7 +558,14 @@ export default function CustomerDetailPage() {
                     draft: {
                       ...manage.draft,
                       type: next,
-                      tierId: next === "END_USER" ? "" : manage.draft.tierId,
+                      // END_USER clears the visible selection (Individual is
+                      // auto on save). Converting TO reseller drops a retained
+                      // Individual id so the reseller picker starts unselected
+                      // and Save stays disabled until a reseller tier is chosen.
+                      tierId:
+                        next === "END_USER" || manage.draft.tierId === INDIVIDUAL_TIER_ID
+                          ? ""
+                          : manage.draft.tierId,
                     },
                   });
                 }}
@@ -591,28 +577,54 @@ export default function CustomerDetailPage() {
                 <option value="END_USER">End user</option>
               </select>
             </label>
-            {manage.draft.type === "RESELLER" && (
-              <label className="flex flex-col gap-1">
-                <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">Tier</span>
-                <select
-                  value={manage.draft.tierId}
-                  onChange={(e) =>
-                    manage.status === "editing" &&
-                    setManage({ status: "editing", draft: { ...manage.draft, tierId: e.target.value } })
-                  }
-                  disabled={manageBusy}
-                  data-testid="edit-tier"
-                  className="h-[32px] w-full px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[13px]"
-                >
-                  <option value="">No tier</option>
-                  {tierOptions.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">Tier</span>
+              {manage.draft.type === "END_USER" ? (
+                <>
+                  <select
+                    value={INDIVIDUAL_TIER_ID}
+                    disabled
+                    data-testid="edit-tier"
+                    className="h-[32px] w-full px-2 rounded-[3px] border border-[var(--color-border-default)] bg-[var(--color-ink-100)] text-[13px] text-[var(--color-ink-700)]"
+                  >
+                    <option value={INDIVIDUAL_TIER_ID}>
+                      {tierOptions.find((t) => t.id === INDIVIDUAL_TIER_ID)?.name ?? "Individual"}
                     </option>
-                  ))}
-                </select>
-              </label>
-            )}
+                  </select>
+                  <span className="text-[11.5px] text-[var(--color-ink-500)]">
+                    End-user customers are assigned the Individual tier automatically.
+                  </span>
+                </>
+              ) : (
+                <>
+                  <select
+                    value={manage.draft.tierId}
+                    onChange={(e) =>
+                      manage.status === "editing" &&
+                      setManage({ status: "editing", draft: { ...manage.draft, tierId: e.target.value } })
+                    }
+                    disabled={manageBusy}
+                    data-testid="edit-tier"
+                    aria-invalid={!manage.draft.tierId}
+                    className={`h-[32px] w-full px-2 rounded-[3px] border bg-white text-[13px] ${
+                      manage.draft.tierId ? "border-[var(--color-border-default)]" : "border-[var(--color-danger-700)]"
+                    }`}
+                  >
+                    <option value="">Select a tier…</option>
+                    {tierOptions
+                      .filter((t) => t.id !== INDIVIDUAL_TIER_ID)
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                  </select>
+                  <span className="text-[11.5px] text-[var(--color-ink-500)]">
+                    Resellers must be assigned a reseller tier.
+                  </span>
+                </>
+              )}
+            </label>
             <label className="flex flex-col gap-1">
               <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">Phone</span>
               <input
@@ -660,7 +672,11 @@ export default function CustomerDetailPage() {
             <button
               type="button"
               onClick={saveEdit}
-              disabled={manageBusy || !manage.draft.name.trim()}
+              disabled={
+                manageBusy ||
+                !manage.draft.name.trim() ||
+                (manage.draft.type === "RESELLER" && !manage.draft.tierId)
+              }
               data-testid="edit-save"
               className="h-[32px] px-4 rounded-[3px] bg-[var(--color-navy-700)] text-white text-[12.5px] font-medium disabled:opacity-50"
             >
@@ -767,8 +783,11 @@ export default function CustomerDetailPage() {
 
           <div className="px-3.5 py-2.5 grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-3 sm:items-center">
             <dt className="text-[var(--color-ink-600)] text-[13px]">Tier</dt>
-            <dd className="m-0 text-[var(--color-ink-700)]">
+            <dd className="m-0 text-[var(--color-ink-700)]" data-testid="customer-tier">
               {customer.tier?.name ?? "--"}
+              {customer.tierId === INDIVIDUAL_TIER_ID && (
+                <span className="ml-1.5 text-[12px] text-[var(--color-ink-500)]">(retail)</span>
+              )}
             </dd>
           </div>
 

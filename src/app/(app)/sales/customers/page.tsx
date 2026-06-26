@@ -2,20 +2,26 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import CreateCustomerModal from "@/components/customers/CreateCustomerModal";
 import FreshnessBadge from "@/components/sync/FreshnessBadge";
 import OfflineNotice from "@/components/sync/OfflineNotice";
-import { listCustomers, type Customer } from "@/lib/api";
+import { listCustomers, type Customer, type CustomerType } from "@/lib/api";
 import { usePermissions } from "@/lib/auth";
+import { useActiveTiers } from "@/lib/pricing/use-tiers";
 import { COL } from "@/lib/responsive";
 import { listByType } from "@/lib/sync/mirror/store";
+
+type TypeFilter = "ALL" | CustomerType;
 
 export default function CustomersListPage() {
   const router = useRouter();
   const { has } = usePermissions();
   const canManage = has("customer.manage");
+  const { tiers: activeTiers } = useActiveTiers();
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
+  const [tierFilter, setTierFilter] = useState<string>("ALL");
   const [rows, setRows] = useState<Customer[] | null>(null);
   const [errMsg, setErrMsg] = useState<string>("");
   const [offline, setOffline] = useState(false);
@@ -72,6 +78,15 @@ export default function CustomersListPage() {
     });
     return () => ctrl.abort();
   }, [router, reloadTick]);
+
+  const filtered = useMemo(() => {
+    if (!rows) return null;
+    return rows.filter(
+      (c) =>
+        (typeFilter === "ALL" || c.type === typeFilter) &&
+        (tierFilter === "ALL" || c.tierId === tierFilter),
+    );
+  }, [rows, typeFilter, tierFilter]);
 
   return (
     <div className="max-w-[1480px] mx-auto pb-10">
@@ -146,6 +161,36 @@ export default function CustomersListPage() {
         <OfflineNotice body="The customer list will load when the connection returns. Phone edits queued on customer detail pages are saved locally and sync automatically once reconnected." />
       )}
 
+      {!offline && rows && (
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium">Type</span>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+            data-testid="customer-type-filter"
+            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px]"
+          >
+            <option value="ALL">All types</option>
+            <option value="RESELLER">Reseller</option>
+            <option value="END_USER">End user</option>
+          </select>
+          <span className="text-[11px] uppercase tracking-[0.04em] text-[var(--color-ink-500)] font-medium ml-1">Tier</span>
+          <select
+            value={tierFilter}
+            onChange={(e) => setTierFilter(e.target.value)}
+            data-testid="customer-tier-filter"
+            className="h-[28px] px-2 rounded-[3px] border border-[var(--color-border-default)] bg-white text-[12.5px]"
+          >
+            <option value="ALL">All tiers</option>
+            {activeTiers.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {!offline && (
       <div className="bg-white border border-[var(--color-border-default)] rounded-[4px] overflow-x-auto">
         <table className="w-full border-collapse">
@@ -172,7 +217,7 @@ export default function CustomersListPage() {
             </tr>
           </thead>
           <tbody>
-            {rows === null && (
+            {filtered === null && (
               <tr>
                 <td
                   colSpan={6}
@@ -182,17 +227,17 @@ export default function CustomersListPage() {
                 </td>
               </tr>
             )}
-            {rows && rows.length === 0 && (
+            {filtered && filtered.length === 0 && (
               <tr>
                 <td
                   colSpan={6}
                   className="px-3 py-6 text-center text-[12px] text-[var(--color-ink-500)]"
                 >
-                  No customers.
+                  {rows && rows.length > 0 ? "No customers match these filters." : "No customers."}
                 </td>
               </tr>
             )}
-            {rows?.map((c) => (
+            {filtered?.map((c) => (
               <tr
                 key={c.id}
                 className="text-[12.5px] hover:bg-[var(--color-ink-100)]"

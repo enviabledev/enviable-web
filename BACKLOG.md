@@ -1532,3 +1532,74 @@ Findings / observations:
   notes textarea) sit in a bordered sub-panel inside the existing Modal primitive;
   no horizontal overflow at 375/768/1280 and the supplier dropdown is a native
   select (touch-target sized). No layout change was needed beyond the new fields.
+
+## Individual customer tier (prompt 50b) - shipped (frontend)
+
+Shipped against 50a (Individual CustomerTier "seed-tier-individual", auto-assigned
+to END_USER customers created without an explicit tierId; two reseller tiers
+unchanged). The customer create modal and the customer-detail edit form became
+type-aware; the detail page labels the Individual tier; the customer list gained
+type + tier filters; the price-list and SO flows were verified unchanged. 24
+Playwright assertions pass (a-x).
+
+Decisions / findings:
+
+- END_USER tier picker: chose APPROACH (a) auto-select-disabled (show Individual,
+  greyed, with the help line "End-user customers are assigned the Individual tier
+  automatically"), not (b) hidden. Rationale: transparency. The user SEES the tier
+  that will be assigned rather than wondering what happens, and the friendly path
+  cannot accidentally put an end-user on a reseller tier. The reseller-override of an
+  END_USER (backend permits it, no coherence enforcement) is left as an API-only
+  action; the form is the safe path. No soft-warning/block was needed because the
+  form structurally cannot produce the override (the END_USER picker is locked to
+  Individual).
+
+- KEY CONTRACT NUANCE: the backend auto-assigns Individual only on POST (create),
+  NOT on PATCH (update). A RESELLER->END_USER conversion on the edit form that sent
+  tierId=null therefore left the customer END_USER-with-null-tier (a fresh dead-end).
+  Fix: the frontend sends the EXPLICIT Individual tier id for END_USER on BOTH create
+  and edit (kept symmetric), so both paths land on Individual. This is the one place
+  the frontend names the Individual id in a write rather than trusting auto-assign;
+  it is forced by the PATCH gap, and "explicit tierId always wins" (50a) makes it
+  correct. If 50a later auto-assigns on update too, the create could revert to
+  sending null, but the symmetric explicit form is harmless and clearer.
+
+- RESELLER tier is now REQUIRED (closes the 50a latent no-tier dead-end): the create
+  modal blocks submit with an inline error until a reseller tier is chosen; the edit
+  form disables Save. The reseller picker shows ONLY the two reseller tiers
+  (Individual filtered out). Converting END_USER->RESELLER drops any retained
+  Individual id so the reseller picker starts unselected (Save stays disabled).
+
+- MIRROR-ONLY-READ FRESHNESS FIX (caught during verification): the create modal and
+  the detail edit form both read tier options from the mirror customerTier bucket
+  with a ONE-SHOT listByType on open. On a cold mirror (first navigation before the
+  bucket syncs) the reseller options were EMPTY, a silent-staleness bug per our
+  mirror-only-read convention. Both now use useActiveTiers (re-reads on mirror
+  download/reconcile progress), so the options populate as soon as the bucket lands.
+  This is the same freshness-signal rule already applied to the price-list pickers;
+  retrofitted the two customer forms that predated it.
+
+- Customer list: added Type + Tier filters (client-side over the loaded rows). The
+  tier filter sources from useActiveTiers so Individual appears automatically. The
+  list previously had Type/Tier COLUMNS but no filters; the filters make "where are
+  my Individual (retail) customers" answerable.
+
+- Price-list + SO: verified NO code change needed. The price-list Add-variant tier
+  picker and the per-variant editor both flow through useActiveTiers / the mirror
+  bucket, so Individual appears and Individual prices set/save like any tier. SO
+  creation for an Individual customer resolves price by the customer's tier
+  server-side; with no Individual PriceListEntry it returns the same generic 404
+  "No current price for variant X and tier Y" as a reseller without an entry (the UI
+  does not special-case Individual). Both verified.
+
+- Backfill note: 50a's migration backfilled existing END_USER customers to Individual,
+  but THIS dev DB had ZERO END_USER customers (only 3 reseller fixtures), so there
+  were no rows to backfill here. The auto-assignment substance was verified by
+  creating END_USER customers via the UI and confirming they land on Individual; if
+  the backend dev DB is later reseeded with end-users, re-confirm the backfilled rows
+  render normally.
+
+- Mobile: the always-visible tier picker (vs the old reseller-only conditional) adds
+  one row to the create/edit forms; no overflow at 375/768/1280 (the form already
+  scrolled within the Modal primitive). The disabled Individual select reads clearly
+  as locked.
